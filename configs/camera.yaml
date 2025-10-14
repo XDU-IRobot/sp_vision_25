@@ -110,7 +110,9 @@ cboard_serial_id_quat: 16              # 0x10 （板子发送四元数的 ID）
 cboard_serial_id_status: 17            # 0x11 （板子发送状态/弹速的 ID）
 cboard_serial_id_cmd: 18               # 0x12 （主机->板子 指令 ID）
 cboard_serial_skip_crc: true           # 关闭 CRC：上位机发与解析均不使用 CRC 字段
-cboard_serial_debug_hex: true         # 调试时可打开，打印串口十六进制数据       
+cboard_serial_debug_hex: true         # 调试时可打开，打印串口十六进制数据
+cboard_serial_log_rx: true            # 仅打印电控->上位机（RX）方向：设为 true，且将 cboard_serial_log_tx 设为 false
+cboard_serial_log_tx: true            # 仅打印上位机->电控（TX）方向：设为 true，且将 cboard_serial_log_rx 设为 false      
 # 使用固定长度 SCM 帧解析（电控->自瞄 IMU 帧），按你提供的结构体；若固件不发 SCM，可改为 raw
 cboard_serial_protocol: "scm"        # 可选: raw | scm（两者均不使用 CRC；raw 按 LEN，无 CRC 字段）
 cboard_serial_scm_rx_id: 1            # 电控->自瞄帧 ID（Gimaballmurname_SCM_t 的 ID）

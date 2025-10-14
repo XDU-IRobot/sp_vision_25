@@ -70,6 +70,9 @@ private:
   uint8_t serial_id_cmd_ = 0x12;
   bool serial_skip_crc_ = true;
   bool serial_debug_hex_ = false;
+  // 日志方向开关：分别控制 RX(电控->自瞄) 与 TX(自瞄->电控) 的调试输出
+  bool serial_log_rx_ = true;
+  bool serial_log_tx_ = true;
   // SCM 固定帧协议（可选）：当启用时，解析 Gimaballmurname_SCM_t 固定长度帧
   bool serial_protocol_scm_ = false;
   uint8_t serial_scm_rx_id_ = 0x01; // 电控->自瞄帧 ID

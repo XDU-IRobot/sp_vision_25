@@ -2,7 +2,7 @@ enemy_color: "red"
 # enemy_color: "blue"
 
 #####-----神经网络参数-----#####
-yolo_name: yolov5
+yolo_name: yolov8
 classify_model: assets/tiny_resnet.onnx
 # auto_buff 的 YOLO11 模型路径（用于小/大符识别）
 # model: assets/best2-sim.onnx
@@ -12,6 +12,12 @@ yolov5_model_path: assets/yolov5.xml
 device: CPU
 min_confidence: 0.8
 use_traditional: true
+
+#####-----功能开关-----#####
+# 是否启用“打符”模块（true 会加载 assets/yolo11_buff_int8.xml；若 OpenVINO 版本不支持该 IR，可先置 false）
+enable_buff: false
+# 强制进入自瞄模式（无需等待 MCU 切档）。需要按下位机安全策略谨慎使用。
+force_auto_aim: true
 
 #####-----ROI参数-----#####
 roi: 
@@ -127,6 +133,10 @@ cboard_serial_angles_in_deg: true     # true 表示Yaw/Pitch使用“度”，fa
 # yaw_kd: 0
 # pitch_kp: 0
 # pitch_kd: 0
+
+#####-----buff_detector参数-----#####
+# 小/大符识别模型路径（auto_buff::YOLO11 读取的键为 model）
+model: "assets/yolo11_buff_int8.xml"
 
 #####-----planner-----#####
 fire_thresh: 0.0035

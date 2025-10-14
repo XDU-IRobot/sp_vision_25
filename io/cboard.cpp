@@ -212,6 +212,8 @@ std::string CBoard::read_yaml(const std::string &config_path) {
       serial_skip_crc_ = yaml["cboard_serial_skip_crc"].as<bool>();
     if (yaml["cboard_serial_debug_hex"])
       serial_debug_hex_ = yaml["cboard_serial_debug_hex"].as<bool>();
+    if (yaml["cboard_serial_log_rx"]) serial_log_rx_ = yaml["cboard_serial_log_rx"].as<bool>();
+    if (yaml["cboard_serial_log_tx"]) serial_log_tx_ = yaml["cboard_serial_log_tx"].as<bool>();
     if (yaml["cboard_serial_protocol"]) {
       auto p = yaml["cboard_serial_protocol"].as<std::string>();
       serial_protocol_scm_ = (p == "scm" || p == "SCM");
@@ -226,9 +228,9 @@ std::string CBoard::read_yaml(const std::string &config_path) {
       serial_scm_angles_in_deg_ = yaml["cboard_serial_angles_in_deg"].as<bool>();
     }
   tools::logger()->info(
-    "[Cboard] Serial config: CRC {} (skip_crc={}), SOF=0x{:02X}, EOF=0x{:02X}, id_quat=0x{:02X}, id_status=0x{:02X}, protocol={} rx_id=0x{:02X} tx_id=0x{:02X} angles_in_deg={}",
+    "[Cboard] Serial config: CRC {} (skip_crc={}), SOF=0x{:02X}, EOF=0x{:02X}, id_quat=0x{:02X}, id_status=0x{:02X}, protocol={} rx_id=0x{:02X} tx_id=0x{:02X} angles_in_deg={} log_rx={} log_tx={}",
     serial_skip_crc_ ? "disabled" : "enabled", serial_skip_crc_, serial_sof_, serial_eof_, serial_id_quat_,
-    serial_id_status_, serial_protocol_scm_ ? "SCM" : "RAW", serial_scm_rx_id_, serial_scm_tx_id_, serial_scm_angles_in_deg_);
+    serial_id_status_, serial_protocol_scm_ ? "SCM" : "RAW", serial_scm_rx_id_, serial_scm_tx_id_, serial_scm_angles_in_deg_, serial_log_rx_, serial_log_tx_);
     return "serial";
   }
 
@@ -302,15 +304,16 @@ void CBoard::serial_read_loop() {
             q.normalize();
           queue_.push({q, timestamp});
           // 模式字段（按原样映射）
+          uint8_t robot_id = buf[22];
           uint8_t mode_byte = buf[23];
           mode = static_cast<Mode>(mode_byte);
-          if (serial_debug_hex_) {
+          if (serial_debug_hex_ && serial_log_rx_) {
             std::string hex;
             for (size_t i = 0; i < need; ++i)
               hex += fmt::format("{:02X} ", buf[i]);
             tools::logger()->info(
-                "[Cboard][SERIAL][SCM] frame ok: {} | q=({:.3f},{:.3f},{:.3f},{:.3f}) mode={}",
-                hex, q.w(), q.x(), q.y(), q.z(), static_cast<int>(mode));
+                "[Cboard][SERIAL][SCM] frame ok: {} | q=({:.3f},{:.3f},{:.3f},{:.3f}) robot_id={} mode={}",
+                hex, q.w(), q.x(), q.y(), q.z(), static_cast<int>(robot_id), static_cast<int>(mode));
           }
           buf.erase(buf.begin(), buf.begin() + need);
         }
@@ -360,7 +363,8 @@ void CBoard::send_scm(bool control, bool fire, float yaw, float yaw_vel, float y
   struct __attribute__((packed)) AimbotFrame_SCM_t {
     uint8_t SOF;
     uint8_t ID;
-    uint8_t AimbotState;
+    // 按电控约定命名：Aimbotstate=1 表示“有目标”；0 表示“无目标”
+    uint8_t Aimbotstate;
     uint8_t AimbotTarget;
     float Pitch;
     float Yaw;
@@ -374,10 +378,11 @@ void CBoard::send_scm(bool control, bool fire, float yaw, float yaw_vel, float y
 
   frame.SOF = serial_sof_;
   frame.ID = serial_scm_tx_id_;
-  uint8_t aimbot_state = 0; // 0:不控 1:控不火 2:控且火
-  if (control) aimbot_state = fire ? 2 : 1;
-  frame.AimbotState = aimbot_state;
-  frame.AimbotTarget = 0; // 暂不区分目标
+  // 仅使用 0/1 语义：识别到目标后置 1，否则 0
+  uint8_t aimbot_state = control ? 1 : 0;
+  frame.Aimbotstate = aimbot_state;
+  // AimbotTarget: 按电控约定，1 表示“有目标”，0 表示“无目标”
+  frame.AimbotTarget = control ? 1 : 0;
 
   float out_yaw = serial_scm_angles_in_deg_ ? rad2deg(yaw) : yaw;
   float out_pitch = serial_scm_angles_in_deg_ ? rad2deg(pitch) : pitch;
@@ -397,6 +402,11 @@ void CBoard::send_scm(bool control, bool fire, float yaw, float yaw_vel, float y
 
   try {
     serial_.write(reinterpret_cast<const uint8_t*>(&frame), sizeof(frame));
+    if (serial_debug_hex_ && serial_log_tx_) {
+      tools::logger()->info(
+        "[Cboard][SCM][TX] state={} target={} yaw={:.3f} pitch={:.3f}",
+        static_cast<int>(aimbot_state), static_cast<int>(frame.AimbotTarget), out_yaw, out_pitch);
+    }
   } catch (const std::exception &e) {
     tools::logger()->warn("[Cboard][SCM] write failed: {}", e.what());
   }

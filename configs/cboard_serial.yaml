@@ -1,0 +1,22 @@
+#####-----cboard 串口配置-----#####
+# 选择通过 USB 串口与 C 板通信
+cboard_transport: "serial"
+
+# 串口设备路径（当前 C 板在 /dev/ttyACM0）
+cboard_serial_port: "/dev/ttyACM0"
+
+# 波特率（若固件设置不同，请改成对应值，比如 921600）
+cboard_serial_baudrate: 115200
+
+# 读取超时（毫秒），无需调整可保持默认
+cboard_serial_timeout_ms: 20
+
+# 帧格式可选参数（如与固件约定不同请同步修改）
+# 缺省帧格式： [SOF][ID][LEN][PAYLOAD][EOF]，CRC 已在上位机侧关闭
+cboard_serial_sof: 85     # 0x55
+cboard_serial_eof: 255    # 0xFF
+cboard_serial_id_quat: 16   # 0x10，姿态四元数
+cboard_serial_id_status: 17 # 0x11，状态/速度等
+cboard_serial_id_cmd: 18    # 0x12，下发控制
+cboard_serial_skip_crc: true
+cboard_serial_debug_hex: false

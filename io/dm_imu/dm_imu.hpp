@@ -66,6 +66,7 @@ class DM_IMU
 {
 public:
   DM_IMU();
+  explicit DM_IMU(const std::string & config_path);
   ~DM_IMU();
 
   Eigen::Quaterniond imu_at(std::chrono::steady_clock::time_point timestamp);
@@ -89,6 +90,19 @@ private:
   std::atomic<bool> stop_thread_{false};
   IMU_Receive_Frame receive_data{};  //receive data frame
   IMU_Data data{};
+
+  // Configurable parameters
+  std::string port_ = "/dev/ttyACM0";
+  // uint32_t baudrate_ = 921600;
+  uint32_t baudrate_ = 328125;
+  uint32_t timeout_ms_ = 20;
+  uint8_t sof_ = 0x55;    // FrameHeader expected value
+  uint8_t flag_ = 0xAA;   // flag expected value
+  uint8_t slave_id_ = 0x01; // slave id expected value
+  uint8_t reg_acc_ = 0x01;  // register value for acc frame
+  // Debug/validation options
+  bool skip_crc_ = false;    // if true, bypass CRC checks and trust payload
+  bool debug_hex_ = false;   // if true, dump small hex snippets on mismatch
 };
 
 }  // namespace io

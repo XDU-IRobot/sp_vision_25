@@ -1,9 +1,11 @@
 #include <chrono>
 #include <opencv2/opencv.hpp>
 #include <thread>
+#include <optional>
 
 #include "io/camera.hpp"
-#include "io/dm_imu/dm_imu.hpp"
+#include "io/cboard.hpp"
+#include "io/command.hpp"
 #include "tasks/auto_aim/aimer.hpp"
 #include "tasks/auto_aim/multithread/commandgener.hpp"
 #include "tasks/auto_aim/multithread/mt_detector.hpp"
@@ -40,9 +42,8 @@ int main(int argc, char * argv[])
   tools::Exiter exiter;
   tools::Plotter plotter;
   tools::Recorder recorder;
-
-  io::Gimbal gimbal(config_path);
   io::Camera camera(config_path);
+  io::CBoard cboard(config_path);
 
   auto_aim::YOLO yolo(config_path, true);
   auto_aim::Solver solver(config_path);
@@ -66,6 +67,7 @@ int main(int argc, char * argv[])
 
   std::atomic<io::GimbalMode> mode{io::GimbalMode::IDLE};
   auto last_mode{io::GimbalMode::IDLE};
+  std::atomic<double> bullet_speed_atomic{0.0};
 
   auto plan_thread = std::thread([&]() {
     auto t0 = std::chrono::steady_clock::now();
@@ -74,30 +76,50 @@ int main(int argc, char * argv[])
     while (!quit) {
       if (!target_queue.empty() && mode == io::GimbalMode::AUTO_AIM) {
         auto target = target_queue.front();
-        auto gs = gimbal.state();
-        auto plan = planner.plan(target, gs.bullet_speed);
+        float bs = static_cast<float>(bullet_speed_atomic.load());
+        auto plan = planner.plan(target, bs);
 
-        gimbal.send(
-          plan.control, plan.fire, plan.yaw, plan.yaw_vel, plan.yaw_acc, plan.pitch, plan.pitch_vel,
-          plan.pitch_acc);
+  io::Command cmd{};
+  cmd.control = plan.control;
+  cmd.shoot = plan.fire;
+  cmd.yaw = plan.yaw;
+        cmd.pitch = plan.pitch;
+        cmd.horizon_distance = 0.0;
+        cboard.send(cmd);
 
         std::this_thread::sleep_for(10ms);
-      } else
+      } else {
         std::this_thread::sleep_for(200ms);
+      }
     }
   });
 
   while (!exiter.exit()) {
-    mode = gimbal.mode();
+    // 从 CBoard 接收模式并映射到 GimbalMode
+    io::GimbalMode mapped = io::GimbalMode::IDLE;
+    switch (cboard.mode) {
+      case io::Mode::idle:       mapped = io::GimbalMode::IDLE; break;
+      case io::Mode::auto_aim:   mapped = io::GimbalMode::AUTO_AIM; break;
+      case io::Mode::small_buff: mapped = io::GimbalMode::SMALL_BUFF; break;
+      case io::Mode::big_buff:   mapped = io::GimbalMode::BIG_BUFF; break;
+      case io::Mode::outpost:    mapped = io::GimbalMode::IDLE; break; // 可按需调整
+    }
+    mode = mapped;
 
     if (last_mode != mode) {
-      tools::logger()->info("Switch to {}", gimbal.str(mode));
+      const char* MODE_STR[] = {"IDLE", "AUTO_AIM", "SMALL_BUFF", "BIG_BUFF"};
+      tools::logger()->info("Switch to {}", MODE_STR[static_cast<int>(mode.load())]);
       last_mode = mode.load();
     }
 
     camera.read(img, t);
-    auto q = gimbal.q(t);
-    auto gs = gimbal.state();
+    q = cboard.imu_at(t);
+    // 从 CBoard 接收弹速（其他角度信息由算法估计，设为 0）
+    bullet_speed_atomic = cboard.bullet_speed;
+    io::GimbalState gs{};
+    gs.yaw = 0; gs.yaw_vel = 0; gs.pitch = 0; gs.pitch_vel = 0;
+    gs.bullet_speed = static_cast<float>(bullet_speed_atomic.load());
+    gs.bullet_count = 0;
     recorder.record(img, q, t);
     solver.set_R_gimbal2world(q);
 
@@ -129,17 +151,31 @@ int main(int argc, char * argv[])
         auto target_copy = buff_big_target;
         buff_plan = buff_aimer.mpc_aim(target_copy, t, gs, true);
       }
-      gimbal.send(
-        buff_plan.control, buff_plan.fire, buff_plan.yaw, buff_plan.yaw_vel, buff_plan.yaw_acc,
-        buff_plan.pitch, buff_plan.pitch_vel, buff_plan.pitch_acc);
+      
+  io::Command cmd2{};
+  cmd2.control = buff_plan.control;
+  cmd2.shoot = buff_plan.fire;
+  cmd2.yaw = buff_plan.yaw;
+  cmd2.pitch = buff_plan.pitch;
+  cmd2.horizon_distance = 0.0;
+  cboard.send(cmd2);
 
-    } else
-      gimbal.send(false, false, 0, 0, 0, 0, 0, 0);
+    } else {
+      io::Command idle{}; idle.control = false; idle.shoot = false; idle.yaw = 0; idle.pitch = 0; idle.horizon_distance = 0;
+      cboard.send(idle);
+    }
+
+    // Debug preview window for standard_mpc
+    // Tip: press 'q' to quit
+    cv::imshow("standard_mpc", img);
+    int key = cv::waitKey(1);
+    if (key == 'q') break;
   }
 
-  quit = true;
+    
   if (plan_thread.joinable()) plan_thread.join();
-  gimbal.send(false, false, 0, 0, 0, 0, 0, 0);
+  io::Command stop{}; stop.control = false; stop.shoot = false; stop.yaw = 0; stop.pitch = 0; stop.horizon_distance = 0;
+  cboard.send(stop);
 
   return 0;
 }

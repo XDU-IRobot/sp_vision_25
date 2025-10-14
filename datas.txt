@@ -1,0 +1,31 @@
+[2025-10-12 20:29:31.429] [info] Camera constructor: config_path=configs/camera.yaml, camera_name=daheng
+[2025-10-12 20:29:31.429] [info] Creating Daheng camera with config: configs/camera.yaml
+[2025-10-12 20:29:31.430] [info] Daheng::try_open() called
+[2025-10-12 20:29:31.430] [info] Daheng::open() called - initializing Daheng library
+[2025-10-12 20:29:31.437] [info] Daheng library initialized successfully
+[2025-10-12 20:29:32.447] [info] Found 1 Daheng camera(s)
+[2025-10-12 20:29:32.633] [info] Setting Daheng camera parameters:
+[2025-10-12 20:29:32.633] [info]   Size: 1920x1200
+[2025-10-12 20:29:32.633] [info]   Exposure: 2100
+[2025-10-12 20:29:32.633] [info]   Gain: 24
+[2025-10-12 20:29:32.633] [info]   FPS: 168
+[2025-10-12 20:29:32.667] [warning] Failed to set pixel format
+[2025-10-12 20:29:32.667] [info] Daheng camera parameters configured successfully
+[2025-10-12 20:29:32.688] [info] Daheng camera opened successfully
+[2025-10-12 20:29:32.688] [info] Daheng capture thread started
+[2025-10-12 20:29:32.689] [info] Daheng camera constructor completed with VID:PID = 2ba2:4d55
+[2025-10-12 20:29:32.689] [info] Daheng daemon thread started
+[2025-10-12 20:29:32.689] [info] Camera constructor completed
+[2025-10-12 20:29:32.690] [info] [Cboard] Serial config: CRC disabled (skip_crc=true), SOF=0x55, EOF=0xFF, id_quat=0x10, id_status=0x11, protocol=RAW rx_id=0x01
+[2025-10-12 20:29:32.690] [info] [Cboard] Serial opened /dev/ttyACM0 @ 115200 baud
+[2025-10-12 20:29:32.690] [info] [Cboard] Waiting for q...
+[2025-10-12 20:29:32.698] [info] Processing frame 0, using Bayer filter: BAYERRG
+[2025-10-12 20:29:33.465] [info] Processing frame 100, using Bayer filter: BAYERRG
+[2025-10-12 20:29:34.233] [info] Processing frame 200, using Bayer filter: BAYERRG
+[2025-10-12 20:29:35.001] [info] Processing frame 300, using Bayer filter: BAYERRG
+[2025-10-12 20:29:35.769] [info] Processing frame 400, using Bayer filter: BAYERRG
+[2025-10-12 20:29:36.538] [info] Processing frame 500, using Bayer filter: BAYERRG
+[2025-10-12 20:29:37.306] [info] Processing frame 600, using Bayer filter: BAYERRG
+[2025-10-12 20:29:38.074] [info] Processing frame 700, using Bayer filter: BAYERRG
+[2025-10-12 20:29:38.841] [info] Processing frame 800, using Bayer filter: BAYERRG
+[2025-10-12 20:29:39.610] [info] Processing frame 900, using Bayer filter: BAYERRG

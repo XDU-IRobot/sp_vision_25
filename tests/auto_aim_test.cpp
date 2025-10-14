@@ -5,6 +5,7 @@
 #include <nlohmann/json.hpp>
 #include <opencv2/opencv.hpp>
 
+#include "io/camera.hpp"
 #include "tasks/auto_aim/aimer.hpp"
 #include "tasks/auto_aim/solver.hpp"
 #include "tasks/auto_aim/tracker.hpp"
@@ -16,11 +17,12 @@
 #include "tools/plotter.hpp"
 
 const std::string keys =
-  "{help h usage ? |                   | 输出命令行参数说明 }"
-  "{config-path c  | configs/demo.yaml | yaml配置文件的路径}"
-  "{start-index s  | 0                 | 视频起始帧下标    }"
-  "{end-index e    | 0                 | 视频结束帧下标    }"
-  "{@input-path    | assets/demo/demo  | avi和txt文件的路径}";
+  "{help h usage ? |                     | 输出命令行参数说明 }"
+  "{config-path c  | configs/camera.yaml | yaml配置文件的路径}"
+  "{use-camera     | false               | 使用真实相机而非视频文件 }"
+  "{start-index s  | 0                   | 视频起始帧下标    }"
+  "{end-index e    | 0                   | 视频结束帧下标    }"
+  "{@input-path    | assets/demo/demo    | avi和txt文件的路径}";
 
 int main(int argc, char * argv[])
 {
@@ -32,16 +34,39 @@ int main(int argc, char * argv[])
   }
   auto input_path = cli.get<std::string>(0);
   auto config_path = cli.get<std::string>("config-path");
+  auto use_camera = cli.get<bool>("use-camera");
   auto start_index = cli.get<int>("start-index");
   auto end_index = cli.get<int>("end-index");
 
   tools::Plotter plotter;
   tools::Exiter exiter;
 
-  auto video_path = fmt::format("{}.avi", input_path);
-  auto text_path = fmt::format("{}.txt", input_path);
-  cv::VideoCapture video(video_path);
-  std::ifstream text(text_path);
+  // 根据选择使用相机或视频文件
+  std::unique_ptr<io::Camera> camera;
+  cv::VideoCapture video;
+  std::ifstream text;
+  
+  if (use_camera) {
+    tools::logger()->info("Using real camera input");
+    camera = std::make_unique<io::Camera>(config_path);
+  } else {
+    tools::logger()->info("Using video file: {}", input_path);
+    auto video_path = fmt::format("{}.avi", input_path);
+    auto text_path = fmt::format("{}.txt", input_path);
+    video.open(video_path);
+    text.open(text_path);
+    
+    if (!video.isOpened()) {
+      tools::logger()->error("Failed to open video: {}", video_path);
+      return -1;
+    }
+    
+    video.set(cv::CAP_PROP_POS_FRAMES, start_index);
+    for (int i = 0; i < start_index; i++) {
+      double t, w, x, y, z;
+      text >> t >> w >> x >> y >> z;
+    }
+  }
 
   auto_aim::YOLO yolo(config_path);
   auto_aim::Solver solver(config_path);
@@ -55,25 +80,34 @@ int main(int argc, char * argv[])
   io::Command last_command;
   double last_t = -1;
 
-  video.set(cv::CAP_PROP_POS_FRAMES, start_index);
-  for (int i = 0; i < start_index; i++) {
-    double t, w, x, y, z;
-    text >> t >> w >> x >> y >> z;
-  }
-
   for (int frame_count = start_index; !exiter.exit(); frame_count++) {
     if (end_index > 0 && frame_count > end_index) break;
 
-    video.read(img);
-    if (img.empty()) break;
+    std::chrono::steady_clock::time_point timestamp;
+    
+    if (use_camera) {
+      // 使用相机输入
+      camera->read(img, timestamp);
+      if (img.empty()) {
+        tools::logger()->warn("Failed to read from camera");
+        continue;
+      }
+      
+      // 相机模式下使用单位四元数（无云台运动）
+      solver.set_R_gimbal2world({1, 0, 0, 0});
+      
+    } else {
+      // 使用视频文件
+      video.read(img);
+      if (img.empty()) break;
 
-    double t, w, x, y, z;
-    text >> t >> w >> x >> y >> z;
-    auto timestamp = t0 + std::chrono::microseconds(int(t * 1e6));
-
-    /// 自瞄核心逻辑
-
-    solver.set_R_gimbal2world({w, x, y, z});
+      double t, w, x, y, z;
+      text >> t >> w >> x >> y >> z;
+      timestamp = t0 + std::chrono::microseconds(int(t * 1e6));
+      
+      // 设置云台姿态
+      solver.set_R_gimbal2world({w, x, y, z});
+    }
 
     auto yolo_start = std::chrono::steady_clock::now();
     auto armors = yolo.detect(img, frame_count);
@@ -106,12 +140,19 @@ int main(int argc, char * argv[])
         command.pitch * 57.3, command.shoot),
       {10, 60}, {154, 50, 205});
 
-    Eigen::Quaternion gimbal_q = {w, x, y, z};
-    tools::draw_text(
-      img,
-      fmt::format(
-        "gimbal yaw{:.2f}", (tools::eulers(gimbal_q.toRotationMatrix(), 2, 1, 0) * 57.3)[0]),
-      {10, 90}, {255, 255, 255});
+    if (!use_camera) {
+      // 只在视频模式下显示云台信息 - 跳过，因为我们使用旧的w,x,y,z变量
+      tools::draw_text(
+        img,
+        "Video Mode",
+        {10, 90}, {255, 255, 255});
+    } else {
+      // 相机模式下显示帧率信息
+      tools::draw_text(
+        img,
+        fmt::format("Camera Mode - Frame: {}", frame_count),
+        {10, 90}, {255, 255, 255});
+    }
 
     nlohmann::json data;
 
@@ -127,9 +168,15 @@ int main(int argc, char * argv[])
       data["armor_center_y"] = armor.center_norm.y;
     }
 
-    Eigen::Quaternion q{w, x, y, z};
-    auto yaw = tools::eulers(q, 2, 1, 0)[0];
-    data["gimbal_yaw"] = yaw * 57.3;
+    if (!use_camera) {
+      // 视频模式：使用简单的帧计数
+      data["video_frame"] = frame_count;
+    } else {
+      // 相机模式：记录帧数和时间戳
+      data["frame"] = frame_count;
+      data["timestamp"] = tools::delta_time(timestamp, t0);
+    }
+    
     data["cmd_yaw"] = command.yaw * 57.3;
     data["shoot"] = command.shoot;
 
@@ -138,7 +185,7 @@ int main(int argc, char * argv[])
 
       if (last_t == -1) {
         last_target = target;
-        last_t = t;
+        last_t = use_camera ? tools::delta_time(timestamp, t0) : frame_count;
         continue;
       }
 

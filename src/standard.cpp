@@ -77,6 +77,10 @@ int main(int argc, char * argv[])
     auto command = aimer.aim(targets, t, cboard.bullet_speed);
 
     cboard.send(command);
+
+    cv::imshow("standard_mpc", img);
+    int key = cv::waitKey(1);
+    if (key == 'q') break;
   }
 
   return 0;

@@ -72,13 +72,26 @@ R_camera2gimbal: [0.02823004230930648, -0.014076983590428133, 0.9995023277832870
 t_camera2gimbal: [0.045517325957791413, 0.10544338092767802, 0.034649710880185793]
 
 #####-----cboard参数-----#####
-quaternion_canid: 0x100
-bullet_speed_canid: 0x101
-send_canid: 0xff
-can_interface: "can0"
+# 通过 USB CDC 串口与 C 板通信，并使用 SCM 固定帧协议（你给定的两帧）
+cboard_transport: "serial"
+cboard_serial_port: "/dev/gimbal"     # 使用 udev 映射的稳定别名；未配置规则时可改回 /dev/ttyACM0
+cboard_serial_baudrate: 115200
+cboard_serial_timeout_ms: 20
+cboard_serial_sof: 85                  # 0x55
+cboard_serial_eof: 255                 # 0xFF
+cboard_serial_id_quat: 16              # raw 模式保留（SCM 模式下不使用）
+cboard_serial_id_status: 17
+cboard_serial_id_cmd: 18
+cboard_serial_skip_crc: true           # 我们使用“无 CRC”
+cboard_serial_debug_hex: true          # 联调期建议打开
+cboard_serial_protocol: "scm"          # 固定帧：GimabalImuFrame_SCM_t / AimbotFrame_SCM_t
+cboard_serial_scm_rx_id: 1             # MCU->NUC (IMU) 帧 ID
+cboard_serial_scm_tx_id: 2             # NUC->MCU (Aimbot) 帧 ID
+cboard_serial_angles_in_deg: true      # 角度单位按“度”发送（与 MCU 对齐）
 
-#####-----gimbal参数-----#####
-com_port: "/dev/gimbal"
+#####-----gimbal参数（仅“直连云台测试程序”使用；当前仅连接 C 板可忽略）-----#####
+# 若不直连云台，可忽略；直连云台时配置串口与协议
+# com_port: "/dev/gimbal"
 
 #####-----planner-----#####
 fire_thresh: 0.003

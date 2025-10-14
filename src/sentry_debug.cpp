@@ -22,7 +22,6 @@
 #include "tools/math_tools.hpp"
 #include "tools/plotter.hpp"
 #include "tools/recorder.hpp"
-
 using namespace std::chrono;
 
 const std::string keys =

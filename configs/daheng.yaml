@@ -1,0 +1,136 @@
+enemy_color: "red"
+# enemy_color: "blue"
+
+#####-----神经网络参数-----#####
+yolo_name: yolov5
+classify_model: assets/tiny_resnet.onnx
+yolo11_model_path: assets/yolo11.xml
+yolov8_model_path: assets/yolov8.xml
+yolov5_model_path: assets/yolov5.xml
+device: GPU
+min_confidence: 0.8
+use_traditional: true
+
+#####-----ROI-----#####
+roi: 
+  x: 420
+  y: 50
+  width: 600
+  height: 600
+
+use_roi: false
+
+#####-----传统方法参数-----#####
+threshold: 150
+max_angle_error: 45 # degree
+min_lightbar_ratio: 1.5
+max_lightbar_ratio: 20
+min_lightbar_length: 8
+min_armor_ratio: 1
+max_armor_ratio: 5
+max_side_ratio: 1.5
+max_rectangular_error: 25 # degree
+
+#####-----tracker参数-----#####
+min_detect_count: 5
+max_temp_lost_count: 15
+outpost_max_temp_lost_count: 75
+
+#####-----aimer参数-----#####
+yaw_offset: 2 # degree -2.5
+pitch_offset: 6.5 # degree 2
+comming_angle: 55 # degree
+leaving_angle: 20 # degree
+decision_speed: 7 # rad/s
+high_speed_delay_time: 0.0 # s
+low_speed_delay_time: 0.0 # s planner use this value
+
+#####-----shooter参数-----#####
+first_tolerance: 3 # 近距离射击容差，degree
+second_tolerance: 2 # 远距离射击容差，degree
+judge_distance: 2 #距离判断阈值
+auto_fire: true # 是否由自瞄控制射击
+
+#####-----大恒相机配置-----#####
+camera_name: "daheng"
+exposure_ms: 2.1  # 对应exposure: 2100，转换为毫秒
+gain: 24
+vid_pid: "2ba2:4d55"
+
+#####-----大恒相机详细配置-----#####
+debug: true
+
+camera_settings:
+  width: 1920
+  height: 1200
+  exposure: 2100
+  auto_exposure: false
+  gain: 24
+  fps: 168
+  auto_white_balance: true
+  rgain: 0.0
+  bgain: 0.0
+  ggain: 0.0
+  time_offset: 45500000
+  auto_exp_change: false
+  max_exp: 3000
+  min_exp: 200
+
+camera_info:
+  camera_matrix: # 3x3
+    [
+      1569.575079,
+      0.0,
+      655.825651,
+      0.0,
+      1569.978252,
+      532.056607,
+      0.0,
+      0.0,
+      1.0,
+    ]
+  distortion_coefficients: [-0.287683, 0.279922, -0.000278, 0.000319, 0.0] # 1x5
+
+#  1  0  0
+#  0  1  0
+#  0  0  1
+R_gimbal2imubody: [1, 0, 0, 0, 1, 0, 0, 0, 1]
+
+# 使用您提供的相机内参矩阵，重投影误差待测
+camera_matrix: [1569.575079, 0, 655.825651, 0, 1569.978252, 532.056607, 0, 0, 1]
+distort_coeffs: [-0.287683, 0.279922, -0.000278, 0.000319, 0.0]
+
+# 手眼标定参数（需要重新标定）
+R_camera2gimbal: [1, 0, 0, 0, 1, 0, 0, 0, 1]
+t_camera2gimbal: [0.0, 0.0, 0.0]
+
+#####-----cboard参数-----#####
+quaternion_canid: 0x100
+bullet_speed_canid: 0x101
+send_canid: 0xff
+can_interface: "can0"
+
+#####-----gimbal参数-----#####
+com_port: "/dev/gimbal"
+yaw_kp: 0
+yaw_kd: 0
+pitch_kp: 0
+pitch_kd: 0
+
+#####-----planner-----#####
+fire_thresh: 0.0035
+
+max_yaw_acc: 50
+Q_yaw: [9e6, 0]
+R_yaw: [1]
+
+max_pitch_acc: 100
+Q_pitch: [9e6, 0]
+R_pitch: [1]
+
+#####-----buff_detector参数-----#####
+model: "assets/yolo11_buff_int8.xml"
+
+#####-----buff_aimer参数-----#####
+fire_gap_time: 0.700   # s
+predict_time: 0.120     # s

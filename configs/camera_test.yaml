@@ -1,0 +1,112 @@
+enemy_color: "red"
+# enemy_color: "blue"
+
+#####-----神经网络参数-----#####
+yolo_name: yolov5
+classify_model: assets/tiny_resnet.onnx
+yolo11_model_path: assets/yolo11.xml
+yolov8_model_path: assets/yolov8.xml
+yolov5_model_path: assets/yolov5.xml
+device: CPU
+min_confidence: 0.8
+use_traditional: true
+
+#####-----ROI参数-----#####
+roi: 
+  x: 420
+  y: 50
+  width: 600
+  height: 600
+
+use_roi: false
+
+#####-----传统方法参数-----#####
+threshold: 150
+max_angle_error: 45 # degree
+min_lightbar_ratio: 1.5
+max_lightbar_ratio: 20
+min_lightbar_length: 8
+min_armor_ratio: 1
+max_armor_ratio: 5
+max_side_ratio: 1.5
+max_rectangular_error: 25 # degree
+
+#####-----tracker参数-----#####
+min_detect_count: 5
+max_temp_lost_count: 15
+outpost_max_temp_lost_count: 75
+
+#####-----aimer参数-----#####
+yaw_offset: -1 # degree
+pitch_offset: -1.4 # degree
+comming_angle: 60 # degree
+leaving_angle: 20 # degree
+decision_speed: 8 # rad/s
+high_speed_delay_time: 0.030 # s
+low_speed_delay_time: 0.015 # s
+
+#####-----shooter参数-----#####
+first_tolerance: 3 # 近距离射击容差，degree
+second_tolerance: 2 # 远距离射击容差，degree
+judge_distance: 2 #距离判断阈值
+auto_fire: true # 是否由自瞄控制射击
+
+#####-----大恒相机配置-----#####
+camera_name: "daheng"
+exposure_ms: 2.1
+gain: 24
+vid_pid: "2ba2:4d55"
+
+debug: true
+
+R_gimbal2imubody: [1, 0, 0, 0, 1, 0, 0, 0, 1]
+
+# 相机内参和畸变系数
+camera_matrix: [2825.28447, 0, 952.018757, 0, 2825.03624, 601.278894, 0, 0, 1]
+distort_coeffs: [-0.319131835, 0.0345913915, 0.000822900595, 0.00045867468, 3.64726157]
+
+# 相机到云台的变换矩阵（需要手眼标定获得）
+R_camera2gimbal: [-0.027182119030230909, -0.12616154330853446, 0.99163723074269183, -0.99949106557517331, 0.019998323121329122, -0.024853106601381177, -0.016695575474690555, -0.99180811252093692, -0.12664093215554434]
+t_camera2gimbal: [0.13160669975045827, 0.10377721766577375, 0.024908271912914642]
+
+camera_settings:
+  width: 1920
+  height: 1200
+  exposure: 2100
+  auto_exposure: false
+  gain: 24
+  fps: 168
+  auto_white_balance: true
+  rgain: 0.0
+  bgain: 0.0
+  ggain: 0.0
+  time_offset: 45500000
+  auto_exp_change: false
+  max_exp: 3000
+  min_exp: 200
+
+#####-----cboard参数-----#####
+quaternion_canid: 0x100
+bullet_speed_canid: 0x101
+send_canid: 0xff
+can_interface: "can0"
+
+#####-----gimbal参数-----#####
+# 注释掉串口设备以禁用云台连接
+# com_port: "/dev/gimbal"
+com_port: ""
+yaw_kp: 0
+yaw_kd: 0
+pitch_kp: 0
+pitch_kd: 0
+
+#####-----planner-----#####
+fire_thresh: 0.0035
+
+max_yaw_acc: 50
+Q_yaw: [9e6, 0]
+R_yaw: [1]
+
+max_pitch_acc: 100
+Q_pitch: [9e6, 0]
+R_pitch: [1]

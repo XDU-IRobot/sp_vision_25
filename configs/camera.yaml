@@ -1,7 +1,162 @@
-camera_name: "mindvision"
-exposure_ms: 2
-gamma: 0.5
-vid_pid: "f622:d13a"
+enemy_color: "red"
+# enemy_color: "blue"
+
+#####-----神经网络参数-----#####
+yolo_name: yolov5
+classify_model: assets/tiny_resnet.onnx
+# auto_buff 的 YOLO11 模型路径（用于小/大符识别）
+# model: assets/best2-sim.onnx
+yolo11_model_path: assets/yolo11.xml
+yolov8_model_path: assets/yolov8.xml
+yolov5_model_path: assets/yolov5.xml
+device: CPU
+min_confidence: 0.8
+use_traditional: true
+
+#####-----ROI参数-----#####
+roi: 
+  x: 420
+  y: 50
+  width: 600
+  height: 600
+
+use_roi: false
+
+#####-----传统方法参数-----#####
+threshold: 150
+max_angle_error: 45 # degree
+min_lightbar_ratio: 1.5
+max_lightbar_ratio: 20
+min_lightbar_length: 8
+min_armor_ratio: 1
+max_armor_ratio: 5
+max_side_ratio: 1.5
+max_rectangular_error: 25 # degree
+
+#####-----tracker参数-----#####
+min_detect_count: 5
+max_temp_lost_count: 15
+outpost_max_temp_lost_count: 75
+
+#####-----aimer参数-----#####
+yaw_offset: -1 # degree
+pitch_offset: -1.4 # degree
+comming_angle: 60 # degree
+leaving_angle: 20 # degree
+decision_speed: 8 # rad/s
+high_speed_delay_time: 0.030 # s
+low_speed_delay_time: 0.015 # s
+
+#####-----shooter参数-----#####
+first_tolerance: 3 # 近距离射击容差，degree
+second_tolerance: 2 # 远距离射击容差，degree
+judge_distance: 2 #距离判断阈值
+auto_fire: true # 是否由自瞄控制射击
+
+#####-----大恒相机配置-----#####
+camera_name: "daheng"
+exposure_ms: 2.1
+gain: 24
+vid_pid: "2ba2:4d55"
+
+debug: true
+
+R_gimbal2imubody: [1, 0, 0, 0, 1, 0, 0, 0, 1]
+
+# 相机内参和畸变系数
+camera_matrix: [2825.28447, 0, 952.018757, 0, 2825.03624, 601.278894, 0, 0, 1]
+distort_coeffs: [-0.319131835, 0.0345913915, 0.000822900595, 0.00045867468, 3.64726157]
+
+# 相机到云台的变换矩阵（需要手眼标定获得）
+R_camera2gimbal: [-0.027182119030230909, -0.12616154330853446, 0.99163723074269183, -0.99949106557517331, 0.019998323121329122, -0.024853106601381177, -0.016695575474690555, -0.99180811252093692, -0.12664093215554434]
+t_camera2gimbal: [0.13160669975045827, 0.10377721766577375, 0.024908271912914642]
+
+camera_settings:
+  width: 1920
+  height: 1200
+  exposure: 1000
+  auto_exposure: false
+  gain: 24
+  fps: 168
+  auto_white_balance: true
+  rgain: 0.0
+  bgain: 0.0
+  ggain: 0.0
+  time_offset: 45500000
+  auto_exp_change: false
+  max_exp: 3000
+  min_exp: 200
+  pixel_format: BayerRG8
+  
+#####-----cboard参数-----#####
+quaternion_canid: 0x100
+bullet_speed_canid: 0x101
+send_canid: 0xff
+# 选择后端: can 或 serial（使用 CBoard 的 USB 串口）
+cboard_transport: "serial"
+# 串口参数（当 cboard_transport=serial 时生效）
+cboard_serial_port: "/dev/gimbal"     # 建议使用 udev 规则创建的稳定别名；未配置时可临时改为 /dev/ttyACM0
+cboard_serial_baudrate: 115200      # 按 CBoard 固件设置修改
+cboard_serial_timeout_ms: 20
+cboard_serial_sof: 85                  # 0x55
+cboard_serial_eof: 255                 # 0xFF
+cboard_serial_id_quat: 16              # 0x10 （板子发送四元数的 ID）
+cboard_serial_id_status: 17            # 0x11 （板子发送状态/弹速的 ID）
+cboard_serial_id_cmd: 18               # 0x12 （主机->板子 指令 ID）
+cboard_serial_skip_crc: true           # 关闭 CRC：上位机发与解析均不使用 CRC 字段
+cboard_serial_debug_hex: true         # 调试时可打开，打印串口十六进制数据       
+# 使用固定长度 SCM 帧解析（电控->自瞄 IMU 帧），按你提供的结构体；若固件不发 SCM，可改为 raw
+cboard_serial_protocol: "scm"        # 可选: raw | scm（两者均不使用 CRC；raw 按 LEN，无 CRC 字段）
+cboard_serial_scm_rx_id: 1            # 电控->自瞄帧 ID（Gimaballmurname_SCM_t 的 ID）
+cboard_serial_scm_tx_id: 2            # 自瞄->电控帧 ID（AimbotFrame_SCM_t 的 ID）
+cboard_serial_angles_in_deg: true     # true 表示Yaw/Pitch使用“度”，false 表示“弧度”
+# 若要继续使用 SocketCAN，则设置：
+# cboard_transport: "can"
+# can_interface: "can0"
+
+#####-----gimbal参数（仅“直连云台测试程序”使用；当前仅连接 C 板可忽略）-----#####
+# com_port: "/dev/gimbal"
+# baudrate: 328125
+# gimbal_protocol: "scm"  # 可选: scm | sp_crc16
+# scm_sof: 85               # SOF 字节（0x55 = 85）
+# scm_eof: 255              # EOF 字节（0xFF = 255）
+# scm_rx_id: 1              # 云台->上位机 帧ID (MCU->Host)
+# scm_tx_id: 2              # 上位机->云台 帧ID (Host->MCU)
+# scm_angles_in_deg: true   # 角度单位是否使用度（true: 度，false: 弧度）
+# yaw_kp: 0
+# yaw_kd: 0
+# pitch_kp: 0
+# pitch_kd: 0
+
+#####-----planner-----#####
+fire_thresh: 0.0035
+
+max_yaw_acc: 50
+Q_yaw: [9e6, 0]
+R_yaw: [1]
+
+max_pitch_acc: 100
+Q_pitch: [9e6, 0]
+R_pitch: [1]
+
+#####-----dm_imu 参数-----#####
+# 注意：上面已设置 cboard_serial_skip_crc: false，避免重复键
+
+# dm_imu:
+#   port: "/dev/ttyACM0"   # IMU 串口设备
+#   baudrate: 921600        # IMU 波特率
+#   timeout_ms: 20          # 读超时(ms)
+#   sof: 85                 # 帧头(0x55)
+#   flag: 1                 # 观测到 flag=0x01
+#   slave_id: 0             # 观测到 slave=0x00
+#   reg_acc: 0              # 观测到 reg=0x00
+#   skip_crc: true          # 跳过 CRC 校验（联调阶段可先关闭）
+#   debug_hex: false        # 需要时可打开，打印CRC窗口的十六进制
+
+# camera_name: "mindvision"
+# exposure_ms: 2
+# gamma: 0.5
+# vid_pid: "f622:d13a"
 
 # camera_name: "hikrobot"
 # exposure_ms: 3

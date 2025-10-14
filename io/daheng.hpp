@@ -1,0 +1,54 @@
+#ifndef IO__DAHENG_HPP
+#define IO__DAHENG_HPP
+
+#include <chrono>
+#include <opencv2/opencv.hpp>
+#include <thread>
+
+#include "driver/GxIAPI.h"
+#include "driver/DxImageProc.h"
+#include "io/camera.hpp"
+#include "tools/thread_safe_queue.hpp"
+
+namespace io
+{
+class Daheng : public CameraBase
+{
+public:
+  Daheng(const std::string & config_path);
+  ~Daheng() override;
+  void read(cv::Mat & img, std::chrono::steady_clock::time_point & timestamp) override;
+
+private:
+  struct CameraData
+  {
+    cv::Mat img;
+    std::chrono::steady_clock::time_point timestamp;
+  };
+
+  double exposure_, gain_;
+  int width_, height_, fps_;
+  bool auto_exposure_, auto_white_balance_, auto_exp_change_;
+  double rgain_, bgain_, ggain_;
+  int64_t time_offset_;
+  int max_exp_, min_exp_;
+  bool debug_;
+  std::string vid_pid_;
+
+  GX_DEV_HANDLE device_handle_;
+  int64_t payload_size_;
+  bool quit_, ok_;
+  std::thread capture_thread_;
+  std::thread daemon_thread_;
+  tools::ThreadSafeQueue<CameraData> queue_;
+
+  void open();
+  void try_open();
+  void close();
+  void set_camera_params();
+  static void GX_STDC frame_callback(GX_FRAME_CALLBACK_PARAM * frame_data);
+};
+
+}  // namespace io
+
+#endif  // IO__DAHENG_HPP

@@ -187,7 +187,7 @@ std::list<Armor> YOLOV5::parse(
     ++it;
   }
 
-  if (debug_) draw_detections(bgr_img, armors, frame_count);
+  // if (debug_) draw_detections(bgr_img, armors, frame_count);
 
   return armors;
 }

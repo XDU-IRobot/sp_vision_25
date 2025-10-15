@@ -363,7 +363,7 @@ void CBoard::send_scm(bool control, bool fire, float yaw, float yaw_vel, float y
   struct __attribute__((packed)) AimbotFrame_SCM_t {
     uint8_t SOF;
     uint8_t ID;
-    // 按电控约定命名：Aimbotstate=1 表示“有目标”；0 表示“无目标”
+    // 按电控约定命名：Aimbotstate=0 不控，1 控不火，2 控且火
     uint8_t Aimbotstate;
     uint8_t AimbotTarget;
     float Pitch;
@@ -371,18 +371,23 @@ void CBoard::send_scm(bool control, bool fire, float yaw, float yaw_vel, float y
     float TargetPitchSpeed;
     float TargetYawSpeed;
     float SystemTimer;
-    uint8_t _EOF;
+    uint8_t _EOF; // 注意：MCU 协议要求 EOF 在相对角之后的前面
     float PitchRelativeAngle;
     float YawRelativeAngle;
   } frame{};
 
   frame.SOF = serial_sof_;
   frame.ID = serial_scm_tx_id_;
-  // 仅使用 0/1 语义：识别到目标后置 1，否则 0
-  uint8_t aimbot_state = control ? 1 : 0;
+  // AimbotState 按位：BIT0 已识别到；BIT1 可以打击；BIT5 自瞄模式
+  uint8_t aimbot_state = 0;
+  if (control) {
+    aimbot_state |= (1u << 0);            // 已识别到
+    aimbot_state |= (1u << 5);            // 自瞄模式
+    if (fire) aimbot_state |= (1u << 1);  // 可以打击
+  }
   frame.Aimbotstate = aimbot_state;
-  // AimbotTarget: 按电控约定，1 表示“有目标”，0 表示“无目标”
-  frame.AimbotTarget = control ? 1 : 0;
+  // 目标类型位：默认未知，置 0；如需按识别类别设位可在上层赋值
+  frame.AimbotTarget = 0u;
 
   float out_yaw = serial_scm_angles_in_deg_ ? rad2deg(yaw) : yaw;
   float out_pitch = serial_scm_angles_in_deg_ ? rad2deg(pitch) : pitch;
@@ -404,8 +409,8 @@ void CBoard::send_scm(bool control, bool fire, float yaw, float yaw_vel, float y
     serial_.write(reinterpret_cast<const uint8_t*>(&frame), sizeof(frame));
     if (serial_debug_hex_ && serial_log_tx_) {
       tools::logger()->info(
-        "[Cboard][SCM][TX] state={} target={} yaw={:.3f} pitch={:.3f}",
-        static_cast<int>(aimbot_state), static_cast<int>(frame.AimbotTarget), out_yaw, out_pitch);
+        "[Cboard][SCM][TX] id=0x{:02X} state=0b{:08b} target=0b{:08b} yaw={:.3f} pitch={:.3f} EOF=0x{:02X}",
+        static_cast<unsigned>(frame.ID), static_cast<unsigned>(frame.Aimbotstate), static_cast<unsigned>(frame.AimbotTarget), out_yaw, out_pitch, static_cast<unsigned>(frame._EOF));
     }
   } catch (const std::exception &e) {
     tools::logger()->warn("[Cboard][SCM] write failed: {}", e.what());

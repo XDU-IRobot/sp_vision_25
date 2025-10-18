@@ -196,7 +196,7 @@ int main(int argc, char * argv[])
 
     // Debug preview window for standard_mpc
     // Tip: press 'q' to quit
-    cv::imshow("standard_mpc", img);
+    // cv::imshow("standard_mpc", img);
     int key = cv::waitKey(1);
     if (key == 'q') break;
   }

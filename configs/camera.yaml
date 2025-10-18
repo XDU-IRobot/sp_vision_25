@@ -70,8 +70,10 @@ debug: true
 R_gimbal2imubody: [1, 0, 0, 0, 1, 0, 0, 0, 1]
 
 # 相机内参和畸变系数
-camera_matrix: [2825.28447, 0, 952.018757, 0, 2825.03624, 601.278894, 0, 0, 1]
-distort_coeffs: [-0.319131835, 0.0345913915, 0.000822900595, 0.00045867468, 3.64726157]
+# camera_matrix: [2825.28447, 0, 952.018757, 0, 2825.03624, 601.278894, 0, 0, 1]
+# distort_coeffs: [-0.319131835, 0.0345913915, 0.000822900595, 0.00045867468, 3.64726157]
+camera_matrix: [2807.679657, 0.000000, 954.251797, 0.000000, 2804.280283, 601.906719, 0.000000, 0.000000, 1.000000]
+distort_coeffs: [-0.250596, -0.395102, -0.001980, 0.001022, 0.000000]
 
 # 相机到云台的变换矩阵（需要手眼标定获得）
 R_camera2gimbal: [-0.027182119030230909, -0.12616154330853446, 0.99163723074269183, -0.99949106557517331, 0.019998323121329122, -0.024853106601381177, -0.016695575474690555, -0.99180811252093692, -0.12664093215554434]
@@ -95,14 +97,17 @@ camera_settings:
   pixel_format: BayerRG8
   
 #####-----cboard参数-----#####
+# 若仍需使用 CAN，请改为 cboard_transport: "can" 并设置 can_interface
 quaternion_canid: 0x100
 bullet_speed_canid: 0x101
 send_canid: 0xff
+
 # 选择后端: can 或 serial（使用 CBoard 的 USB 串口）
 cboard_transport: "serial"
+
 # 串口参数（当 cboard_transport=serial 时生效）
 cboard_serial_port: "/dev/gimbal"     # 建议使用 udev 规则创建的稳定别名；未配置时可临时改为 /dev/ttyACM0
-cboard_serial_baudrate: 115200      # 按 CBoard 固件设置修改
+cboard_serial_baudrate: 115200         # 按 CBoard 固件设置修改
 cboard_serial_timeout_ms: 20
 cboard_serial_sof: 85                  # 0x55
 cboard_serial_eof: 255                 # 0xFF
@@ -110,14 +115,20 @@ cboard_serial_id_quat: 16              # 0x10 （板子发送四元数的 ID）
 cboard_serial_id_status: 17            # 0x11 （板子发送状态/弹速的 ID）
 cboard_serial_id_cmd: 18               # 0x12 （主机->板子 指令 ID）
 cboard_serial_skip_crc: true           # 关闭 CRC：上位机发与解析均不使用 CRC 字段
-cboard_serial_debug_hex: true         # 调试时可打开，打印串口十六进制数据
-cboard_serial_log_rx: true            # 仅打印电控->上位机（RX）方向：设为 true，且将 cboard_serial_log_tx 设为 false
-cboard_serial_log_tx: true            # 仅打印上位机->电控（TX）方向：设为 true，且将 cboard_serial_log_rx 设为 false      
+cboard_serial_debug_hex: true          # 调试时可打开，打印串口十六进制数据
+cboard_serial_log_rx: false             # 打印电控->上位机（RX）方向
+cboard_serial_log_tx: true             # 打印上位机->电控（TX）方向
+
 # 使用固定长度 SCM 帧解析（电控->自瞄 IMU 帧），按你提供的结构体；若固件不发 SCM，可改为 raw
-cboard_serial_protocol: "scm"        # 可选: raw | scm（两者均不使用 CRC；raw 按 LEN，无 CRC 字段）
-cboard_serial_scm_rx_id: 1            # 电控->自瞄帧 ID（Gimaballmurname_SCM_t 的 ID）
-cboard_serial_scm_tx_id: 2            # 自瞄->电控帧 ID（AimbotFrame_SCM_t 的 ID）
-cboard_serial_angles_in_deg: true     # true 表示Yaw/Pitch使用“度”，false 表示“弧度”
+cboard_serial_protocol: "scm"         # 可选: raw | scm（两者均不使用 CRC；raw 按 LEN，无 CRC 字段）
+cboard_serial_scm_rx_id: 1             # 电控->自瞄帧 ID（Gimaballmurname_SCM_t 的 ID）
+cboard_serial_scm_tx_id: 2             # 自瞄->电控帧 ID（AimbotFrame_SCM_t 的 ID）
+cboard_serial_angles_in_deg: true      # true 表示Yaw/Pitch使用“度”，false 表示“弧度”
+
+# 状态位/联调辅助
+cboard_serial_force_fire_when_control: false
+cboard_serial_aimbotstate_mode: "bitfield"  # 可选: "bitfield" | "enum"
+cboard_serial_force_control: true
 # 若要继续使用 SocketCAN，则设置：
 # cboard_transport: "can"
 # can_interface: "can0"

@@ -78,7 +78,30 @@ private:
   uint8_t serial_scm_rx_id_ = 0x01; // 电控->自瞄帧 ID
   uint8_t serial_scm_tx_id_ = 0x02; // 自瞄->电控帧 ID（AimbotFrame_SCM_t）
   bool serial_scm_angles_in_deg_ = true; // 角度单位是否用度
+  // 目标类型位默认值（按位 bitmask），上层未指定时使用
+  uint8_t serial_scm_default_target_ = 0x00;
+  // 兼容开关：当 control=true 时强制置 BIT1（可打击）
+  bool serial_force_fire_when_control_ = false;
+  // 联调辅助：无论检测是否有目标，强制按“有目标”发送（置 AimbotState.bit0）
+  bool serial_force_control_ = false;
+  // Aimbotstate 编码方式：false=bitfield（默认），true=enum(0/1/2)
+  bool serial_aimbotstate_enum_ = false;
   std::chrono::steady_clock::time_point start_tp_;
+
+  // 云台绝对角零位偏置（弧度），用于将 IMU 欧拉角对齐到“云台绝对角”定义
+  double gimbal_yaw_offset_rad_ = 0.0;
+  double gimbal_pitch_offset_rad_ = 0.0;
+  // 欧拉角提取与符号设置
+  bool gimbal_pitch_from_x_ = false; // false: 从Y轴取pitch（默认）；true: 从X轴取pitch
+  int yaw_sign_ = 1;                 // 允许根据坐标系翻转符号（+1或-1）
+  int pitch_sign_ = 1;               // 允许根据坐标系翻转符号（+1或-1）
+  bool normalize_abs_angles_ = true; // 是否把绝对角归一化到 (-pi, pi]
+
+  // 发送侧用于估算角速度的上次状态
+  bool tx_has_last_ = false;
+  float tx_last_yaw_ = 0.f;
+  float tx_last_pitch_ = 0.f;
+  std::chrono::steady_clock::time_point tx_last_tp_{};
 
   void callback(const can_frame &frame);
   void serial_read_loop();

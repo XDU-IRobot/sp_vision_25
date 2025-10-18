@@ -1,31 +1,262 @@
-[2025-10-12 20:29:31.429] [info] Camera constructor: config_path=configs/camera.yaml, camera_name=daheng
-[2025-10-12 20:29:31.429] [info] Creating Daheng camera with config: configs/camera.yaml
-[2025-10-12 20:29:31.430] [info] Daheng::try_open() called
-[2025-10-12 20:29:31.430] [info] Daheng::open() called - initializing Daheng library
-[2025-10-12 20:29:31.437] [info] Daheng library initialized successfully
-[2025-10-12 20:29:32.447] [info] Found 1 Daheng camera(s)
-[2025-10-12 20:29:32.633] [info] Setting Daheng camera parameters:
-[2025-10-12 20:29:32.633] [info]   Size: 1920x1200
-[2025-10-12 20:29:32.633] [info]   Exposure: 2100
-[2025-10-12 20:29:32.633] [info]   Gain: 24
-[2025-10-12 20:29:32.633] [info]   FPS: 168
-[2025-10-12 20:29:32.667] [warning] Failed to set pixel format
-[2025-10-12 20:29:32.667] [info] Daheng camera parameters configured successfully
-[2025-10-12 20:29:32.688] [info] Daheng camera opened successfully
-[2025-10-12 20:29:32.688] [info] Daheng capture thread started
-[2025-10-12 20:29:32.689] [info] Daheng camera constructor completed with VID:PID = 2ba2:4d55
-[2025-10-12 20:29:32.689] [info] Daheng daemon thread started
-[2025-10-12 20:29:32.689] [info] Camera constructor completed
-[2025-10-12 20:29:32.690] [info] [Cboard] Serial config: CRC disabled (skip_crc=true), SOF=0x55, EOF=0xFF, id_quat=0x10, id_status=0x11, protocol=RAW rx_id=0x01
-[2025-10-12 20:29:32.690] [info] [Cboard] Serial opened /dev/ttyACM0 @ 115200 baud
-[2025-10-12 20:29:32.690] [info] [Cboard] Waiting for q...
-[2025-10-12 20:29:32.698] [info] Processing frame 0, using Bayer filter: BAYERRG
-[2025-10-12 20:29:33.465] [info] Processing frame 100, using Bayer filter: BAYERRG
-[2025-10-12 20:29:34.233] [info] Processing frame 200, using Bayer filter: BAYERRG
-[2025-10-12 20:29:35.001] [info] Processing frame 300, using Bayer filter: BAYERRG
-[2025-10-12 20:29:35.769] [info] Processing frame 400, using Bayer filter: BAYERRG
-[2025-10-12 20:29:36.538] [info] Processing frame 500, using Bayer filter: BAYERRG
-[2025-10-12 20:29:37.306] [info] Processing frame 600, using Bayer filter: BAYERRG
-[2025-10-12 20:29:38.074] [info] Processing frame 700, using Bayer filter: BAYERRG
-[2025-10-12 20:29:38.841] [info] Processing frame 800, using Bayer filter: BAYERRG
-[2025-10-12 20:29:39.610] [info] Processing frame 900, using Bayer filter: BAYERRG
+[2025-10-15 20:11:55.325] [info] Camera constructor: config_path=configs/camera.yaml, camera_name=daheng
+[2025-10-15 20:11:55.325] [info] Creating Daheng camera with config: configs/camera.yaml
+[2025-10-15 20:11:55.325] [info] Daheng::try_open() called
+[2025-10-15 20:11:55.325] [info] Daheng::open() called - initializing Daheng library
+[2025-10-15 20:11:55.335] [info] Daheng library initialized successfully
+[2025-10-15 20:11:56.344] [info] Found 1 Daheng camera(s)
+[2025-10-15 20:11:56.531] [info] Setting Daheng camera parameters:
+[2025-10-15 20:11:56.531] [info]   Size: 1920x1200
+[2025-10-15 20:11:56.531] [info]   Exposure: 1000
+[2025-10-15 20:11:56.531] [info]   Gain: 24
+[2025-10-15 20:11:56.531] [info]   FPS: 168
+[2025-10-15 20:11:56.565] [info] Pixel format set to BAYER_RG8
+[2025-10-15 20:11:56.565] [info] Daheng camera parameters configured successfully
+[2025-10-15 20:11:56.586] [info] Daheng camera opened successfully
+[2025-10-15 20:11:56.586] [info] Daheng capture thread started
+[2025-10-15 20:11:56.586] [info] Daheng camera constructor completed with VID:PID = 2ba2:4d55
+[2025-10-15 20:11:56.586] [info] Daheng daemon thread started
+[2025-10-15 20:11:56.586] [info] Camera constructor completed
+[2025-10-15 20:11:56.587] [info] [Cboard] Serial config: CRC disabled (skip_crc=true), SOF=0x55, EOF=0xFF, id_quat=0x10, id_status=0x11, protocol=SCM rx_id=0x01 tx_id=0x02 angles_in_deg=true default_target=0x00 force_fire_when_control=true aimbotstate_mode=enum log_rx=false log_tx=true gimbal_offset(deg)=(yaw=0.00,pitch=0.00) pitch_from_x=false yaw_sign=1 pitch_sign=1 normalize_abs=true
+[2025-10-15 20:11:56.587] [info] [Cboard] Serial opened /dev/gimbal @ 115200 baud
+[2025-10-15 20:11:56.587] [info] [Cboard] Serial lines: DTR=1, RTS=1
+[2025-10-15 20:11:56.587] [info] [Cboard] Waiting for q...
+[2025-10-15 20:11:56.588] [info] [Cboard] Opened.
+[2025-10-15 20:11:56.593] [info] Processing frame 0, using Bayer filter: BAYERRG
+[2025-10-15 20:11:57.210] [info] [standard_mpc] Buff modules disabled (enable_buff=false)
+[2025-10-15 20:11:57.210] [info] Switch to AUTO_AIM
+[2025-10-15 20:11:57.210] [info] [Cboard][SCM][TX] wrote=33B id=0x02 state=0b00000000(dec=0) target=0b00000000 rel(yaw,pitch)=(0.000,0.000) abs(yaw,pitch)=(59.140,28.037) EOF=0xFF
+[2025-10-15 20:11:57.220] [info] [Cboard][SCM][TX] wrote=33B id=0x02 state=0b00000000(dec=0) target=0b00000000 rel(yaw,pitch)=(0.000,0.000) abs(yaw,pitch)=(59.139,28.037) EOF=0xFF
+[2025-10-15 20:11:57.230] [info] [Cboard][SCM][TX] wrote=33B id=0x02 state=0b00000000(dec=0) target=0b00000000 rel(yaw,pitch)=(0.000,0.000) abs(yaw,pitch)=(59.139,28.037) EOF=0xFF
+[2025-10-15 20:11:57.241] [info] [Cboard][SCM][TX] wrote=33B id=0x02 state=0b00000000(dec=0) target=0b00000000 rel(yaw,pitch)=(0.000,0.000) abs(yaw,pitch)=(59.139,28.037) EOF=0xFF
+[2025-10-15 20:11:57.251] [info] [Cboard][SCM][TX] wrote=33B id=0x02 state=0b00000000(dec=0) target=0b00000000 rel(yaw,pitch)=(0.000,0.000) abs(yaw,pitch)=(59.152,28.031) EOF=0xFF
+[2025-10-15 20:11:57.261] [info] [Cboard][SCM][TX] wrote=33B id=0x02 state=0b00000000(dec=0) target=0b00000000 rel(yaw,pitch)=(0.000,0.000) abs(yaw,pitch)=(59.152,28.031) EOF=0xFF
+[2025-10-15 20:11:57.271] [info] [Cboard][SCM][TX] wrote=33B id=0x02 state=0b00000000(dec=0) target=0b00000000 rel(yaw,pitch)=(0.000,0.000) abs(yaw,pitch)=(59.152,28.031) EOF=0xFF
+[2025-10-15 20:11:57.282] [info] [Cboard][SCM][TX] wrote=33B id=0x02 state=0b00000000(dec=0) target=0b00000000 rel(yaw,pitch)=(0.000,0.000) abs(yaw,pitch)=(59.155,28.031) EOF=0xFF
+[2025-10-15 20:11:57.292] [info] [Cboard][SCM][TX] wrote=33B id=0x02 state=0b00000000(dec=0) target=0b00000000 rel(yaw,pitch)=(0.000,0.000) abs(yaw,pitch)=(59.155,28.031) EOF=0xFF
+[2025-10-15 20:11:57.302] [info] [Cboard][SCM][TX] wrote=33B id=0x02 state=0b00000000(dec=0) target=0b00000000 rel(yaw,pitch)=(0.000,0.000) abs(yaw,pitch)=(59.155,28.031) EOF=0xFF
+[2025-10-15 20:11:57.312] [info] [Cboard][SCM][TX] wrote=33B id=0x02 state=0b00000000(dec=0) target=0b00000000 rel(yaw,pitch)=(0.000,0.000) abs(yaw,pitch)=(59.157,28.029) EOF=0xFF
+[2025-10-15 20:11:57.323] [info] [Cboard][SCM][TX] wrote=33B id=0x02 state=0b00000000(dec=0) target=0b00000000 rel(yaw,pitch)=(0.000,0.000) abs(yaw,pitch)=(59.157,28.029) EOF=0xFF
+[2025-10-15 20:11:57.334] [info] [Cboard][SCM][TX] wrote=33B id=0x02 state=0b00000000(dec=0) target=0b00000000 rel(yaw,pitch)=(0.000,0.000) abs(yaw,pitch)=(59.159,28.032) EOF=0xFF
+[2025-10-15 20:11:57.344] [info] [Cboard][SCM][TX] wrote=33B id=0x02 state=0b00000000(dec=0) target=0b00000000 rel(yaw,pitch)=(0.000,0.000) abs(yaw,pitch)=(59.159,28.032) EOF=0xFF
+[2025-10-15 20:11:57.354] [info] [Cboard][SCM][TX] wrote=33B id=0x02 state=0b00000000(dec=0) target=0b00000000 rel(yaw,pitch)=(0.000,0.000) abs(yaw,pitch)=(59.159,28.032) EOF=0xFF
+[2025-10-15 20:11:57.363] [info] Processing frame 100, using Bayer filter: BAYERRG
+[2025-10-15 20:11:57.364] [info] [Cboard][SCM][TX] wrote=33B id=0x02 state=0b00000000(dec=0) target=0b00000000 rel(yaw,pitch)=(0.000,0.000) abs(yaw,pitch)=(59.161,28.029) EOF=0xFF
+[2025-10-15 20:11:57.374] [info] [Cboard][SCM][TX] wrote=33B id=0x02 state=0b00000000(dec=0) target=0b00000000 rel(yaw,pitch)=(0.000,0.000) abs(yaw,pitch)=(59.161,28.029) EOF=0xFF
+[2025-10-15 20:11:57.385] [info] [Cboard][SCM][TX] wrote=33B id=0x02 state=0b00000000(dec=0) target=0b00000000 rel(yaw,pitch)=(0.000,0.000) abs(yaw,pitch)=(59.162,28.029) EOF=0xFF
+[2025-10-15 20:11:57.395] [info] [Cboard][SCM][TX] wrote=33B id=0x02 state=0b00000000(dec=0) target=0b00000000 rel(yaw,pitch)=(0.000,0.000) abs(yaw,pitch)=(59.162,28.029) EOF=0xFF
+[2025-10-15 20:11:57.405] [info] [Cboard][SCM][TX] wrote=33B id=0x02 state=0b00000000(dec=0) target=0b00000000 rel(yaw,pitch)=(0.000,0.000) abs(yaw,pitch)=(59.162,28.029) EOF=0xFF
+[2025-10-15 20:11:57.416] [info] [Cboard][SCM][TX] wrote=33B id=0x02 state=0b00000000(dec=0) target=0b00000000 rel(yaw,pitch)=(0.000,0.000) abs(yaw,pitch)=(59.161,28.032) EOF=0xFF
+[2025-10-15 20:11:57.426] [info] [Cboard][SCM][TX] wrote=33B id=0x02 state=0b00000000(dec=0) target=0b00000000 rel(yaw,pitch)=(0.000,0.000) abs(yaw,pitch)=(59.161,28.032) EOF=0xFF
+[2025-10-15 20:11:57.436] [info] [Cboard][SCM][TX] wrote=33B id=0x02 state=0b00000000(dec=0) target=0b00000000 rel(yaw,pitch)=(0.000,0.000) abs(yaw,pitch)=(59.161,28.032) EOF=0xFF
+[2025-10-15 20:11:57.447] [info] [Cboard][SCM][TX] wrote=33B id=0x02 state=0b00000000(dec=0) target=0b00000000 rel(yaw,pitch)=(0.000,0.000) abs(yaw,pitch)=(59.159,28.028) EOF=0xFF
+[2025-10-15 20:11:57.457] [info] [Cboard][SCM][TX] wrote=33B id=0x02 state=0b00000000(dec=0) target=0b00000000 rel(yaw,pitch)=(0.000,0.000) abs(yaw,pitch)=(59.159,28.028) EOF=0xFF
+[2025-10-15 20:11:57.468] [info] [Cboard][SCM][TX] wrote=33B id=0x02 state=0b00000000(dec=0) target=0b00000000 rel(yaw,pitch)=(0.000,0.000) abs(yaw,pitch)=(59.163,28.030) EOF=0xFF
+[2025-10-15 20:11:57.479] [info] [Cboard][SCM][TX] wrote=33B id=0x02 state=0b00000000(dec=0) target=0b00000000 rel(yaw,pitch)=(0.000,0.000) abs(yaw,pitch)=(59.163,28.030) EOF=0xFF
+[2025-10-15 20:11:57.489] [info] [Cboard][SCM][TX] wrote=33B id=0x02 state=0b00000000(dec=0) target=0b00000000 rel(yaw,pitch)=(0.000,0.000) abs(yaw,pitch)=(59.163,28.030) EOF=0xFF
+[2025-10-15 20:11:57.500] [info] [Cboard][SCM][TX] wrote=33B id=0x02 state=0b00000000(dec=0) target=0b00000000 rel(yaw,pitch)=(0.000,0.000) abs(yaw,pitch)=(59.163,28.031) EOF=0xFF
+[2025-10-15 20:11:57.511] [info] [Cboard][SCM][TX] wrote=33B id=0x02 state=0b00000000(dec=0) target=0b00000000 rel(yaw,pitch)=(0.000,0.000) abs(yaw,pitch)=(59.163,28.031) EOF=0xFF
+[2025-10-15 20:11:57.521] [info] [Cboard][SCM][TX] wrote=33B id=0x02 state=0b00000000(dec=0) target=0b00000000 rel(yaw,pitch)=(0.000,0.000) abs(yaw,pitch)=(59.162,28.033) EOF=0xFF
+[2025-10-15 20:11:57.532] [info] [Cboard][SCM][TX] wrote=33B id=0x02 state=0b00000000(dec=0) target=0b00000000 rel(yaw,pitch)=(0.000,0.000) abs(yaw,pitch)=(59.162,28.033) EOF=0xFF
+[2025-10-15 20:11:57.542] [info] [Cboard][SCM][TX] wrote=33B id=0x02 state=0b00000000(dec=0) target=0b00000000 rel(yaw,pitch)=(0.000,0.000) abs(yaw,pitch)=(59.162,28.033) EOF=0xFF
+[2025-10-15 20:11:57.552] [info] [Cboard][SCM][TX] wrote=33B id=0x02 state=0b00000000(dec=0) target=0b00000000 rel(yaw,pitch)=(0.000,0.000) abs(yaw,pitch)=(59.163,28.035) EOF=0xFF
+[2025-10-15 20:11:57.563] [info] [Cboard][SCM][TX] wrote=33B id=0x02 state=0b00000000(dec=0) target=0b00000000 rel(yaw,pitch)=(0.000,0.000) abs(yaw,pitch)=(59.163,28.035) EOF=0xFF
+[2025-10-15 20:11:57.573] [info] [Cboard][SCM][TX] wrote=33B id=0x02 state=0b00000000(dec=0) target=0b00000000 rel(yaw,pitch)=(0.000,0.000) abs(yaw,pitch)=(59.163,28.035) EOF=0xFF
+[2025-10-15 20:11:57.583] [info] [Cboard][SCM][TX] wrote=33B id=0x02 state=0b00000000(dec=0) target=0b00000000 rel(yaw,pitch)=(0.000,0.000) abs(yaw,pitch)=(59.168,28.032) EOF=0xFF
+[2025-10-15 20:11:57.593] [info] [Cboard][SCM][TX] wrote=33B id=0x02 state=0b00000000(dec=0) target=0b00000000 rel(yaw,pitch)=(0.000,0.000) abs(yaw,pitch)=(59.168,28.032) EOF=0xFF
+[2025-10-15 20:11:57.604] [info] [Cboard][SCM][TX] wrote=33B id=0x02 state=0b00000000(dec=0) target=0b00000000 rel(yaw,pitch)=(0.000,0.000) abs(yaw,pitch)=(59.168,28.032) EOF=0xFF
+[2025-10-15 20:11:57.614] [info] [Cboard][SCM][TX] wrote=33B id=0x02 state=0b00000000(dec=0) target=0b00000000 rel(yaw,pitch)=(0.000,0.000) abs(yaw,pitch)=(59.165,28.034) EOF=0xFF
+[2025-10-15 20:11:57.624] [info] [Cboard][SCM][TX] wrote=33B id=0x02 state=0b00000000(dec=0) target=0b00000000 rel(yaw,pitch)=(0.000,0.000) abs(yaw,pitch)=(59.165,28.034) EOF=0xFF
+[2025-10-15 20:11:57.634] [info] [Cboard][SCM][TX] wrote=33B id=0x02 state=0b00000000(dec=0) target=0b00000000 rel(yaw,pitch)=(0.000,0.000) abs(yaw,pitch)=(59.166,28.036) EOF=0xFF
+[2025-10-15 20:11:57.645] [info] [Cboard][SCM][TX] wrote=33B id=0x02 state=0b00000000(dec=0) target=0b00000000 rel(yaw,pitch)=(0.000,0.000) abs(yaw,pitch)=(59.166,28.036) EOF=0xFF
+[2025-10-15 20:11:57.655] [info] [Cboard][SCM][TX] wrote=33B id=0x02 state=0b00000000(dec=0) target=0b00000000 rel(yaw,pitch)=(0.000,0.000) abs(yaw,pitch)=(59.166,28.039) EOF=0xFF
+[2025-10-15 20:11:57.665] [info] [Cboard][SCM][TX] wrote=33B id=0x02 state=0b00000000(dec=0) target=0b00000000 rel(yaw,pitch)=(0.000,0.000) abs(yaw,pitch)=(59.166,28.039) EOF=0xFF
+[2025-10-15 20:11:57.675] [info] [Cboard][SCM][TX] wrote=33B id=0x02 state=0b00000000(dec=0) target=0b00000000 rel(yaw,pitch)=(0.000,0.000) abs(yaw,pitch)=(59.166,28.039) EOF=0xFF
+[2025-10-15 20:11:57.686] [info] [Cboard][SCM][TX] wrote=33B id=0x02 state=0b00000000(dec=0) target=0b00000000 rel(yaw,pitch)=(0.000,0.000) abs(yaw,pitch)=(59.168,28.043) EOF=0xFF
+[2025-10-15 20:11:57.696] [info] [Cboard][SCM][TX] wrote=33B id=0x02 state=0b00000000(dec=0) target=0b00000000 rel(yaw,pitch)=(0.000,0.000) abs(yaw,pitch)=(59.168,28.043) EOF=0xFF
+[2025-10-15 20:11:57.706] [info] [Cboard][SCM][TX] wrote=33B id=0x02 state=0b00000000(dec=0) target=0b00000000 rel(yaw,pitch)=(0.000,0.000) abs(yaw,pitch)=(59.168,28.045) EOF=0xFF
+[2025-10-15 20:11:57.716] [info] [Cboard][SCM][TX] wrote=33B id=0x02 state=0b00000000(dec=0) target=0b00000000 rel(yaw,pitch)=(0.000,0.000) abs(yaw,pitch)=(59.168,28.045) EOF=0xFF
+[2025-10-15 20:11:57.727] [info] [Cboard][SCM][TX] wrote=33B id=0x02 state=0b00000000(dec=0) target=0b00000000 rel(yaw,pitch)=(0.000,0.000) abs(yaw,pitch)=(59.168,28.045) EOF=0xFF
+[2025-10-15 20:11:57.737] [info] [Cboard][SCM][TX] wrote=33B id=0x02 state=0b00000000(dec=0) target=0b00000000 rel(yaw,pitch)=(0.000,0.000) abs(yaw,pitch)=(59.166,28.043) EOF=0xFF
+[2025-10-15 20:11:57.747] [info] [Cboard][SCM][TX] wrote=33B id=0x02 state=0b00000000(dec=0) target=0b00000000 rel(yaw,pitch)=(0.000,0.000) abs(yaw,pitch)=(59.166,28.043) EOF=0xFF
+[2025-10-15 20:11:57.757] [info] [Cboard][SCM][TX] wrote=33B id=0x02 state=0b00000000(dec=0) target=0b00000000 rel(yaw,pitch)=(0.000,0.000) abs(yaw,pitch)=(59.167,28.043) EOF=0xFF
+[2025-10-15 20:11:57.767] [info] [Cboard][SCM][TX] wrote=33B id=0x02 state=0b00000000(dec=0) target=0b00000000 rel(yaw,pitch)=(0.000,0.000) abs(yaw,pitch)=(59.167,28.043) EOF=0xFF
+[2025-10-15 20:11:57.778] [info] [Cboard][SCM][TX] wrote=33B id=0x02 state=0b00000000(dec=0) target=0b00000000 rel(yaw,pitch)=(0.000,0.000) abs(yaw,pitch)=(59.167,28.043) EOF=0xFF
+[2025-10-15 20:11:57.788] [info] [Cboard][SCM][TX] wrote=33B id=0x02 state=0b00000000(dec=0) target=0b00000000 rel(yaw,pitch)=(0.000,0.000) abs(yaw,pitch)=(59.164,28.042) EOF=0xFF
+[2025-10-15 20:11:57.799] [info] [Cboard][SCM][TX] wrote=33B id=0x02 state=0b00000000(dec=0) target=0b00000000 rel(yaw,pitch)=(0.000,0.000) abs(yaw,pitch)=(59.164,28.042) EOF=0xFF
+[2025-10-15 20:11:57.809] [info] [Cboard][SCM][TX] wrote=33B id=0x02 state=0b00000000(dec=0) target=0b00000000 rel(yaw,pitch)=(0.000,0.000) abs(yaw,pitch)=(59.167,28.043) EOF=0xFF
+[2025-10-15 20:11:57.819] [info] [Cboard][SCM][TX] wrote=33B id=0x02 st 115200, 8N1, -crtscts，行规设置没问题；我们程序内也显式关闭硬件流控，并已 setDTR/setRTS 成功。state=0b00000000(dec=0) target=0b00000000 rel(yaw,pitch)=(0.000,0.000) abs(yaw,pitch)=(59.170,28.040) EOF=0xFF
+[2025-10-15 20:11:57.933] [info] [Cboard][SCM][TX] wrote=33B id=0x02 state=0b00000000(dec=0) target=0b00000000 rel(yaw,pitch)=(0.000,0.000) abs(yaw,pitch)=(59.173,28.040) EOF=0xFF
+[2025-10-15 20:11:57.943] [info] [Cboard][SCM][TX] wrote=33B id=0x02 state=0b00000000(dec=0) target=0b00000000 rel(yaw,pitch)=(0.000,0.000) abs(yaw,pitch)=(59.173,28.040) EOF=0xFF
+[2025-10-15 20:11:57.953] [info] [Cboard][SCM][TX] wrote=33B id=0x02 state=0b00000000(dec=0) target=0b00000000 rel(yaw,pitch)=(0.000,0.000) abs(yaw,pitch)=(59.173,28.040) EOF=0xFF
+[2025-10-15 20:11:57.963] [info] [Cboard][SCM][TX] wrote=33B id=0x02 state=0b00000000(dec=0) target=0b00000000 rel(yaw,pitch)=(0.000,0.000) abs(yaw,pitch)=(59.171,28.041) EOF=0xFF
+[2025-10-15 20:11:57.974] [info] [Cboard][SCM][TX] wrote=33B id=0x02 state=0b00000000(dec=0) target=0b00000000 rel(yaw,pitch)=(0.000,0.000) abs(yaw,pitch)=(59.171,28.041) EOF=0xFF
+[2025-10-15 20:11:57.984] [info] [Cboard][SCM][TX] wrote=33B id=0x02 state=0b00000000(dec=0) target=0b00000000 rel(yaw,pitch)=(0.000,0.000) abs(yaw,pitch)=(59.172,28.042) EOF=0xFF
+[2025-10-15 20:11:57.994] [info] [Cboard][SCM][TX] wrote=33B id=0x02 state=0b00000000(dec=0) target=0b00000000 rel(yaw,pitch)=(0.000,0.000) abs(yaw,pitch)=(59.172,28.042) EOF=0xFF
+[2025-10-15 20:11:58.004] [info] [Cboard][SCM][TX] wrote=33B id=0x02 state=0b00000000(dec=0) target=0b00000000 rel(yaw,pitch)=(0.000,0.000) abs(yaw,pitch)=(59.175,28.042) EOF=0xFF
+[2025-10-15 20:11:58.015] [info] [Cboard][SCM][TX] wrote=33B id=0x02 state=0b00000000(dec=0) target=0b00000000 rel(yaw,pitch)=(0.000,0.000) abs(yaw,pitch)=(59.175,28.042) EOF=0xFF
+[2025-10-15 20:11:58.025] [info] [Cboard][SCM][TX] wrote=33B id=0x02 state=0b00000000(dec=0) target=0b00000000 rel(yaw,pitch)=(0.000,0.000) abs(yaw,pitch)=(59.176,28.039) EOF=0xFF
+[2025-10-15 20:11:58.035] [info] [Cboard][SCM][TX] wrote=33B id=0x02 state=0b00000000(dec=0) target=0b00000000 rel(yaw,pitch)=(0.000,0.000) abs(yaw,pitch)=(59.176,28.039) EOF=0xFF
+[2025-10-15 20:11:58.045] [info] [Cboard][SCM][TX] wrote=33B id=0x02 state=0b00000000(dec=0) target=0b00000000 rel(yaw,pitch)=(0.000,0.000) abs(yaw,pitch)=(59.176,28.039) EOF=0xFF
+[2025-10-15 20:11:58.056] [info] [Cboard][SCM][TX] wrote=33B id=0x02 state=0b00000000(dec=0) target=0b00000000 rel(yaw,pitch)=(0.000,0.000) abs(yaw,pitch)=(59.175,28.039) EOF=0xFF
+[2025-10-15 20:11:58.066] [info] [Cboard][SCM][TX] wrote=33B id=0x02 state=0b00000000(dec=0) target=0b00000000 rel(yaw,pitch)=(0.000,0.000) abs(yaw,pitch)=(59.175,28.039) EOF=0xFF
+[2025-10-15 20:11:58.076] [info] [Cboard][SCM][TX] wrote=33B id=0x02 state=0b00000000(dec=0) target=0b00000000 rel(yaw,pitch)=(0.000,0.000) abs(yaw,pitch)=(59.175,28.037) EOF=0xFF
+[2025-10-15 20:11:58.087] [info] [Cboard][SCM][TX] wrote=33B id=0x02 state=0b00000000(dec=0) target=0b00000000 rel(yaw,pitch)=(0.000,0.000) abs(yaw,pitch)=(59.175,28.037) EOF=0xFF
+[2025-10-15 20:11:58.097] [info] [Cboard][SCM][TX] wrote=33B id=0x02 state=0b00000000(dec=0) target=0b00000000 rel(yaw,pitch)=(0.000,0.000) abs(yaw,pitch)=(59.175,28.037) EOF=0xFF
+[2025-10-15 20:11:58.107] [info] [Cboard][SCM][TX] wrote=33B id=0x02 state=0b00000000(dec=0) target=0b00000000 rel(yaw,pitch)=(0.000,0.000) abs(yaw,pitch)=(59.175,28.035) EOF=0xFF
+[2025-10-15 20:11:58.117] [info] [Cboard][SCM][TX] wrote=33B id=0x02 state=0b00000000(dec=0) target=0b00000000 rel(yaw,pitch)=(0.000,0.000) abs(yaw,pitch)=(59.175,28.035) EOF=0xFF
+[2025-10-15 20:11:58.128] [info] [Cboard][SCM][TX] wrote=33B id=0x02 state=0b00000000(dec=0) target=0b00000000 rel(yaw,pitch)=(0.000,0.000) abs(yaw,pitch)=(59.175,28.037) EOF=0xFF
+[2025-10-15 20:11:58.132] [info] Processing frame 200, using Bayer filter: BAYERRG
+[2025-10-15 20:11:58.138] [info] [Cboard][SCM][TX] wrote=33B id=0x02 state=0b00000000(dec=0) target=0b00000000 rel(yaw,pitch)=(0.000,0.000) abs(yaw,pitch)=(59.175,28.037) EOF=0xFF
+[2025-10-15 20:11:58.148] [info] [Cboard][SCM][TX] wrote=33B id=0x02 state=0b00000000(dec=0) target=0b00000000 rel(yaw,pitch)=(0.000,0.000) abs(yaw,pitch)=(59.175,28.037) EOF=0xFF
+[2025-10-15 20:11:58.159] [info] [Cboard][SCM][TX] wrote=33B id=0x02 state=0b00000000(dec=0) target=0b00000000 rel(yaw,pitch)=(0.000,0.000) abs(yaw,pitch)=(59.180,28.036) EOF=0xFF
+[2025-10-15 20:11:58.170] [info] [Cboard][SCM][TX] wrote=33B id=0x02 state=0b00000000(dec=0) target=0b00000000 rel(yaw,pitch)=(0.000,0.000) abs(yaw,pitch)=(59.180,28.036) EOF=0xFF
+[2025-10-15 20:11:58.180] [info] [Cboard][SCM][TX] wrote=33B id=0x02 state=0b00000000(dec=0) target=0b00000000 rel(yaw,pitch)=(0.000,0.000) abs(yaw,pitch)=(59.180,28.037) EOF=0xFF
+[2025-10-15 20:11:58.190] [info] [Cboard][SCM][TX] wrote=33B id=0x02 state=0b00000000(dec=0) target=0b00000000 rel(yaw,pitch)=(0.000,0.000) abs(yaw,pitch)=(59.180,28.037) EOF=0xFF
+[2025-10-15 20:11:58.201] [info] [Cboard][SCM][TX] wrote=33B id=0x02 state=0b00000000(dec=0) target=0b00000000 rel(yaw,pitch)=(0.000,0.000) abs(yaw,pitch)=(59.178,28.037) EOF=0xFF
+[2025-10-15 20:11:58.211] [info] [Cboard][SCM][TX] wrote=33B id=0x02 state=0b00000000(dec=0) target=0b00000000 rel(yaw,pitch)=(0.000,0.000) abs(yaw,pitch)=(59.178,28.037) EOF=0xFF
+[2025-10-15 20:11:58.221] [info] [Cboard][SCM][TX] wrote=33B id=0x02 state=0b00000000(dec=0) target=0b00000000 rel(yaw,pitch)=(0.000,0.000) abs(yaw,pitch)=(59.178,28.037) EOF=0xFF
+[2025-10-15 20:11:58.231] [info] [Cboard][SCM][TX] wrote=33B id=0x02 state=0b00000000(dec=0) target=0b00000000 rel(yaw,pitch)=(0.000,0.000) abs(yaw,pitch)=(59.179,28.034) EOF=0xFF
+[2025-10-15 20:11:58.242] [info] [Cboard][SCM][TX] wrote=33B id=0x02 state=0b00000000(dec=0) target=0b00000000 rel(yaw,pitch)=(0.000,0.000) abs(yaw,pitch)=(59.179,28.034) EOF=0xFF
+[2025-10-15 20:11:58.252] [info] [Cboard][SCM][TX] wrote=33B id=0x02 state=0b00000000(dec=0) target=0b00000000 rel(yaw,pitch)=(0.000,0.000) abs(yaw,pitch)=(59.180,28.034) EOF=0xFF
+[2025-10-15 20:11:58.262] [info] [Cboard][SCM][TX] wrote=33B id=0x02 state=0b00000000(dec=0) target=0b00000000 rel(yaw,pitch)=(0.000,0.000) abs(yaw,pitch)=(59.180,28.034) EOF=0xFF
+[2025-10-15 20:11:58.273] [info] [Cboard][SCM][TX] wrote=33B id=0x02 state=0b00000000(dec=0) target=0b00000000 rel(yaw,pitch)=(0.000,0.000) abs(yaw,pitch)=(59.180,28.034) EOF=0xFF
+[2025-10-15 20:11:58.283] [info] [Cboard][SCM][TX] wrote=33B id=0x02 state=0b00000000(dec=0) target=0b00000000 rel(yaw,pitch)=(0.000,0.000) abs(yaw,pitch)=(59.182,28.037) EOF=0xFF
+[2025-10-15 20:11:58.294] [info] [Cboard][SCM][TX] wrote=33B id=0x02 state=0b00000000(dec=0) target=0b00000000 rel(yaw,pitch)=(0.000,0.000) abs(yaw,pitch)=(59.182,28.037) EOF=0xFF
+[2025-10-15 20:11:58.304] [info] [Cboard][SCM][TX] wrote=33B id=0x02 state=0b00000000(dec=0) target=0b00000000 rel(yaw,pitch)=(0.000,0.000) abs(yaw,pitch)=(59.183,28.035) EOF=0xFF
+[2025-10-15 20:11:58.314] [info] [Cboard][SCM][TX] wrote=33B id=0x02 state=0b00000000(dec=0) target=0b00000000 rel(yaw,pitch)=(0.000,0.000) abs(yaw,pitch)=(59.183,28.035) EOF=0xFF
+[2025-10-15 20:11:58.325] [info] [Cboard][SCM][TX] wrote=33B id=0x02 state=0b00000000(dec=0) target=0b00000000 rel(yaw,pitch)=(0.000,0.000) abs(yaw,pitch)=(59.183,28.035) EOF=0xFF
+[2025-10-15 20:11:58.335] [info] [Cboard][SCM][TX] wrote=33B id=0x02 state=0b00000000(dec=0) target=0b00000000 rel(yaw,pitch)=(0.000,0.000) abs(yaw,pitch)=(59.182,28.035) EOF=0xFF
+[2025-10-15 20:11:58.345] [info] [Cboard][SCM][TX] wrote=33B id=0x02 state=0b00000000(dec=0) target=0b00000000 rel(yaw,pitch)=(0.000,0.000) abs(yaw,pitch)=(59.182,28.035) EOF=0xFF
+[2025-10-15 20:11:58.355] [info] [Cboard][SCM][TX] wrote=33B id=0x02 state=0b00000000(dec=0) target=0b00000000 rel(yaw,pitch)=(0.000,0.000) abs(yaw,pitch)=(59.182,28.035) EOF=0xFF
+[2025-10-15 20:11:58.366] [info] [Cboard][SCM][TX] wrote=33B id=0x02 state=0b00000000(dec=0) target=0b00000000 rel(yaw,pitch)=(0.000,0.000) abs(yaw,pitch)=(59.182,28.034) EOF=0xFF
+[2025-10-15 20:11:58.376] [info] [Cboard][SCM][TX] wrote=33B id=0x02 state=0b00000000(dec=0) target=0b00000000 rel(yaw,pitch)=(0.000,0.000) abs(yaw,pitch)=(59.182,28.034) EOF=0xFF
+[2025-10-15 20:11:58.387] [info] [Cboard][SCM][TX] wrote=33B id=0x02 state=0b00000000(dec=0) target=0b00000000 rel(yaw,pitch)=(0.000,0.000) abs(yaw,pitch)=(59.182,28.034) EOF=0xFF
+[2025-10-15 20:11:58.398] [info] [Cboard][SCM][TX] wrote=33B id=0x02 state=0b00000000(dec=0) target=0b00000000 rel(yaw,pitch)=(0.000,0.000) abs(yaw,pitch)=(59.182,28.035) EOF=0xFF
+[2025-10-15 20:11:58.408] [info] [Cboard][SCM][TX] wrote=33B id=0x02 state=0b00000000(dec=0) target=0b00000000 rel(yaw,pitch)=(0.000,0.000) abs(yaw,pitch)=(59.182,28.035) EOF=0xFF
+[2025-10-15 20:11:58.418] [info] [Cboard][SCM][TX] wrote=33B id=0x02 state=0b00000000(dec=0) target=0b00000000 rel(yaw,pitch)=(0.000,0.000) abs(yaw,pitch)=(59.182,28.035) EOF=0xFF
+[2025-10-15 20:11:58.428] [info] [Cboard][SCM][TX] wrote=33B id=0x02 state=0b00000000(dec=0) target=0b00000000 rel(yaw,pitch)=(0.000,0.000) abs(yaw,pitch)=(59.183,28.034) EOF=0xFF
+[2025-10-15 20:11:58.438] [info] [Cboard][SCM][TX] wrote=33B id=0x02 state=0b00000000(dec=0) target=0b00000000 rel(yaw,pitch)=(0.000,0.000) abs(yaw,pitch)=(59.183,28.034) EOF=0xFF
+[2025-10-15 20:11:58.449] [info] [Cboard][SCM][TX] wrote=33B id=0x02 state=0b00000000(dec=0) target=0b00000000 rel(yaw,pitch)=(0.000,0.000) abs(yaw,pitch)=(59.183,28.034) EOF=0xFF
+[2025-10-15 20:11:58.460] [info] [Cboard][SCM][TX] wrote=33B id=0x02 state=0b00000000(dec=0) target=0b00000000 rel(yaw,pitch)=(0.000,0.000) abs(yaw,pitch)=(59.186,28.032) EOF=0xFF
+[2025-10-15 20:11:58.470] [info] [Cboard][SCM][TX] wrote=33B id=0x02 state=0b00000000(dec=0) target=0b00000000 rel(yaw,pitch)=(0.000,0.000) abs(yaw,pitch)=(59.186,28.032) EOF=0xFF
+[2025-10-15 20:11:58.480] [info] [Cboard][SCM][TX] wrote=33B id=0x02 state=0b00000000(dec=0) target=0b00000000 rel(yaw,pitch)=(0.000,0.000) abs(yaw,pitch)=(59.186,28.032) EOF=0xFF
+[2025-10-15 20:11:58.491] [info] [Cboard][SCM][TX] wrote=33B id=0x02 state=0b00000000(dec=0) target=0b00000000 rel(yaw,pitch)=(0.000,0.000) abs(yaw,pitch)=(59.186,28.032) EOF=0xFF
+[2025-10-15 20:11:58.501] [info] [Cboard][SCM][TX] wrote=33B id=0x02 state=0b00000000(dec=0) target=0b00000000 rel(yaw,pitch)=(0.000,0.000) abs(yaw,pitch)=(59.186,28.032) EOF=0xFF
+[2025-10-15 20:11:58.511] [info] [Cboard][SCM][TX] wrote=33B id=0x02 state=0b00000000(dec=0) target=0b00000000 rel(yaw,pitch)=(0.000,0.000) abs(yaw,pitch)=(59.186,28.032) EOF=0xFF
+[2025-10-15 20:11:58.521] [info] [Cboard][SCM][TX] wrote=33B id=0x02 state=0b00000000(dec=0) target=0b00000000 rel(yaw,pitch)=(0.000,0.000) abs(yaw,pitch)=(59.187,28.034) EOF=0xFF
+[2025-10-15 20:11:58.531] [info] [Cboard][SCM][TX] wrote=33B id=0x02 state=0b00000000(dec=0) target=0b00000000 rel(yaw,pitch)=(0.000,0.000) abs(yaw,pitch)=(59.187,28.034) EOF=0xFF
+[2025-10-15 20:11:58.542] [info] [Cboard][SCM][TX] wrote=33B id=0x02 state=0b00000000(dec=0) target=0b00000000 rel(yaw,pitch)=(0.000,0.000) abs(yaw,pitch)=(59.189,28.034) EOF=0xFF
+[2025-10-15 20:11:58.552] [info] [Cboard][SCM][TX] wrote=33B id=0x02 state=0b00000000(dec=0) target=0b00000000 rel(yaw,pitch)=(0.000,0.000) abs(yaw,pitch)=(59.189,28.034) EOF=0xFF
+[2025-10-15 20:11:58.563] [info] [Cboard][SCM][TX] wrote=33B id=0x02 state=0b00000000(dec=0) target=0b00000000 rel(yaw,pitch)=(0.000,0.000) abs(yaw,pitch)=(59.188,28.037) EOF=0xFF
+[2025-10-15 20:11:58.573] [info] [Cboard][SCM][TX] wrote=33B id=0x02 state=0b00000000(dec=0) target=0b00000000 rel(yaw,pitch)=(0.000,0.000) abs(yaw,pitch)=(59.188,28.037) EOF=0xFF
+[2025-10-15 20:11:58.583] [info] [Cboard][SCM][TX] wrote=33B id=0x02 state=0b00000000(dec=0) target=0b00000000 rel(yaw,pitch)=(0.000,0.000) abs(yaw,pitch)=(59.189,28.038) EOF=0xFF
+[2025-10-15 20:11:58.593] [info] [Cboard][SCM][TX] wrote=33B id=0x02 state=0b00000000(dec=0) target=0b00000000 rel(yaw,pitch)=(0.000,0.000) abs(yaw,pitch)=(59.189,28.038) EOF=0xFF
+[2025-10-15 20:11:58.604] [info] [Cboard][SCM][TX] wrote=33B id=0x02 state=0b00000000(dec=0) target=0b00000000 rel(yaw,pitch)=(0.000,0.000) abs(yaw,pitch)=(59.189,28.038) EOF=0xFF
+[2025-10-15 20:11:58.614] [info] [Cboard][SCM][TX] wrote=33B id=0x02 state=0b00000000(dec=0) target=0b00000000 rel(yaw,pitch)=(0.000,0.000) abs(yaw,pitch)=(59.190,28.037) EOF=0xFF
+[2025-10-15 20:11:58.624] [info] [Cboard][SCM][TX] wrote=33B id=0x02 state=0b00000000(dec=0) target=0b00000000 rel(yaw,pitch)=(0.000,0.000) abs(yaw,pitch)=(59.190,28.037) EOF=0xFF
+[2025-10-15 20:11:58.635] [info] [Cboard][SCM][TX] wrote=33B id=0x02 state=0b00000000(dec=0) target=0b00000000 rel(yaw,pitch)=(0.000,0.000) abs(yaw,pitch)=(59.189,28.038) EOF=0xFF
+[2025-10-15 20:11:58.646] [info] [Cboard][SCM][TX] wrote=33B id=0x02 state=0b00000000(dec=0) target=0b00000000 rel(yaw,pitch)=(0.000,0.000) abs(yaw,pitch)=(59.189,28.038) EOF=0xFF
+[2025-10-15 20:11:58.656] [info] [Cboard][SCM][TX] wrote=33B id=0x02 state=0b00000000(dec=0) target=0b00000000 rel(yaw,pitch)=(0.000,0.000) abs(yaw,pitch)=(59.189,28.038) EOF=0xFF
+[2025-10-15 20:11:58.666] [info] [Cboard][SCM][TX] wrote=33B id=0x02 state=0b00000000(dec=0) target=0b00000000 rel(yaw,pitch)=(0.000,0.000) abs(yaw,pitch)=(59.189,28.040) EOF=0xFF
+[2025-10-15 20:11:58.676] [info] [Cboard][SCM][TX] wrote=33B id=0x02 state=0b00000000(dec=0) target=0b00000000 rel(yaw,pitch)=(0.000,0.000) abs(yaw,pitch)=(59.189,28.040) EOF=0xFF
+[2025-10-15 20:11:58.688] [info] [Cboard][SCM][TX] wrote=33B id=0x02 state=0b00000000(dec=0) target=0b00000000 rel(yaw,pitch)=(0.000,0.000) abs(yaw,pitch)=(59.191,28.039) EOF=0xFF
+[2025-10-15 20:11:58.698] [info] [Cboard][SCM][TX] wrote=33B id=0x02 state=0b00000000(dec=0) target=0b00000000 rel(yaw,pitch)=(0.000,0.000) abs(yaw,pitch)=(59.191,28.039) EOF=0xFF
+[2025-10-15 20:11:58.708] [info] [Cboard][SCM][TX] wrote=33B id=0x02 state=0b00000000(dec=0) target=0b00000000 rel(yaw,pitch)=(0.000,0.000) abs(yaw,pitch)=(59.191,28.039) EOF=0xFF
+[2025-10-15 20:11:58.718] [info] [Cboard][SCM][TX] wrote=33B id=0x02 state=0b00000000(dec=0) target=0b00000000 rel(yaw,pitch)=(0.000,0.000) abs(yaw,pitch)=(59.190,28.039) EOF=0xFF
+[2025-10-15 20:11:58.729] [info] [Cboard][SCM][TX] wrote=33B id=0x02 state=0b00000000(dec=0) target=0b00000000 rel(yaw,pitch)=(0.000,0.000) abs(yaw,pitch)=(59.190,28.039) EOF=0xFF
+[2025-10-15 20:11:58.739] [info] [Cboard][SCM][TX] wrote=33B id=0x02 state=0b00000000(dec=0) target=0b00000000 rel(yaw,pitch)=(0.000,0.000) abs(yaw,pitch)=(59.188,28.042) EOF=0xFF
+[2025-10-15 20:11:58.750] [info] [Cboard][SCM][TX] wrote=33B id=0x02 state=0b00000000(dec=0) target=0b00000000 rel(yaw,pitch)=(0.000,0.000) abs(yaw,pitch)=(59.188,28.042) EOF=0xFF
+[2025-10-15 20:11:58.760] [info] [Cboard][SCM][TX] wrote=33B id=0x02 state=0b00000000(dec=0) target=0b00000000 rel(yaw,pitch)=(0.000,0.000) abs(yaw,pitch)=(59.188,28.042) EOF=0xFF
+[2025-10-15 20:11:58.770] [info] [Cboard][SCM][TX] wrote=33B id=0x02 state=0b00000000(dec=0) target=0b00000000 rel(yaw,pitch)=(0.000,0.000) abs(yaw,pitch)=(59.188,28.041) EOF=0xFF
+[2025-10-15 20:11:58.780] [info] [Cboard][SCM][TX] wrote=33B id=0x02 state=0b00000000(dec=0) target=0b00000000 rel(yaw,pitch)=(0.000,0.000) abs(yaw,pitch)=(59.188,28.041) EOF=0xFF
+[2025-10-15 20:11:58.790] [info] [Cboard][SCM][TX] wrote=33B id=0x02 state=0b00000000(dec=0) target=0b00000000 rel(yaw,pitch)=(0.000,0.000) abs(yaw,pitch)=(59.188,28.041) EOF=0xFF
+[2025-10-15 20:11:58.801] [info] [Cboard][SCM][TX] wrote=33B id=0x02 state=0b00000000(dec=0) target=0b00000000 rel(yaw,pitch)=(0.000,0.000) abs(yaw,pitch)=(59.186,28.040) EOF=0xFF
+[2025-10-15 20:11:58.811] [info] [Cboard][SCM][TX] wrote=33B id=0x02 state=0b00000000(dec=0) target=0b00000000 rel(yaw,pitch)=(0.000,0.000) abs(yaw,pitch)=(59.186,28.040) EOF=0xFF
+[2025-10-15 20:11:58.821] [info] [Cboard][SCM][TX] wrote=33B id=0x02 state=0b00000000(dec=0) target=0b00000000 rel(yaw,pitch)=(0.000,0.000) abs(yaw,pitch)=(59.189,28.039) EOF=0xFF
+[2025-10-15 20:11:58.832] [info] [Cboard][SCM][TX] wrote=33B id=0x02 state=0b00000000(dec=0) target=0b00000000 rel(yaw,pitch)=(0.000,0.000) abs(yaw,pitch)=(59.189,28.039) EOF=0xFF
+[2025-10-15 20:11:58.842] [info] [Cboard][SCM][TX] wrote=33B id=0x02 state=0b00000000(dec=0) target=0b00000000 rel(yaw,pitch)=(0.000,0.000) abs(yaw,pitch)=(59.189,28.039) EOF=0xFF
+[2025-10-15 20:11:58.852] [info] [Cboard][SCM][TX] wrote=33B id=0x02 state=0b00000000(dec=0) target=0b00000000 rel(yaw,pitch)=(0.000,0.000) abs(yaw,pitch)=(59.190,28.042) EOF=0xFF
+[2025-10-15 20:11:58.863] [info] [Cboard][SCM][TX] wrote=33B id=0x02 state=0b00000000(dec=0) target=0b00000000 rel(yaw,pitch)=(0.000,0.000) abs(yaw,pitch)=(59.190,28.042) EOF=0xFF
+[2025-10-15 20:11:58.874] [info] [Cboard][SCM][TX] wrote=33B id=0x02 state=0b00000000(dec=0) target=0b00000000 rel(yaw,pitch)=(0.000,0.000) abs(yaw,pitch)=(59.190,28.042) EOF=0xFF
+[2025-10-15 20:11:58.884] [info] [Cboard][SCM][TX] wrote=33B id=0x02 state=0b00000000(dec=0) target=0b00000000 rel(yaw,pitch)=(0.000,0.000) abs(yaw,pitch)=(59.188,28.039) EOF=0xFF
+[2025-10-15 20:11:58.894] [info] [Cboard][SCM][TX] wrote=33B id=0x02 state=0b00000000(dec=0) target=0b00000000 rel(yaw,pitch)=(0.000,0.000) abs(yaw,pitch)=(59.188,28.039) EOF=0xFF
+[2025-10-15 20:11:58.905] [info] [Cboard][SCM][TX] wrote=33B id=0x02 state=0b00000000(dec=0) target=0b00000000 rel(yaw,pitch)=(0.000,0.000) abs(yaw,pitch)=(59.191,28.040) EOF=0xFF
+[2025-10-15 20:11:58.915] [info] [Cboard][SCM][TX] wrote=33B id=0x02 state=0b00000000(dec=0) target=0b00000000 rel(yaw,pitch)=(0.000,0.000) abs(yaw,pitch)=(59.191,28.040) EOF=0xFF
+[2025-10-15 20:11:58.925] [info] [Cboard][SCM][TX] wrote=33B id=0x02 state=0b00000000(dec=0) target=0b00000000 rel(yaw,pitch)=(0.000,0.000) abs(yaw,pitch)=(59.191,28.040) EOF=0xFF
+[2025-10-15 20:11:58.930] [info] Processing frame 300, using Bayer filter: BAYERRG
+[2025-10-15 20:11:58.935] [info] [Cboard][SCM][TX] wrote=33B id=0x02 state=0b00000000(dec=0) target=0b00000000 rel(yaw,pitch)=(0.000,0.000) abs(yaw,pitch)=(59.189,28.041) EOF=0xFF
+[2025-10-15 20:11:58.946] [info] [Cboard][SCM][TX] wrote=33B id=0x02 state=0b00000000(dec=0) target=0b00000000 rel(yaw,pitch)=(0.000,0.000) abs(yaw,pitch)=(59.189,28.041) EOF=0xFF
+[2025-10-15 20:11:58.956] [info] [Cboard][SCM][TX] wrote=33B id=0x02 state=0b00000000(dec=0) target=0b00000000 rel(yaw,pitch)=(0.000,0.000) abs(yaw,pitch)=(59.190,28.044) EOF=0xFF
+[2025-10-15 20:11:58.966] [info] [Cboard][SCM][TX] wrote=33B id=0x02 state=0b00000000(dec=0) target=0b00000000 rel(yaw,pitch)=(0.000,0.000) abs(yaw,pitch)=(59.190,28.044) EOF=0xFF
+[2025-10-15 20:11:58.977] [info] [Cboard][SCM][TX] wrote=33B id=0x02 state=0b00000000(dec=0) target=0b00000000 rel(yaw,pitch)=(0.000,0.000) abs(yaw,pitch)=(59.190,28.044) EOF=0xFF
+[2025-10-15 20:11:58.987] [info] [Cboard][SCM][TX] wrote=33B id=0x02 state=0b00000000(dec=0) target=0b00000000 rel(yaw,pitch)=(0.000,0.000) abs(yaw,pitch)=(59.190,28.045) EOF=0xFF
+[2025-10-15 20:11:58.997] [info] [Cboard][SCM][TX] wrote=33B id=0x02 state=0b00000000(dec=0) target=0b00000000 rel(yaw,pitch)=(0.000,0.000) abs(yaw,pitch)=(59.190,28.045) EOF=0xFF
+[2025-10-15 20:11:59.007] [info] [Cboard][SCM][TX] wrote=33B id=0x02 state=0b00000000(dec=0) target=0b00000000 rel(yaw,pitch)=(0.000,0.000) abs(yaw,pitch)=(59.190,28.045) EOF=0xFF
+[2025-10-15 20:11:59.018] [info] [Cboard][SCM][TX] wrote=33B id=0x02 state=0b00000000(dec=0) target=0b00000000 rel(yaw,pitch)=(0.000,0.000) abs(yaw,pitch)=(59.190,28.045) EOF=0xFF
+[2025-10-15 20:11:59.028] [info] [Cboard][SCM][TX] wrote=33B id=0x02 state=0b00000000(dec=0) target=0b00000000 rel(yaw,pitch)=(0.000,0.000) abs(yaw,pitch)=(59.190,28.045) EOF=0xFF
+[2025-10-15 20:11:59.038] [info] [Cboard][SCM][TX] wrote=33B id=0x02 state=0b00000000(dec=0) target=0b00000000 rel(yaw,pitch)=(0.000,0.000) abs(yaw,pitch)=(59.190,28.047) EOF=0xFF
+[2025-10-15 20:11:59.049] [info] [Cboard][SCM][TX] wrote=33B id=0x02 state=0b00000000(dec=0) target=0b00000000 rel(yaw,pitch)=(0.000,0.000) abs(yaw,pitch)=(59.190,28.047) EOF=0xFF
+[2025-10-15 20:11:59.059] [info] [Cboard][SCM][TX] wrote=33B id=0x02 state=0b00000000(dec=0) target=0b00000000 rel(yaw,pitch)=(0.000,0.000) abs(yaw,pitch)=(59.190,28.047) EOF=0xFF
+[2025-10-15 20:11:59.070] [info] [Cboard][SCM][TX] wrote=33B id=0x02 state=0b00000000(dec=0) target=0b00000000 rel(yaw,pitch)=(0.000,0.000) abs(yaw,pitch)=(59.191,28.049) EOF=0xFF
+[2025-10-15 20:11:59.080] [info] [Cboard][SCM][TX] wrote=33B id=0x02 state=0b00000000(dec=0) target=0b00000000 rel(yaw,pitch)=(0.000,0.000) abs(yaw,pitch)=(59.191,28.049) EOF=0xFF
+[2025-10-15 20:11:59.090] [info] [Cboard][SCM][TX] wrote=33B id=0x02 state=0b00000000(dec=0) target=0b00000000 rel(yaw,pitch)=(0.000,0.000) abs(yaw,pitch)=(59.191,28.049) EOF=0xFF
+[2025-10-15 20:11:59.102] [info] [Cboard][SCM][TX] wrote=33B id=0x02 state=0b00000000(dec=0) target=0b00000000 rel(yaw,pitch)=(0.000,0.000) abs(yaw,pitch)=(59.191,28.049) EOF=0xFF
+[2025-10-15 20:11:59.112] [info] [Cboard][SCM][TX] wrote=33B id=0x02 state=0b00000000(dec=0) target=0b00000000 rel(yaw,pitch)=(0.000,0.000) abs(yaw,pitch)=(59.191,28.049) EOF=0xFF
+[2025-10-15 20:11:59.122] [info] [Cboard][SCM][TX] wrote=33B id=0x02 state=0b00000000(dec=0) target=0b00000000 rel(yaw,pitch)=(0.000,0.000) abs(yaw,pitch)=(59.193,28.046) EOF=0xFF
+[2025-10-15 20:11:59.133] [info] [Cboard][SCM][TX] wrote=33B id=0x02 state=0b00000000(dec=0) target=0b00000000 rel(yaw,pitch)=(0.000,0.000) abs(yaw,pitch)=(59.193,28.046) EOF=0xFF
+[2025-10-15 20:11:59.143] [info] [Cboard][SCM][TX] wrote=33B id=0x02 state=0b00000000(dec=0) target=0b00000000 rel(yaw,pitch)=(0.000,0.000) abs(yaw,pitch)=(59.193,28.046) EOF=0xFF
+[2025-10-15 20:11:59.153] [info] [Cboard][SCM][TX] wrote=33B id=0x02 state=0b00000000(dec=0) target=0b00000000 rel(yaw,pitch)=(0.000,0.000) abs(yaw,pitch)=(59.196,28.045) EOF=0xFF
+[2025-10-15 20:11:59.164] [info] [Cboard][SCM][TX] wrote=33B id=0x02 state=0b00000000(dec=0) target=0b00000000 rel(yaw,pitch)=(0.000,0.000) abs(yaw,pitch)=(59.196,28.045) EOF=0xFF
+[2025-10-15 20:11:59.174] [info] [Cboard][SCM][TX] wrote=33B id=0x02 state=0b00000000(dec=0) target=0b00000000 rel(yaw,pitch)=(0.000,0.000) abs(yaw,pitch)=(59.196,28.043) EOF=0xFF
+[2025-10-15 20:11:59.184] [info] [Cboard][SCM][TX] wrote=33B id=0x02 state=0b00000000(dec=0) target=0b00000000 rel(yaw,pitch)=(0.000,0.000) abs(yaw,pitch)=(59.196,28.043) EOF=0xFF
+[2025-10-15 20:11:59.195] [info] [Cboard][SCM][TX] wrote=33B id=0x02 state=0b00000000(dec=0) target=0b00000000 rel(yaw,pitch)=(0.000,0.000) abs(yaw,pitch)=(59.196,28.043) EOF=0xFF
+[2025-10-15 20:11:59.205] [info] [Cboard][SCM][TX] wrote=33B id=0x02 state=0b00000000(dec=0) target=0b00000000 rel(yaw,pitch)=(0.000,0.000) abs(yaw,pitch)=(59.197,28.044) EOF=0xFF
+[2025-10-15 20:11:59.215] [info] [Cboard][SCM][TX] wrote=33B id=0x02 state=0b00000000(dec=0) target=0b00000000 rel(yaw,pitch)=(0.000,0.000) abs(yaw,pitch)=(59.197,28.044) EOF=0xFF
+[2025-10-15 20:11:59.225] [info] [Cboard][SCM][TX] wrote=33B id=0x02 state=0b00000000(dec=0) target=0b00000000 rel(yaw,pitch)=(0.000,0.000) abs(yaw,pitch)=(59.196,28.043) EOF=0xFF
+[2025-10-15 20:11:59.236] [info] [Cboard][SCM][TX] wrote=33B id=0x02 state=0b00000000(dec=0) target=0b00000000 rel(yaw,pitch)=(0.000,0.000) abs(yaw,pitch)=(59.196,28.043) EOF=0xFF
+[2025-10-15 20:11:59.246] [info] [Cboard][SCM][TX] wrote=33B id=0x02 state=0b00000000(dec=0) target=0b00000000 rel(yaw,pitch)=(0.000,0.000) abs(yaw,pitch)=(59.195,28.042) EOF=0xFF
+[2025-10-15 20:11:59.256] [info] [Cboard][SCM][TX] wrote=33B id=0x02 state=0b00000000(dec=0) target=0b00000000 rel(yaw,pitch)=(0.000,0.000) abs(yaw,pitch)=(59.195,28.042) EOF=0xFF
+[2025-10-15 20:11:59.267] [info] [Cboard][SCM][TX] wrote=33B id=0x02 state=0b00000000(dec=0) target=0b00000000 rel(yaw,pitch)=(0.000,0.000) abs(yaw,pitch)=(59.195,28.042) EOF=0xFF
+[2025-10-15 20:11:59.277] [info] [Cboard][SCM][TX] wrote=33B id=0x02 state=0b00000000(dec=0) target=0b00000000 rel(yaw,pitch)=(0.000,0.000) abs(yaw,pitch)=(59.199,28.039) EOF=0xFF
+[2025-10-15 20:11:59.287] [info] [Cboard][SCM][TX] wrote=33B id=0x02 state=0b00000000(dec=0) target=0b00000000 rel(yaw,pitch)=(0.000,0.000) abs(yaw,pitch)=(59.199,28.039) EOF=0xFF
+[2025-10-15 20:11:59.297] [info] [Cboard][SCM][TX] wrote=33B id=0x02 state=0b00000000(dec=0) target=0b00000000 rel(yaw,pitch)=(0.000,0.000) abs(yaw,pitch)=(59.199,28.039) EOF=0xFF
+[2025-10-15 20:11:59.308] [info] [Cboard][SCM][TX] wrote=33B id=0x02 state=0b00000000(dec=0) target=0b00000000 rel(yaw,pitch)=(0.000,0.000) abs(yaw,pitch)=(59.199,28.038) EOF=0xFF
+[2025-10-15 20:11:59.318] [info] [Cboard][SCM][TX] wrote=33B id=0x02 state=0b00000000(dec=0) target=0b00000000 rel(yaw,pitch)=(0.000,0.000) abs(yaw,pitch)=(59.199,28.038) EOF=0xFF
+[2025-10-15 20:11:59.328] [info] [Cboard][SCM][TX] wrote=33B id=0x02 state=0b00000000(dec=0) target=0b00000000 rel(yaw,pitch)=(0.000,0.000) abs(yaw,pitch)=(59.198,28.042) EOF=0xFF
+[2025-10-15 20:11:59.339] [info] [Cboard][SCM][TX] wrote=33B id=0x02 state=0b00000000(dec=0) target=0b00000000 rel(yaw,pitch)=(0.000,0.000) abs(yaw,pitch)=(59.198,28.042) EOF=0xFF
+[2025-10-15 20:11:59.349] [info] [Cboard][SCM][TX] wrote=33B id=0x02 state=0b00000000(dec=0) target=0b00000000 rel(yaw,pitch)=(0.000,0.000) abs(yaw,pitch)=(59.198,28.042) EOF=0xFF
+[2025-10-15 20:11:59.359] [info] [Cboard][SCM][TX] wrote=33B id=0x02 state=0b00000000(dec=0) target=0b00000000 rel(yaw,pitch)=(0.000,0.000) abs(yaw,pitch)=(59.198,28.040) EOF=0xFF
+[2025-10-15 20:11:59.370] [info] [Cboard][SCM][TX] wrote=33B id=0x02 state=0b00000000(dec=0) target=0b00000000 rel(yaw,pitch)=(0.000,0.000) abs(yaw,pitch)=(59.198,28.040) EOF=0xFF
+[2025-10-15 20:11:59.380] [info] [Cboard][SCM][TX] wrote=33B id=0x02 state=0b00000000(dec=0) target=0b00000000 rel(yaw,pitch)=(0.000,0.000) abs(yaw,pitch)=(59.199,28.041) EOF=0xFF
+[2025-10-15 20:11:59.390] [info] [Cboard][SCM][TX] wrote=33B id=0x02 state=0b00000000(dec=0) target=0b00000000 rel(yaw,pitch)=(0.000,0.000) abs(yaw,pitch)=(59.199,28.041) EOF=0xFF
+[2025-10-15 20:11:59.401] [info] [Cboard][SCM][TX] wrote=33B id=0x02 state=0b00000000(dec=0) target=0b00000000 rel(yaw,pitch)=(0.000,0.000) abs(yaw,pitch)=(59.199,28.041) EOF=0xFF
+[2025-10-15 20:11:59.411] [info] [Cboard][SCM][TX] wrote=33B id=0x02 state=0b00000000(dec=0) target=0b00000000 rel(yaw,pitch)=(0.000,0.000) abs(yaw,pitch)=(59.201,28.039) EOF=0xFF
+[2025-10-15 20:11:59.422] [info] [Cboard][SCM][TX] wrote=33B id=0x02 state=0b00000000(dec=0) target=0b00000000 rel(yaw,pitch)=(0.000,0.000) abs(yaw,pitch)=(59.201,28.039) EOF=0xFF
+[2025-10-15 20:11:59.433] [info] [Cboard][SCM][TX] wrote=33B id=0x02 state=0b00000000(dec=0) target=0b00000000 rel(yaw,pitch)=(0.000,0.000) abs(yaw,pitch)=(59.201,28.039) EOF=0xFF
+[2025-10-15 20:11:59.443] [info] [Cboard][SCM][TX] wrote=33B id=0x02 state=0b00000000(dec=0) target=0b00000000 rel(yaw,pitch)=(0.000,0.000) abs(yaw,pitch)=(59.201,28.039) EOF=0xFF
+[2025-10-15 20:11:59.453] [info] [Cboard][SCM][TX] wrote=33B id=0x02 state=0b00000000(dec=0) target=0b00000000 rel(yaw,pitch)=(0.000,0.000) abs(yaw,pitch)=(59.201,28.039) EOF=0xFF
+[2025-10-15 20:11:59.463] [info] [Cboard][SCM][TX] wrote=33B id=0x02 state=0b00000000(dec=0) target=0b00000000 rel(yaw,pitch)=(0.000,0.000) abs(yaw,pitch)=(59.201,28.039) EOF=0xFF
+[2025-10-15 20:11:59.474] [info] [Cboard][SCM][TX] wrote=33B id=0x02 state=0b00000000(dec=0) target=0b00000000 rel(yaw,pitch)=(0.000,0.000) abs(yaw,pitch)=(59.198,28.042) EOF=0xFF
+[2025-10-15 20:11:59.484] [info] [Cboard][SCM][TX] wrote=33B id=0x02 state=0b00000000(dec=0) target=0b00000000 rel(yaw,pitch)=(0.000,0.000) abs(yaw,pitch)=(59.198,28.042) EOF=0xFF
+[2025-10-15 20:11:59.495] [info] [Cboard][SCM][TX] wrote=33B id=0x02 state=0b00000000(dec=0) target=0b00000000 rel(yaw,pitch)=(0.000,0.000) abs(yaw,pitch)=(59.197,28.044) EOF=0xFF
+[2025-10-15 20:11:59.505] [info] [Cboard][SCM][TX] wrote=33B id=0x02 state=0b00000000(dec=0) target=0b00000000 rel(yaw,pitch)=(0.000,0.000) abs(yaw,pitch)=(59.197,28.044) EOF=0xFF
+[2025-10-15 20:11:59.515] [info] [Cboard][SCM][TX] wrote=33B id=0x02 state=0b00000000(dec=0) target=0b00000000 rel(yaw,pitch)=(0.000,0.000) abs(yaw,pitch)=(59.197,28.044) EOF=0xFF
+[2025-10-15 20:11:59.525] [info] [Cboard][SCM][TX] wrote=33B id=0x02 state=0b00000000(dec=0) target=0b00000000 rel(yaw,pitch)=(0.000,0.000) abs(yaw,pitch)=(59.197,28.051) EOF=0xFF
+[2025-10-15 20:11:59.536] [info] [Cboard][SCM][TX] wrote=33B id=0x02 state=0b00000000(dec=0) target=0b00000000 rel(yaw,pitch)=(0.000,0.000) abs(yaw,pitch)=(59.197,28.051) EOF=0xFF
+[2025-10-15 20:11:59.546] [info] [Cboard][SCM][TX] wrote=33B id=0x02 state=0b00000000(dec=0) target=0b00000000 rel(yaw,pitch)=(0.000,0.000) abs(yaw,pitch)=(59.197,28.051) EOF=0xFF
+[2025-10-15 20:11:59.557] [info] [Cboard][SCM][TX] wrote=33B id=0x02 state=0b00000000(dec=0) target=0b00000000 rel(yaw,pitch)=(0.000,0.000) abs(yaw,pitch)=(59.198,28.046) EOF=0xFF
+[2025-10-15 20:11:59.567] [info] [Cboard][SCM][TX] wrote=33B id=0x02 state=0b00000000(dec=0) target=0b00000000 rel(yaw,pitch)=(0.000,0.000) abs(yaw,pitch)=(59.198,28.046) EOF=0xFF
+[2025-10-15 20:11:59.578] [info] [Cboard][SCM][TX] wrote=33B id=0x02 state=0b00000000(dec=0) target=0b00000000 rel(yaw,pitch)=(0.000,0.000) abs(yaw,pitch)=(59.198,28.046) EOF=0xFF
+[2025-10-15 20:11:59.588] [info] [Cboard][SCM][TX] wrote=33B id=0x02 state=0b00000000(dec=0) target=0b00000000 rel(yaw,pitch)=(0.000,0.000) abs(yaw,pitch)=(59.199,28.049) EOF=0xFF
+[2025-10-15 20:11:59.598] [info] [Cboard][SCM][TX] wrote=33B id=0x02 state=0b00000000(dec=0) target=0b00000000 rel(yaw,pitch)=(0.000,0.000) abs(yaw,pitch)=(59.199,28.049) EOF=0xFF
+[2025-10-15 20:11:59.608] [info] [Cboard][SCM][TX] wrote=33B id=0x02 state=0b00000000(dec=0) target=0b00000000 rel(yaw,pitch)=(0.000,0.000) abs(yaw,pitch)=(59.199,28.049) EOF=0xFF
+[2025-10-15 20:11:59.619] [info] [Cboard][SCM][TX] wrote=33B id=0x02 state=0b00000000(dec=0) target=0b00000000 rel(yaw,pitch)=(0.000,0.000) abs(yaw,pitch)=(59.201,28.049) EOF=0xFF
+[2025-10-15 20:11:59.629] [info] [Cboard][SCM][TX] wrote=33B id=0x02 state=0b00000000(dec=0) target=0b00000000 rel(yaw,pitch)=(0.000,0.000) abs(yaw,pitch)=(59.201,28.049) EOF=0xFF
+[2025-10-15 20:11:59.639] [info] [Cboard][SCM][TX] wrote=33B id=0x02 state=0b00000000(dec=0) target=0b00000000 rel(yaw,pitch)=(0.000,0.000) abs(yaw,pitch)=(59.201,28.049) EOF=0xFF
+[2025-10-15 20:11:59.650] [info] [Cboard][SCM][TX] wrote=33B id=0x02 state=0b00000000(dec=0) target=0b00000000 rel(yaw,pitch)=(0.000,0.000) abs(yaw,pitch)=(59.201,28.047) EOF=0xFF
+[2025-10-15 20:11:59.660] [info] [Cboard][SCM][TX] wrote=33B id=0x02 state=0b00000000(dec=0) target=0b00000000 rel(yaw,pitch)=(0.000,0.000) abs(yaw,pitch)=(59.201,28.047) EOF=0xFF
+[2025-10-15 20:11:59.670] [info] [Cboard][SCM][TX] wrote=33B id=0x02 state=0b00000000(dec=0) target=0b00000000 rel(yaw,pitch)=(0.000,0.000) abs(yaw,pitch)=(59.201,28.045) EOF=0xFF
+[2025-10-15 20:11:59.680] [info] [Cboard][SCM][TX] wrote=33B id=0x02 state=0b00000000(dec=0) target=0b00000000 rel(yaw,pitch)=(0.000,0.000) abs(yaw,pitch)=(59.201,28.045) EOF=0xFF
+[2025-10-15 20:11:59.691] [info] [Cboard][SCM][TX] wrote=33B id=0x02 state=0b00000000(dec=0) target=0b00000000 rel(yaw,pitch)=(0.000,0.000) abs(yaw,pitch)=(59.203,28.044) EOF=0xFF
+[2025-10-15 20:11:59.701] [info] [Cboard][SCM][TX] wrote=33B id=0x02 state=0b00000000(dec=0) target=0b00000000 rel(yaw,pitch)=(0.000,0.000) abs(yaw,pitch)=(59.203,28.044) EOF=0xFF
+[2025-10-15 20:11:59.711] [info] [Cboard][SCM][TX] wrote=33B id=0x02 state=0b00000000(dec=0) target=0b00000000 rel(yaw,pitch)=(0.000,0.000) abs(yaw,pitch)=(59.204,28.042) EOF=0xFF

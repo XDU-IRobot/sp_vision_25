@@ -26,6 +26,14 @@ CBoard::CBoard(const std::string &config_path)
       serial_.open();
       tools::logger()->info("[Cboard] Serial opened {} @ {} baud", serial_port_,
                             serial_baudrate_);
+      // 某些下位机（CDC/STM32 等）只有在 DTR 为高时才开始收/发数据；主动拉起 DTR/RTS
+      try {
+        serial_.setDTR(true);
+        serial_.setRTS(true);
+        tools::logger()->info("[Cboard] Serial lines: DTR=1, RTS=1");
+      } catch (const std::exception &e) {
+        tools::logger()->warn("[Cboard] Failed to set DTR/RTS: {}", e.what());
+      }
   start_tp_ = std::chrono::steady_clock::now();
       serial_quit_ = false;
       serial_thread_ = std::thread(&CBoard::serial_read_loop, this);
@@ -79,7 +87,8 @@ void CBoard::send(Command command) {
       float yaw = static_cast<float>(command.yaw);
       float pitch = static_cast<float>(command.pitch);
       // 在当前实现中暂不输出速度/加速度（可扩展），默认置 0
-      send_scm(command.control, command.shoot, yaw, 0.f, 0.f, pitch, 0.f, 0.f);
+      bool force_ctrl = serial_force_control_ ? true : command.control;
+      send_scm(force_ctrl, command.shoot, yaw, 0.f, 0.f, pitch, 0.f, 0.f);
       return;
     } else {
       // RAW 可变帧（无 CRC）：[SOF][ID][LEN=8][payload][EOF]
@@ -227,10 +236,52 @@ std::string CBoard::read_yaml(const std::string &config_path) {
     if (yaml["cboard_serial_angles_in_deg"]) {
       serial_scm_angles_in_deg_ = yaml["cboard_serial_angles_in_deg"].as<bool>();
     }
+    if (yaml["cboard_serial_scm_default_target"]) {
+      serial_scm_default_target_ = static_cast<uint8_t>(yaml["cboard_serial_scm_default_target"].as<uint32_t>());
+    }
+    if (yaml["cboard_serial_force_fire_when_control"]) {
+      serial_force_fire_when_control_ = yaml["cboard_serial_force_fire_when_control"].as<bool>();
+    }
+    if (yaml["cboard_serial_force_control"]) {
+      serial_force_control_ = yaml["cboard_serial_force_control"].as<bool>();
+    }
+    if (yaml["cboard_serial_aimbotstate_mode"]) {
+      auto ms = yaml["cboard_serial_aimbotstate_mode"].as<std::string>();
+      serial_aimbotstate_enum_ = (ms == "enum"); // enum 或 bitfield
+    }
+    // 云台绝对角零位偏置（优先读取度，回退到弧度）
+    if (yaml["gimbal_yaw_offset_deg"]) {
+      gimbal_yaw_offset_rad_ = yaml["gimbal_yaw_offset_deg"].as<double>() * M_PI / 180.0;
+    } else if (yaml["gimbal_yaw_offset_rad"]) {
+      gimbal_yaw_offset_rad_ = yaml["gimbal_yaw_offset_rad"].as<double>();
+    }
+    if (yaml["gimbal_pitch_offset_deg"]) {
+      gimbal_pitch_offset_rad_ = yaml["gimbal_pitch_offset_deg"].as<double>() * M_PI / 180.0;
+    } else if (yaml["gimbal_pitch_offset_rad"]) {
+      gimbal_pitch_offset_rad_ = yaml["gimbal_pitch_offset_rad"].as<double>();
+    }
+    // 欧拉角提取与符号、归一化设置
+    if (yaml["gimbal_pitch_from_x"]) {
+      gimbal_pitch_from_x_ = yaml["gimbal_pitch_from_x"].as<bool>();
+    }
+    if (yaml["yaw_sign"]) {
+      yaw_sign_ = yaml["yaw_sign"].as<int>();
+      if (yaw_sign_ == 0) yaw_sign_ = 1;
+    }
+    if (yaml["pitch_sign"]) {
+      pitch_sign_ = yaml["pitch_sign"].as<int>();
+      if (pitch_sign_ == 0) pitch_sign_ = 1;
+    }
+    if (yaml["normalize_abs_angles"]) {
+      normalize_abs_angles_ = yaml["normalize_abs_angles"].as<bool>();
+    }
+
   tools::logger()->info(
-    "[Cboard] Serial config: CRC {} (skip_crc={}), SOF=0x{:02X}, EOF=0x{:02X}, id_quat=0x{:02X}, id_status=0x{:02X}, protocol={} rx_id=0x{:02X} tx_id=0x{:02X} angles_in_deg={} log_rx={} log_tx={}",
+    "[Cboard] Serial config: CRC {} (skip_crc={}), SOF=0x{:02X}, EOF=0x{:02X}, id_quat=0x{:02X}, id_status=0x{:02X}, protocol={} rx_id=0x{:02X} tx_id=0x{:02X} angles_in_deg={} default_target=0x{:02X} force_control={} force_fire_when_control={} aimbotstate_mode={} log_rx={} log_tx={} gimbal_offset(deg)=(yaw={:.2f},pitch={:.2f}) pitch_from_x={} yaw_sign={} pitch_sign={} normalize_abs={}",
     serial_skip_crc_ ? "disabled" : "enabled", serial_skip_crc_, serial_sof_, serial_eof_, serial_id_quat_,
-    serial_id_status_, serial_protocol_scm_ ? "SCM" : "RAW", serial_scm_rx_id_, serial_scm_tx_id_, serial_scm_angles_in_deg_, serial_log_rx_, serial_log_tx_);
+    serial_id_status_, serial_protocol_scm_ ? "SCM" : "RAW", serial_scm_rx_id_, serial_scm_tx_id_, serial_scm_angles_in_deg_, serial_scm_default_target_, serial_force_control_, serial_force_fire_when_control_, (serial_aimbotstate_enum_ ? "enum" : "bitfield"), serial_log_rx_, serial_log_tx_,
+    gimbal_yaw_offset_rad_ * 180.0 / M_PI, gimbal_pitch_offset_rad_ * 180.0 / M_PI,
+    gimbal_pitch_from_x_, yaw_sign_, pitch_sign_, normalize_abs_angles_);
     return "serial";
   }
 
@@ -360,7 +411,8 @@ void CBoard::send_scm(bool control, bool fire, float yaw, float yaw_vel, float y
                       float pitch, float pitch_vel, float pitch_acc)
 {
   // AimbotFrame_SCM_t（packed）
-  struct __attribute__((packed)) AimbotFrame_SCM_t {
+  // 按 MCU 协议：EOF 紧随 SystemTimer，后续 PitchRelativeAngle/YawRelativeAngle 为 C 板内部使用，不在帧内发送
+  struct __attribute__((packed)) AimbotFrame_SCM_TX_t {
     uint8_t SOF;
     uint8_t ID;
     // 按电控约定命名：Aimbotstate=0 不控，1 控不火，2 控且火
@@ -371,46 +423,88 @@ void CBoard::send_scm(bool control, bool fire, float yaw, float yaw_vel, float y
     float TargetPitchSpeed;
     float TargetYawSpeed;
     float SystemTimer;
-    uint8_t _EOF; // 注意：MCU 协议要求 EOF 在相对角之后的前面
-    float PitchRelativeAngle;
-    float YawRelativeAngle;
+    uint8_t _EOF; // EOF 放在 SystemTimer 之后（总 25 字节）
   } frame{};
 
   frame.SOF = serial_sof_;
   frame.ID = serial_scm_tx_id_;
-  // AimbotState 按位：BIT0 已识别到；BIT1 可以打击；BIT5 自瞄模式
+  // AimbotState：支持两种编码
   uint8_t aimbot_state = 0;
-  if (control) {
-    aimbot_state |= (1u << 0);            // 已识别到
-    aimbot_state |= (1u << 5);            // 自瞄模式
-    if (fire) aimbot_state |= (1u << 1);  // 可以打击
+  if (serial_aimbotstate_enum_) {
+    // enum 模式：0 不控，1 控不火，2 控且火
+    if (control) aimbot_state = (fire || serial_force_fire_when_control_) ? 2 : 1;
+  } else {
+    // bitfield 模式：BIT0=识别，BIT1=可打击，BIT5=自瞄
+    if (control) {
+      aimbot_state |= (1u << 0);
+      aimbot_state |= (1u << 5);
+      if (fire || serial_force_fire_when_control_) aimbot_state |= (1u << 1);
+    }
   }
   frame.Aimbotstate = aimbot_state;
-  // 目标类型位：默认未知，置 0；如需按识别类别设位可在上层赋值
-  frame.AimbotTarget = 0u;
+  // 目标类型位：当识别到目标（以 control 为判据）置 1，否则使用配置默认值
+  frame.AimbotTarget = control ? static_cast<uint8_t>(1u)
+                               : serial_scm_default_target_;
 
-  float out_yaw = serial_scm_angles_in_deg_ ? rad2deg(yaw) : yaw;
-  float out_pitch = serial_scm_angles_in_deg_ ? rad2deg(pitch) : pitch;
+  // 计算当前IMU欧拉角（ZYX顺序）：yaw(Z), pitch(Y) 或按配置从 X 轴取 pitch
+  double curr_yaw = 0.0, curr_pitch = 0.0;
+  {
+    Eigen::Quaterniond q = data_behind_.q; // 快照
+    if (q.norm() > 1e-9) {
+      q.normalize();
+      Eigen::Matrix3d R = q.toRotationMatrix();
+      Eigen::Vector3d eul_zyx = R.eulerAngles(2, 1, 0);
+      curr_yaw = eul_zyx[0];                    // Z 轴
+      curr_pitch = gimbal_pitch_from_x_ ? R.eulerAngles(2, 0, 1)[1] // 从 X 轴序列取第二分量
+                                        : eul_zyx[1];               // 从 Y 轴
+      curr_yaw *= static_cast<double>(yaw_sign_);
+      curr_pitch *= static_cast<double>(pitch_sign_);
+    }
+  }
+
+  // 相对角（来自上层 yaw/pitch）与“绝对角”（= (当前IMU角 - 云台零位偏置) + 相对角）
+  double abs_yaw = (curr_yaw - gimbal_yaw_offset_rad_) + static_cast<double>(yaw);
+  double abs_pitch = (curr_pitch - gimbal_pitch_offset_rad_) + static_cast<double>(pitch);
+
+  // 归一化绝对角到 (-pi, pi]
+  auto norm_pi = [](double a) {
+    while (a <= -M_PI) a += 2 * M_PI;
+    while (a > M_PI) a -= 2 * M_PI;
+    return a;
+  };
+  if (normalize_abs_angles_) {
+    abs_yaw = norm_pi(abs_yaw);
+    abs_pitch = norm_pi(abs_pitch);
+  }
+
+  // 单位转换：按配置选择用度或弧度
+  float rel_yaw_out = serial_scm_angles_in_deg_ ? rad2deg(yaw) : yaw;
+  float rel_pitch_out = serial_scm_angles_in_deg_ ? rad2deg(pitch) : pitch;
+  float abs_yaw_out = serial_scm_angles_in_deg_ ? rad2deg(static_cast<float>(abs_yaw)) : static_cast<float>(abs_yaw);
+  float abs_pitch_out = serial_scm_angles_in_deg_ ? rad2deg(static_cast<float>(abs_pitch)) : static_cast<float>(abs_pitch);
   float out_yaw_vel = serial_scm_angles_in_deg_ ? rad2deg(yaw_vel) : yaw_vel;
   float out_pitch_vel = serial_scm_angles_in_deg_ ? rad2deg(pitch_vel) : pitch_vel;
   float system_timer = std::chrono::duration<float>(
                         std::chrono::steady_clock::now() - start_tp_).count();
 
-  frame.Pitch = out_pitch;
-  frame.Yaw = out_yaw;
+  // 按用户需求：Yaw/Pitch 发送“相对角”，PitchRelativeAngle/YawRelativeAngle 发送“绝对角”
+  frame.Pitch = rel_pitch_out;
+  frame.Yaw = rel_yaw_out;
   frame.TargetPitchSpeed = out_pitch_vel;
   frame.TargetYawSpeed = out_yaw_vel;
   frame.SystemTimer = system_timer;
   frame._EOF = serial_eof_;
-  frame.PitchRelativeAngle = frame.Pitch;
-  frame.YawRelativeAngle = frame.Yaw;
 
   try {
-    serial_.write(reinterpret_cast<const uint8_t*>(&frame), sizeof(frame));
+    auto nbytes = serial_.write(reinterpret_cast<const uint8_t*>(&frame), sizeof(frame));
     if (serial_debug_hex_ && serial_log_tx_) {
       tools::logger()->info(
-        "[Cboard][SCM][TX] id=0x{:02X} state=0b{:08b} target=0b{:08b} yaw={:.3f} pitch={:.3f} EOF=0x{:02X}",
-        static_cast<unsigned>(frame.ID), static_cast<unsigned>(frame.Aimbotstate), static_cast<unsigned>(frame.AimbotTarget), out_yaw, out_pitch, static_cast<unsigned>(frame._EOF));
+        "[Cboard][SCM][TX] wrote={}B id=0x{:02X} state=0b{:08b}(dec={}) target=0b{:08b} rel(yaw,pitch)=({:.3f},{:.3f}) abs(yaw,pitch)=({:.3f},{:.3f}) EOF=0x{:02X}",
+        static_cast<unsigned>(nbytes), static_cast<unsigned>(frame.ID), static_cast<unsigned>(frame.Aimbotstate), static_cast<unsigned>(frame.Aimbotstate), static_cast<unsigned>(frame.AimbotTarget),
+        rel_yaw_out, rel_pitch_out, abs_yaw_out, abs_pitch_out, static_cast<unsigned>(frame._EOF));
+    }
+    if (nbytes != sizeof(frame)) {
+      tools::logger()->warn("[Cboard][SCM] partial write: {} < {}", nbytes, sizeof(frame));
     }
   } catch (const std::exception &e) {
     tools::logger()->warn("[Cboard][SCM] write failed: {}", e.what());

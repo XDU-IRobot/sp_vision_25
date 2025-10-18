@@ -1,0 +1,117 @@
+# 标准自瞄（USB SCM）配置：NUC 识别目标后可控云台
+# 说明：
+# - 通过 USB CDC (/dev/gimbal → /dev/ttyACM0) 与 C 板通信
+# - 使用固定帧 SCM 协议：SOF=0x55，EOF=0xFF，ID: RX=0x01, TX=0x02
+# - 上位机发送“相对角”到 Yaw/Pitch，按“度”单位；状态位用 bitfield（bit0=有目标，bit1=建议开火）
+# - 打开 TX/RX 调试日志，便于联调
+
+enemy_color: "red"
+
+#####-----神经网络参数-----#####
+yolo_name: yolov5
+yolo11_model_path: assets/yolo11.xml
+yolov8_model_path: assets/yolov8.xml
+yolov5_model_path: assets/yolov5.xml
+device: GPU
+min_confidence_traditional: 0.8
+use_traditional: true
+
+#####-----ROI-----#####
+roi:
+  x: 420
+  y: 50
+  width: 600
+  height: 600
+use_roi: false
+
+#####-----传统方法参数-----#####
+threshold: 150
+max_angle_error: 45        # degree
+min_lightbar_ratio: 1.5
+max_lightbar_ratio: 20
+min_lightbar_length: 8
+min_armor_ratio: 1
+max_armor_ratio: 5
+max_side_ratio: 1.5
+max_rectangular_error: 25  # degree
+min_confidence: 0.8
+
+#####-----tracker参数-----#####
+min_detect_count: 5
+max_temp_lost_count: 15
+outpost_max_temp_lost_count: 75
+
+#####-----aimer参数-----#####
+yaw_offset: -2             # degree
+pitch_offset: 0            # degree
+comming_angle: 60          # degree
+leaving_angle: 20          # degree
+decision_speed: 8          # rad/s
+high_speed_delay_time: 0.015
+low_speed_delay_time: 0.015
+
+#####-----shooter参数-----#####
+first_tolerance: 3
+second_tolerance: 2
+judge_distance: 2
+auto_fire: false           # 上位机不主动开火（仅控制云台）；若需建议开火可置 true 并在状态位设置 bit1
+
+#####-----相机与标定（示例，与现场相机保持一致）-----#####
+camera_name: "hikrobot"
+exposure_ms: 2
+gain: 16
+vid_pid: "2bdf:0001"
+R_gimbal2imubody: [1, 0, 0, 0, 1, 0, 0, 0, 1]
+# 相机内参/畸变（示例）
+camera_matrix: [1851.7070167840545, 0, 721.12585328714192, 0, 1851.8175594364079, 571.69879709276688, 0, 0, 1]
+distort_coeffs: [-0.093662536083526302, 0.18945726820633155, -0.00040424349861928674, -0.0040568403852123142, 0]
+# 相机->云台位姿（示例）
+R_camera2gimbal: [0.02823004230930648, -0.014076983590428133, 0.99950232778328707, -0.99954530259354468, -0.010995644138609872, 0.028076393521179785, 0.010594940981141165, -0.99984045444409364, -0.014380990321749998]
+t_camera2gimbal: [0.045517325957791413, 0.10544338092767802, 0.034649710880185793]
+
+#####-----cboard（USB 串口 SCM）-----#####
+cboard_transport: "serial"
+cboard_serial_port: "/dev/gimbal"   # udev 映射稳定别名
+cboard_serial_baudrate: 115200
+cboard_serial_timeout_ms: 20
+cboard_serial_sof: 85                 # 0x55
+cboard_serial_eof: 255                # 0xFF
+# 原 RAW 模式 ID（保留）
+cboard_serial_id_quat: 16
+cboard_serial_id_status: 17
+cboard_serial_id_cmd: 18
+cboard_serial_skip_crc: true
+cboard_serial_debug_hex: true         # 推荐联调期为 true
+cboard_serial_log_rx: true            # 打印 RX（SCM）
+cboard_serial_log_tx: true            # 打印 TX（SCM）
+cboard_serial_protocol: "scm"        # 固定帧
+cboard_serial_scm_rx_id: 1            # MCU->NUC (IMU)
+cboard_serial_scm_tx_id: 2            # NUC->MCU (Aimbot)
+cboard_serial_angles_in_deg: true     # 角度单位“度”
+cboard_serial_scm_default_target: 1   # 默认为 1（步兵装甲）
+cboard_serial_force_fire_when_control: false # true 时在有目标即置可打击位（bit1）
+cboard_serial_aimbotstate_mode: "bitfield"  # 使用位域：bit0=有目标，bit1=建议开火，bit5=自瞄
+
+# 云台绝对角的零位/符号与归一化（如方向相反可调整 yaw_sign/pitch_sign 为 -1）
+gimbal_yaw_offset_deg: 0
+gimbal_pitch_offset_deg: 0
+gimbal_pitch_from_x: false            # 一般从 Y 轴取 pitch；特殊机型可改为 true
+yaw_sign: 1
+pitch_sign: 1
+normalize_abs_angles: true
+
+#####-----planner-----#####
+fire_thresh: 0.003
+max_yaw_acc: 50
+Q_yaw: [9e6, 0]
+R_yaw: [1]
+max_pitch_acc: 100
+Q_pitch: [9e6, 0]
+R_pitch: [1]
+
+#####-----buff_detector-----#####
+model: "assets/yolo11_buff_int8.xml"
+
+#####-----buff_aimer-----#####
+fire_gap_time: 0.520
+predict_time: 0.100

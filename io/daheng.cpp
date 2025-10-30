@@ -189,11 +189,11 @@ void Daheng::open()
       
       if (status == GX_STATUS_SUCCESS && frame_data.nStatus == GX_FRAME_STATUS_SUCCESS) {
         // 转换为RGB格式
-  DX_BAYER_CONVERT_TYPE convert_type = RAW2RGB_NEIGHBOUR;
-  // 尝试匹配像素格式所对应的 Bayer 布局；默认 BAYERRG
-  DX_PIXEL_COLOR_FILTER color_filter = BAYERRG;
-  // 注意：无法直接从设备句柄读取我们设定的像素格式，这里按常见顺序匹配
-  // 若上面像素格式设置为 RG8/GR8/GB8/BG8，则这里分别使用 BAYERRG/BAYERGR/BAYERGB/BAYERBG
+        DX_BAYER_CONVERT_TYPE convert_type = RAW2RGB_NEIGHBOUR;
+        // 尝试匹配像素格式所对应的 Bayer 布局；默认 BAYERRG
+        DX_PIXEL_COLOR_FILTER color_filter = BAYERRG;
+        // 注意：无法直接从设备句柄读取我们设定的像素格式，这里按常见顺序匹配
+        // 若上面像素格式设置为 RG8/GR8/GB8/BG8，则这里分别使用 BAYERRG/BAYERGR/BAYERGB/BAYERBG
         bool flip = false;
         
         if (debug_) {

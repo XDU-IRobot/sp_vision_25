@@ -88,9 +88,26 @@ private:
   bool serial_aimbotstate_enum_ = false;
   std::chrono::steady_clock::time_point start_tp_;
 
+  // Aimbotstate 位定义（位域模式）：
+  // bit0 (0x01) = HAS_TARGET: 上位机检测到目标，电控可据此接管/使用 NUC 提供的目标角度
+  // bit1 (0x02) = SUGGEST_FIRE: 建议开火（供电控本地决策参考）
+  // bit5 (0x20) = SELF_AIM: 自瞄标志（与历史实现兼容，原代码把此位作为自瞄标记）
+  // bits 2..4,6..7 保留（目前固件未使用，可未来扩展）
+  static constexpr uint8_t AIMBOT_BIT_HAS_TARGET = 0x01; // bit0
+  static constexpr uint8_t AIMBOT_BIT_SUGGEST_FIRE = 0x02; // bit1
+  static constexpr uint8_t AIMBOT_BIT_SELF_AIM = 0x20; // bit5
+
   // 云台绝对角零位偏置（弧度），用于将 IMU 欧拉角对齐到“云台绝对角”定义
   double gimbal_yaw_offset_rad_ = 0.0;
   double gimbal_pitch_offset_rad_ = 0.0;
+  // 发送侧细调偏置（弧度），在所有协议（SCM/RAW/CAN）上叠加到上层给定的相对角
+  double tx_yaw_bias_rad_ = 0.0;
+  double tx_pitch_bias_rad_ = 0.0;
+  // 发送侧滤波/限速（减少抖动），在绝对角上生效（单位：弧度/秒）
+  bool tx_filter_enable_ = true;         // 可总开关
+  double tx_ema_alpha_ = 0.0;            // EMA 系数，[0,1)，0 表示不启用 EMA；越大越平滑
+  double tx_yaw_rate_limit_rad_s_ = 0.0; // 0 表示不限制
+  double tx_pitch_rate_limit_rad_s_ = 0.0;
   // 欧拉角提取与符号设置
   bool gimbal_pitch_from_x_ = false; // false: 从Y轴取pitch（默认）；true: 从X轴取pitch
   int yaw_sign_ = 1;                 // 允许根据坐标系翻转符号（+1或-1）
@@ -102,6 +119,12 @@ private:
   float tx_last_yaw_ = 0.f;
   float tx_last_pitch_ = 0.f;
   std::chrono::steady_clock::time_point tx_last_tp_{};
+
+  // 对将要发送的绝对角做滤波/限速（就地修改 yaw/pitch，单位：弧度）
+  void filter_tx_angles(double &yaw_abs, double &pitch_abs);
+
+  // 计算 Aimbotstate（根据配置选择 enum 或 bitfield）
+  uint8_t compute_aimbotstate(bool control, bool fire);
 
   void callback(const can_frame &frame);
   void serial_read_loop();

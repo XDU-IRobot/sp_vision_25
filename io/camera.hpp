@@ -8,6 +8,7 @@
 
 namespace io
 {
+  
 class CameraBase
 {
 public:

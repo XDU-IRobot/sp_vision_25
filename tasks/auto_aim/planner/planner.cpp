@@ -19,6 +19,12 @@ Planner::Planner(const std::string & config_path)
   decision_speed_ = tools::read<double>(yaml, "decision_speed");
   high_speed_delay_time_ = tools::read<double>(yaml, "high_speed_delay_time");
   low_speed_delay_time_ = tools::read<double>(yaml, "low_speed_delay_time");
+  // actuation delay compensation: config value in milliseconds
+  if (yaml["actuation_delay_ms"]) {
+    actuation_delay_ = tools::read<double>(yaml, "actuation_delay_ms") * 1e-3;
+  } else {
+    actuation_delay_ = 0.0;
+  }
 
   setup_yaw_solver(config_path);
   setup_pitch_solver(config_path);
@@ -42,7 +48,8 @@ Plan Planner::plan(Target target, double bullet_speed)
     }
   }
   auto bullet_traj = tools::Trajectory(bullet_speed, min_dist, xyz.z());
-  target.predict(bullet_traj.fly_time);
+  // Compensate for actuation delay by predicting an extra actuation_delay_
+  target.predict(bullet_traj.fly_time + actuation_delay_);
 
   // 2. Get trajectory
   double yaw0;
@@ -102,6 +109,8 @@ Plan Planner::plan(std::optional<Target> target, double bullet_speed)
 
   auto future = std::chrono::steady_clock::now() + std::chrono::microseconds(int(delay_time * 1e6));
 
+  // include configured actuation delay when predicting future target state
+  future += std::chrono::microseconds(int(actuation_delay_ * 1e6));
   target->predict(future);
 
   return plan(*target, bullet_speed);

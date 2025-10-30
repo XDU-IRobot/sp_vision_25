@@ -43,10 +43,21 @@ int main(int argc, char * argv[])
   // 读取可选开关：是否启用打符（避免在不需要时加载不兼容的 IR 模型）
   bool enable_buff = false;
   bool force_auto_aim = false;
+  // 电控对斜坡输入存在稳态偏差，按匀速目标做 yaw 前馈补偿：yaw_cmd = yaw + t0 * yaw_vel
+  // 单位：t0(秒)，yaw/yaw_vel(弧度/弧度每秒)
+  // 支持按方向分别设置前馈时间常数：yaw_ramp_t0_pos（向右/正），yaw_ramp_t0_neg（向左/负）。
+  double yaw_ramp_t0 = 0.0;
+  double yaw_ramp_t0_pos = 0.0;
+  double yaw_ramp_t0_neg = 0.0;
   try {
     auto yaml = YAML::LoadFile(config_path);
     if (yaml["enable_buff"]) enable_buff = yaml["enable_buff"].as<bool>();
     if (yaml["force_auto_aim"]) force_auto_aim = yaml["force_auto_aim"].as<bool>();
+    if (yaml["yaw_ramp_t0"]) yaw_ramp_t0 = yaml["yaw_ramp_t0"].as<double>();
+    // 默认使用旧的 yaw_ramp_t0（兼容），可被方向专用配置覆盖
+    yaw_ramp_t0_pos = yaw_ramp_t0_neg = yaw_ramp_t0;
+    if (yaml["yaw_ramp_t0_pos"]) yaw_ramp_t0_pos = yaml["yaw_ramp_t0_pos"].as<double>();
+    if (yaml["yaw_ramp_t0_neg"]) yaw_ramp_t0_neg = yaml["yaw_ramp_t0_neg"].as<double>();
   } catch (...) { /* keep default */ }
 
   tools::Exiter exiter;
@@ -98,10 +109,13 @@ int main(int argc, char * argv[])
         float bs = static_cast<float>(bullet_speed_atomic.load());
         auto plan = planner.plan(target, bs);
 
-  io::Command cmd{};
-  cmd.control = plan.control;
-  cmd.shoot = plan.fire;
-  cmd.yaw = plan.yaw;
+        io::Command cmd{};
+        cmd.control = plan.control;
+        cmd.shoot = plan.fire;
+        // yaw 前馈补偿：按目标角速度方向分别选择前馈时间常数
+        // 通过在发送侧加 t0*yaw_vel 的补偿，使稳态时视觉误差（yaw）逼近 0
+        double yaw_t0_use = (plan.yaw_vel > 0) ? yaw_ramp_t0_pos : ((plan.yaw_vel < 0) ? yaw_ramp_t0_neg : 0.0);
+        cmd.yaw = plan.yaw + yaw_t0_use * plan.yaw_vel;
         cmd.pitch = plan.pitch;
         cmd.horizon_distance = 0.0;
         cboard.send(cmd);
@@ -183,7 +197,9 @@ int main(int argc, char * argv[])
         io::Command cmd2{};
         cmd2.control = buff_plan.control;
         cmd2.shoot = buff_plan.fire;
-        cmd2.yaw = buff_plan.yaw;
+  // 打符同样应用 yaw 斜坡补偿（按方向选用对应的 t0）
+  double buff_yaw_t0_use = (buff_plan.yaw_vel > 0) ? yaw_ramp_t0_pos : ((buff_plan.yaw_vel < 0) ? yaw_ramp_t0_neg : 0.0);
+  cmd2.yaw = buff_plan.yaw + buff_yaw_t0_use * buff_plan.yaw_vel;
         cmd2.pitch = buff_plan.pitch;
         cmd2.horizon_distance = 0.0;
         cboard.send(cmd2);

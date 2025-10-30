@@ -23,9 +23,7 @@ CBoard::CBoard(const std::string &config_path)
       serial_.setBytesize(serial::eightbits);
       auto timeout = serial::Timeout::simpleTimeout(serial_timeout_ms_);
       serial_.setTimeout(timeout);
-      serial_.open();
-      tools::logger()->info("[Cboard] Serial opened {} @ {} baud", serial_port_,
-                            serial_baudrate_);
+      // 串口参数设置完成后，拉起 DTR/RTS 并启动读取线程
       // 某些下位机（CDC/STM32 等）只有在 DTR 为高时才开始收/发数据；主动拉起 DTR/RTS
       try {
         serial_.setDTR(true);
@@ -84,8 +82,8 @@ void CBoard::send(Command command) {
   if (use_serial_) {
     if (serial_protocol_scm_) {
       // 走 SCM 固定帧 AimbotFrame_SCM_t，无 CRC
-      float yaw = static_cast<float>(command.yaw);
-      float pitch = static_cast<float>(command.pitch);
+      float yaw = static_cast<float>(command.yaw + tx_yaw_bias_rad_);
+      float pitch = static_cast<float>(command.pitch + tx_pitch_bias_rad_);
       // 在当前实现中暂不输出速度/加速度（可扩展），默认置 0
       bool force_ctrl = serial_force_control_ ? true : command.control;
       send_scm(force_ctrl, command.shoot, yaw, 0.f, 0.f, pitch, 0.f, 0.f);
@@ -99,8 +97,8 @@ void CBoard::send(Command command) {
       buf[idx++] = 8;
       buf[idx++] = command.control ? 1 : 0;
       buf[idx++] = command.shoot ? 1 : 0;
-      int16_t yaw_i = static_cast<int16_t>(command.yaw * 1e4);
-      int16_t pitch_i = static_cast<int16_t>(command.pitch * 1e4);
+      int16_t yaw_i = static_cast<int16_t>((command.yaw + tx_yaw_bias_rad_) * 1e4);
+      int16_t pitch_i = static_cast<int16_t>((command.pitch + tx_pitch_bias_rad_) * 1e4);
       int16_t dist_i = static_cast<int16_t>(command.horizon_distance * 1e4);
       buf[idx++] = (yaw_i >> 8) & 0xFF;
       buf[idx++] = yaw_i & 0xFF;
@@ -122,10 +120,15 @@ void CBoard::send(Command command) {
     frame.can_dlc = 8;
     frame.data[0] = (command.control) ? 1 : 0;
     frame.data[1] = (command.shoot) ? 1 : 0;
-    frame.data[2] = (int16_t)(command.yaw * 1e4) >> 8;
-    frame.data[3] = (int16_t)(command.yaw * 1e4);
-    frame.data[4] = (int16_t)(command.pitch * 1e4) >> 8;
-    frame.data[5] = (int16_t)(command.pitch * 1e4);
+    // 直接发送相对角(上层命令 + bias)，按 1e4 量化（与 SCM 路径一致）
+    double yaw_rel = static_cast<double>(command.yaw) + tx_yaw_bias_rad_;
+    double pitch_rel = static_cast<double>(command.pitch) + tx_pitch_bias_rad_;
+    int16_t can_yaw = static_cast<int16_t>(yaw_rel * 1e4);
+    int16_t can_pitch = static_cast<int16_t>(pitch_rel * 1e4);
+    frame.data[2] = (can_yaw >> 8) & 0xFF;
+    frame.data[3] = (can_yaw) & 0xFF;
+    frame.data[4] = (can_pitch >> 8) & 0xFF;
+    frame.data[5] = (can_pitch) & 0xFF;
     frame.data[6] = (int16_t)(command.horizon_distance * 1e4) >> 8;
     frame.data[7] = (int16_t)(command.horizon_distance * 1e4);
 
@@ -260,6 +263,17 @@ std::string CBoard::read_yaml(const std::string &config_path) {
     } else if (yaml["gimbal_pitch_offset_rad"]) {
       gimbal_pitch_offset_rad_ = yaml["gimbal_pitch_offset_rad"].as<double>();
     }
+    // 发送角度细调偏置（优先读取度，回退到弧度）
+    if (yaml["tx_yaw_bias_deg"]) {
+      tx_yaw_bias_rad_ = yaml["tx_yaw_bias_deg"].as<double>() * M_PI / 180.0;
+    } else if (yaml["tx_yaw_bias_rad"]) {
+      tx_yaw_bias_rad_ = yaml["tx_yaw_bias_rad"].as<double>();
+    }
+    if (yaml["tx_pitch_bias_deg"]) {
+      tx_pitch_bias_rad_ = yaml["tx_pitch_bias_deg"].as<double>() * M_PI / 180.0;
+    } else if (yaml["tx_pitch_bias_rad"]) {
+      tx_pitch_bias_rad_ = yaml["tx_pitch_bias_rad"].as<double>();
+    }
     // 欧拉角提取与符号、归一化设置
     if (yaml["gimbal_pitch_from_x"]) {
       gimbal_pitch_from_x_ = yaml["gimbal_pitch_from_x"].as<bool>();
@@ -282,6 +296,7 @@ std::string CBoard::read_yaml(const std::string &config_path) {
     serial_id_status_, serial_protocol_scm_ ? "SCM" : "RAW", serial_scm_rx_id_, serial_scm_tx_id_, serial_scm_angles_in_deg_, serial_scm_default_target_, serial_force_control_, serial_force_fire_when_control_, (serial_aimbotstate_enum_ ? "enum" : "bitfield"), serial_log_rx_, serial_log_tx_,
     gimbal_yaw_offset_rad_ * 180.0 / M_PI, gimbal_pitch_offset_rad_ * 180.0 / M_PI,
     gimbal_pitch_from_x_, yaw_sign_, pitch_sign_, normalize_abs_angles_);
+    tools::logger()->info("[Cboard] TX bias (deg): yaw={:.3f}, pitch={:.3f}", tx_yaw_bias_rad_ * 180.0 / M_PI, tx_pitch_bias_rad_ * 180.0 / M_PI);
     return "serial";
   }
 
@@ -293,6 +308,18 @@ std::string CBoard::read_yaml(const std::string &config_path) {
   if (!yaml["can_interface"]) {
     throw std::runtime_error("Missing 'can_interface' in YAML configuration.");
   }
+  // 发送角度细调偏置（优先读取度，回退到弧度）——CAN 模式同样支持
+  if (yaml["tx_yaw_bias_deg"]) {
+    tx_yaw_bias_rad_ = yaml["tx_yaw_bias_deg"].as<double>() * M_PI / 180.0;
+  } else if (yaml["tx_yaw_bias_rad"]) {
+    tx_yaw_bias_rad_ = yaml["tx_yaw_bias_rad"].as<double>();
+  }
+  if (yaml["tx_pitch_bias_deg"]) {
+    tx_pitch_bias_rad_ = yaml["tx_pitch_bias_deg"].as<double>() * M_PI / 180.0;
+  } else if (yaml["tx_pitch_bias_rad"]) {
+    tx_pitch_bias_rad_ = yaml["tx_pitch_bias_rad"].as<double>();
+  }
+  tools::logger()->info("[Cboard] TX bias (deg): yaw={:.3f}, pitch={:.3f}", tx_yaw_bias_rad_ * 180.0 / M_PI, tx_pitch_bias_rad_ * 180.0 / M_PI);
   return yaml["can_interface"].as<std::string>();
 }
 
@@ -407,6 +434,25 @@ void CBoard::serial_read_loop() {
 
 static inline float rad2deg(float r) { return r * 57.29577951308232f; }
 
+uint8_t CBoard::compute_aimbotstate(bool control, bool fire) {
+  // 位域实现（优先）：
+  // bit0 = HAS_TARGET, bit1 = SUGGEST_FIRE, bit5 = SELF_AIM
+  if (!serial_aimbotstate_enum_) {
+    uint8_t bits = 0;
+    if (control) bits |= AIMBOT_BIT_HAS_TARGET;
+    // 当上位机认为应该开火或强制开火配置打开时，置建议开火位
+    if (fire || serial_force_fire_when_control_) bits |= AIMBOT_BIT_SUGGEST_FIRE;
+    // 保持兼容：把自瞄标志一并置位（旧逻辑中存在）
+    if (control) bits |= AIMBOT_BIT_SELF_AIM;
+    // 其它位保留为 0（固件未使用，预留扩展）
+    return bits;
+  }
+
+  // Enum 实现（兼容老固件）：0=不控，1=控不火，2=控且火
+  if (control) return (fire || serial_force_fire_when_control_) ? 2 : 1;
+  return 0;
+}
+
 void CBoard::send_scm(bool control, bool fire, float yaw, float yaw_vel, float yaw_acc,
                       float pitch, float pitch_vel, float pitch_acc)
 {
@@ -429,19 +475,7 @@ void CBoard::send_scm(bool control, bool fire, float yaw, float yaw_vel, float y
   frame.SOF = serial_sof_;
   frame.ID = serial_scm_tx_id_;
   // AimbotState：支持两种编码
-  uint8_t aimbot_state = 0;
-  if (serial_aimbotstate_enum_) {
-    // enum 模式：0 不控，1 控不火，2 控且火
-    if (control) aimbot_state = (fire || serial_force_fire_when_control_) ? 2 : 1;
-  } else {
-    // bitfield 模式：BIT0=识别，BIT1=可打击，BIT5=自瞄
-    if (control) {
-      aimbot_state |= (1u << 0);
-      aimbot_state |= (1u << 5);
-      if (fire || serial_force_fire_when_control_) aimbot_state |= (1u << 1);
-    }
-  }
-  frame.Aimbotstate = aimbot_state;
+  frame.Aimbotstate = compute_aimbotstate(control, fire);
   // 目标类型位：当识别到目标（以 control 为判据）置 1，否则使用配置默认值
   frame.AimbotTarget = control ? static_cast<uint8_t>(1u)
                                : serial_scm_default_target_;
@@ -487,9 +521,9 @@ void CBoard::send_scm(bool control, bool fire, float yaw, float yaw_vel, float y
   float system_timer = std::chrono::duration<float>(
                         std::chrono::steady_clock::now() - start_tp_).count();
 
-  // 按用户需求：Yaw/Pitch 发送“相对角”，PitchRelativeAngle/YawRelativeAngle 发送“绝对角”
   frame.Pitch = rel_pitch_out;
   frame.Yaw = rel_yaw_out;
+
   frame.TargetPitchSpeed = out_pitch_vel;
   frame.TargetYawSpeed = out_yaw_vel;
   frame.SystemTimer = system_timer;
@@ -499,8 +533,9 @@ void CBoard::send_scm(bool control, bool fire, float yaw, float yaw_vel, float y
     auto nbytes = serial_.write(reinterpret_cast<const uint8_t*>(&frame), sizeof(frame));
     if (serial_debug_hex_ && serial_log_tx_) {
       tools::logger()->info(
-        "[Cboard][SCM][TX] wrote={}B id=0x{:02X} state=0b{:08b}(dec={}) target=0b{:08b} rel(yaw,pitch)=({:.3f},{:.3f}) abs(yaw,pitch)=({:.3f},{:.3f}) EOF=0x{:02X}",
+        "[Cboard][SCM][TX] wrote={}B id=0x{:02X} state=0b{:08b}(dec={}) target=0b{:08b} curr(yaw,pitch)_rad=({:.4f},{:.4f}) zero_offs_deg=({:.2f},{:.2f}) rel(yaw,pitch)=({:.3f},{:.3f}) abs(yaw,pitch)=({:.3f},{:.3f}) EOF=0x{:02X}",
         static_cast<unsigned>(nbytes), static_cast<unsigned>(frame.ID), static_cast<unsigned>(frame.Aimbotstate), static_cast<unsigned>(frame.Aimbotstate), static_cast<unsigned>(frame.AimbotTarget),
+        curr_yaw, curr_pitch, gimbal_yaw_offset_rad_ * 180.0 / M_PI, gimbal_pitch_offset_rad_ * 180.0 / M_PI,
         rel_yaw_out, rel_pitch_out, abs_yaw_out, abs_pitch_out, static_cast<unsigned>(frame._EOF));
     }
     if (nbytes != sizeof(frame)) {

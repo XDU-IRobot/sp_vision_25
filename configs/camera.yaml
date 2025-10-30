@@ -1,43 +1,46 @@
-enemy_color: "red"
-# enemy_color: "blue"
+# enemy_color: "red"                           # 当前未在检测/分类直接用到，仅作参考
+enemy_color: "blue"
 
 #####-----神经网络参数-----#####
-yolo_name: yolov8
+# 选择装甲板识别后端：yolov8 | yolo11 | yolov5
+yolo_name: yolo11
+# 数字/字迹分类器（用于装甲板类别判定）
 classify_model: assets/tiny_resnet.onnx
-# auto_buff 的 YOLO11 模型路径（用于小/大符识别）
-# model: assets/best2-sim.onnx
-yolo11_model_path: assets/yolo11.xml
-yolov8_model_path: assets/yolov8.xml
-yolov5_model_path: assets/yolov5.xml
+# YOLO IR 模型路径（装甲板识别）
+yolo11_model_path: assets/yolo11.xml        # yolo_name: yolo11 时使用（输入640）
+yolov8_model_path: assets/yolov8.xml        # yolo_name: yolov8 时使用（输入416）
+yolov5_model_path: assets/yolov5.xml        # yolo_name: yolov5 时使用（输入640）
+# OpenVINO 推理设备：CPU | GPU | AUTO 等
 device: CPU
+# 分类器最小置信度（剔除非装甲板）；建议0.6~0.8先行验证
 min_confidence: 0.8
+# 仅 yolov5 使用：是否启用传统角点微调（二次矫正）
 use_traditional: true
 
 #####-----功能开关-----#####
-# 是否启用“打符”模块（true 会加载 assets/yolo11_buff_int8.xml；若 OpenVINO 版本不支持该 IR，可先置 false）
+# 是否启用“打符”模块（true 会加载下方 buff_detector 的 model）
 enable_buff: false
 # 强制进入自瞄模式（无需等待 MCU 切档）。需要按下位机安全策略谨慎使用。
-force_auto_aim: true
-
+force_auto_aim: false
 #####-----ROI参数-----#####
-roi: 
+roi:                                     # 开启 use_roi 时生效
   x: 420
   y: 50
   width: 600
   height: 600
 
-use_roi: false
+use_roi: false                             # 首次联调建议 false 先看全图是否能出框
 
-#####-----传统方法参数-----#####
-threshold: 150
-max_angle_error: 45 # degree
-min_lightbar_ratio: 1.5
-max_lightbar_ratio: 20
-min_lightbar_length: 8
-min_armor_ratio: 1
-max_armor_ratio: 5
-max_side_ratio: 1.5
-max_rectangular_error: 25 # degree
+#####-----传统方法参数-----#####     # 仅 yolov5/use_traditional 时用于角点微调和兜底
+threshold: 150                         # 二值阈值
+max_angle_error: 45                    # degree，灯条最大倾角误差
+min_lightbar_ratio: 1.5                # 灯条高宽比下限
+max_lightbar_ratio: 20                 # 灯条高宽比上限
+min_lightbar_length: 8                 # 灯条最小长度
+min_armor_ratio: 1                     # 装甲板宽高比下限
+max_armor_ratio: 5                     # 装甲板宽高比上限
+max_side_ratio: 1.5                    # 两侧灯条长度比上限
+max_rectangular_error: 25              # degree，矩形偏差上限
 
 #####-----tracker参数-----#####
 min_detect_count: 5
@@ -52,6 +55,24 @@ leaving_angle: 20 # degree
 decision_speed: 8 # rad/s
 high_speed_delay_time: 0.030 # s
 low_speed_delay_time: 0.015 # s
+
+# actuation delay compensation (milliseconds): 用于在 Planner 中将目标预测到命令到达并开始执行时的未来状态
+# 如果不需要补偿，置为 0
+actuation_delay_ms: 0
+
+# 斜坡补偿时间常数（单位：秒）。针对匀速目标与斜坡跟踪的稳态偏差：
+# yaw_cmd = yaw + yaw_ramp_t0 * yaw_vel
+# 建议初始范围 0.05~0.20，按实测稳态误差微调。设为 0 表示关闭补偿。
+yaw_ramp_t0: 0.10 # s (兼容旧配置，优先级低于下面的专用配置)
+
+# 单轴方向专用斜坡补偿时间常数（单位：秒）。
+# 当目标角速度为正（向右）时使用 yaw_ramp_t0_pos；当为负（向左）时使用 yaw_ramp_t0_neg。
+# 如果未设置专用值，将回退到兼容的 `yaw_ramp_t0`。
+yaw_ramp_t0_pos: 0.10 # s (向右)
+
+# 解决目标向左运动时射击滞后的问题：
+yaw_ramp_t0_neg: 0.10 # s (向左)
+
 
 #####-----shooter参数-----#####
 first_tolerance: 3 # 近距离射击容差，degree
@@ -129,6 +150,17 @@ cboard_serial_angles_in_deg: true      # true 表示Yaw/Pitch使用“度”，f
 cboard_serial_force_fire_when_control: false
 cboard_serial_aimbotstate_mode: "bitfield"  # 可选: "bitfield" | "enum"
 cboard_serial_force_control: true
+# 发送角度细调偏置（上位机->电控），用于外场快速校准；正数=向右/向上（按默认符号）
+# 二选一配置（优先使用 *_deg）：
+# tx_yaw_bias_deg: 0.0    # 度
+# tx_pitch_bias_deg: 0.0  # 度
+# tx_yaw_bias_rad: 0.0    # 弧度
+# tx_pitch_bias_rad: 0.0  # 弧度
+# 发送角抖动抑制/限速（可选）：
+# tx_filter_enable: true
+# tx_ema_alpha: 0.5                 # [0,1)，越大越平滑（0 表示不启用 EMA）
+# tx_yaw_rate_limit_deg_s: 180.0    # 限制绝对角变化速率（度/秒，0 表示不限制）
+# tx_pitch_rate_limit_deg_s: 180.0
 # 若要继续使用 SocketCAN，则设置：
 # cboard_transport: "can"
 # can_interface: "can0"
@@ -148,7 +180,7 @@ cboard_serial_force_control: true
 # pitch_kd: 0
 
 #####-----buff_detector参数-----#####
-# 小/大符识别模型路径（auto_buff::YOLO11 读取的键为 model）
+# 打符识别模型（键名固定为 model）
 model: "assets/yolo11_buff_int8.xml"
 
 #####-----planner-----#####

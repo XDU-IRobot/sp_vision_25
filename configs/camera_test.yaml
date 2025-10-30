@@ -72,7 +72,7 @@ t_camera2gimbal: [0.13160669975045827, 0.10377721766577375, 0.024908271912914642
 camera_settings:
   width: 1920
   height: 1200
-  exposure: 2100
+  exposure: 100000
   auto_exposure: false
   gain: 24
   fps: 168

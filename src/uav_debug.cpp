@@ -16,6 +16,7 @@
 #include "tools/math_tools.hpp"
 #include "tools/plotter.hpp"
 #include "tools/recorder.hpp"
+#include "io/gimbal/gimbal.hpp"
 
 const std::string keys =
   "{help h usage ? |                  | 输出命令行参数说明}"
@@ -36,8 +37,10 @@ int main(int argc, char * argv[])
   tools::Plotter plotter;
   tools::Recorder recorder;
 
+  // io::Camera camera(config_path);
+  // io::CBoard cboard(config_path);
+  io::Gimbal gimbal(config_path);
   io::Camera camera(config_path);
-  io::CBoard cboard(config_path);
 
   auto_aim::Detector detector(config_path);
   auto_aim::Solver solver(config_path);
@@ -50,18 +53,22 @@ int main(int argc, char * argv[])
   Eigen::Quaterniond q;
   std::chrono::steady_clock::time_point t;
 
-  auto mode = io::Mode::idle;
-  auto last_mode = io::Mode::idle;
-
+  // auto mode = io::Mode::idle; //修改为gimbalmode
+  auto mode = io::GimbalMode::IDLE;
+  // auto last_mode = io::Mode::idle;
+  auto last_mode = io::GimbalMode::IDLE;
+  
   auto t0 = std::chrono::steady_clock::now();
 
   while (!exiter.exit()) {
     camera.read(img, t);
-    q = cboard.imu_at(t - 1ms);
-    mode = cboard.mode;
+    // q = cboard.imu_at(t - 1ms);
+    q = gimbal.q(t - 1ms);
+    // mode = cboard.mode;
+    mode = gimbal.mode();
     // recorder.record(img, q, t);
     if (last_mode != mode) {
-      tools::logger()->info("Switch to {}", io::MODES[mode]);
+      tools::logger()->info("Switch to {}", gimbal.str(mode));
       last_mode = mode;
     }
 
@@ -74,17 +81,20 @@ int main(int argc, char * argv[])
 
     auto targets = tracker.track(armors, t);
 
-    auto command = aimer.aim(targets, t, cboard.bullet_speed);
+    // auto command = aimer.aim(targets, t, cboard.bullet_speed);
+    auto command = aimer.aim(targets, t, 23); //gimbal中scm协议暂无bullet_speed,故暂用常数代替
 
     command.shoot = shooter.shoot(command, aimer, targets, ypr);
-
-    cboard.send(command);
-
+    
+    // cboard.send(command);
+    gimbal.send_command_scm(command);
     /// debug
     tools::draw_text(img, fmt::format("[{}]", tracker.state()), {10, 30}, {255, 255, 255});
 
     nlohmann::json data;
     data["t"] = tools::delta_time(std::chrono::steady_clock::now(), t0);
+    
+    plotter.plot(data);
 
     // 装甲板原始观测数据
     data["armor_num"] = armors.size();
@@ -98,10 +108,17 @@ int main(int argc, char * argv[])
         }
       }  //always left
       solver.solve(armor);
-      data["armor_x"] = armor.xyz_in_world[0];
-      data["armor_y"] = armor.xyz_in_world[1];
-      data["armor_yaw"] = armor.ypr_in_world[0] * 57.3;
-      data["armor_yaw_raw"] = armor.yaw_raw * 57.3;
+      // data["armor_x"] = armor.xyz_in_world[0];
+      // data["armor_y"] = armor.xyz_in_world[1];
+      // data["armor_yaw"] = armor.ypr_in_world[0] * 57.3;
+      // data["armor_yaw_raw"] = armor.yaw_raw * 57.3;
+      data["cmd_pose"]["position"] = { {"x", 0}, {"y", 0}, {"z", 0} };
+      data["cmd_pose"]["orientation"] = {
+      {"x", std::sin(command.yaw/2) * std::cos(command.pitch/2)},
+  {"y", std::sin(command.pitch/2)},
+  {"z", 0},
+        {"w", std::cos(command.yaw/2) * std::cos(command.pitch/2)}
+     };
     }
 
     if (!targets.empty()) {
@@ -155,7 +172,9 @@ int main(int argc, char * argv[])
     // 云台响应情况
     data["gimbal_yaw"] = ypr[0] * 57.3;
     data["gimbal_pitch"] = ypr[1] * 57.3;
-    data["bullet_speed"] = cboard.bullet_speed;
+    // data["bullet_speed"] = cboard.bullet_speed;
+    // data["bullet_speed"] = gimbal.;
+    //gimbal中scm协议暂无bullet_speed
     if (command.control) {
       data["cmd_yaw"] = command.yaw * 57.3;
       data["cmd_pitch"] = command.pitch * 57.3;

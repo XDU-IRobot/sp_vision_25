@@ -47,7 +47,7 @@ find_package(ament_cmake QUIET)
 find_package(rclcpp QUIET)
 find_package(std_msgs QUIET)
 find_package(rosidl_typesupport_cpp QUIET)
-find_package(sp_msgs QUIET)
+# find_package(sp_msgs QUIET)
 
 # 如果找不到 ROS 环境，则跳过 ROS 相关的部分
 if(NOT ament_cmake_FOUND OR NOT rclcpp_FOUND OR NOT std_msgs_FOUND OR NOT rosidl_typesupport_cpp_FOUND OR NOT sp_msgs_FOUND)

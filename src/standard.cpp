@@ -78,7 +78,31 @@ int main(int argc, char * argv[])
 
     cboard.send(command);
 
-    cv::imshow("standard_mpc", img);
+    /// 重投影可视化 (类似auto_aim_debug_mpc)
+    if (!targets.empty()) {
+      auto target = targets.front();
+
+      // 绘制所有装甲板（绿色）
+      std::vector<Eigen::Vector4d> armor_xyza_list = target.armor_xyza_list();
+      for (const Eigen::Vector4d & xyza : armor_xyza_list) {
+        auto image_points =
+          solver.reproject_armor(xyza.head(3), xyza[3], target.armor_type, target.name);
+        tools::draw_points(img, image_points, {0, 255, 0});
+      }
+
+      // 绘制瞄准点（红色）
+      if (command.control && aimer.debug_aim_point.valid) {
+        Eigen::Vector4d aim_xyza = aimer.debug_aim_point.xyza;
+        auto image_points =
+          solver.reproject_armor(aim_xyza.head(3), aim_xyza[3], target.armor_type, target.name);
+        tools::draw_points(img, image_points, {0, 0, 255});
+      }
+    }
+
+    // 缩小图像并显示
+    cv::Mat img_display;
+    cv::resize(img, img_display, {}, 0.5, 0.5);
+    cv::imshow("reprojection", img_display);
     int key = cv::waitKey(1);
     if (key == 'q') break;
   }

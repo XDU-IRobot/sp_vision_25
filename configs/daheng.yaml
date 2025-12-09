@@ -57,6 +57,21 @@ exposure_ms: 2.1  # 对应exposure: 2100，转换为毫秒
 gain: 24
 vid_pid: "2ba2:4d55"
 
+#####-----硬触发配置-----#####
+# 是否启用硬触发（外部信号触发相机曝光）
+trigger_enable: false  # true=启用硬触发，false=连续采集模式（默认）
+
+# 触发源选择：连接触发信号的GPIO线
+# 0 = Line0 (GPIO 1)
+# 1 = Line1 (GPIO 2)
+# 2 = Line2 (GPIO 3)
+trigger_source: 2  # 默认使用Line2
+
+# 触发沿选择：触发信号的有效边沿
+# 0 = 上升沿触发 (RisingEdge)
+# 1 = 下降沿触发 (FallingEdge)
+trigger_activation: 0  # 默认上升沿触发
+
 #####-----大恒相机详细配置-----#####
 debug: true
 

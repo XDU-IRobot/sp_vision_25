@@ -35,6 +35,11 @@ private:
   bool debug_;
   std::string vid_pid_;
 
+  // 硬触发相关参数
+  bool trigger_enable_;          // 是否启用硬触发
+  int trigger_source_;           // 触发源：0=Line0, 1=Line1, 2=Line2
+  int trigger_activation_;       // 触发沿：0=上升沿, 1=下降沿
+
   GX_DEV_HANDLE device_handle_;
   int64_t payload_size_;
   bool quit_, ok_;

@@ -123,6 +123,19 @@ quaternion_canid: 0x100
 bullet_speed_canid: 0x101
 send_canid: 0xff
 
+# ===== 新CAN协议配置 =====
+# 是否使用新CAN协议（false=旧协议，true=新协议）
+use_new_can_protocol: false  # 默认关闭，使用旧协议
+
+# 新协议CAN ID配置（仅在use_new_can_protocol=true时生效）
+# 协议说明：
+#   - 0x150: 下位机→上位机，四元数姿态帧（4个int16，每个=float×10000）
+#   - 0x160: 下位机→上位机，状态信息帧（robot_id, mode, imu_count）
+#   - 0x170: 上位机→下位机，自瞄指令帧（AimbotState, AimbotTarget, Yaw, Pitch, NucStartFlag）
+new_can_quat_id: 0x150      # 四元数姿态帧ID
+new_can_status_id: 0x160    # 状态信息帧ID
+new_can_cmd_id: 0x170       # 自瞄指令帧ID
+
 # 选择后端: can 或 serial（使用 CBoard 的 USB 串口）
 cboard_transport: "serial"
 

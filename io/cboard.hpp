@@ -59,6 +59,17 @@ private:
   IMUData data_behind_;
 
   int quaternion_canid_, bullet_speed_canid_, send_canid_;
+
+  // ===== 新CAN协议配置 =====
+  bool use_new_can_protocol_ = false;    // 是否使用新CAN协议
+  int new_can_quat_id_ = 0x150;          // 新协议：四元数帧ID
+  int new_can_status_id_ = 0x160;        // 新协议：状态帧ID
+  int new_can_cmd_id_ = 0x170;           // 新协议：命令帧ID（上位机→下位机）
+  uint8_t robot_id_ = 0;                 // 机器人ID（从0x160帧接收）
+  uint16_t imu_count_ = 0;               // IMU计数器（从0x160帧接收）
+  uint16_t last_imu_count_ = 0;          // 上次IMU计数器（用于检测丢帧）
+  bool nuc_start_flag_sent_ = false;     // NUC启动标志是否已发送
+
   // 串口帧配置（可与 CAN ID 对应，或独立配置）
   std::string serial_port_ = "/dev/ttyACM0";
   uint32_t serial_baudrate_ = 115200;
@@ -131,6 +142,9 @@ private:
   void handle_serial_frame(uint8_t id, const uint8_t *payload, size_t len);
   void send_scm(bool control, bool fire, float yaw, float yaw_vel, float yaw_acc,
                 float pitch, float pitch_vel, float pitch_acc);
+
+  // 发送启动帧（新CAN协议），通知电控上位机已启动
+  void send_startup_frame();
 
   std::string read_yaml(const std::string &config_path);
 };

@@ -7,8 +7,7 @@
 namespace io {
 CBoard::CBoard(const std::string &config_path)
     : mode(Mode::idle), shoot_mode(ShootMode::left_shoot), bullet_speed(0),
-      queue_(5000)
-// 注意: callback的运行会早于Cboard构造函数的完成
+      queue_(5000)// 注意: callback的运行会早于Cboard构造函数的完成
 {
   auto transport = read_yaml(config_path);
 
@@ -39,8 +38,10 @@ CBoard::CBoard(const std::string &config_path)
       tools::logger()->warn("[Cboard] Serial open failed: {}", e.what());
       throw;
     }
-  } else {
-    // 默认使用 CAN
+  } 
+  
+  else {
+    // 默认使用 CAN——此处为同济实现的 SocketCAN，选择了保留这种接口
     can_ = std::make_unique<SocketCAN>(
         transport, std::bind(&CBoard::callback, this, std::placeholders::_1));
   }
@@ -49,6 +50,11 @@ CBoard::CBoard(const std::string &config_path)
   queue_.pop(data_ahead_);
   queue_.pop(data_behind_);
   tools::logger()->info("[Cboard] Opened.");
+
+  // 新CAN协议：发送启动帧，通知电控上位机已启动
+  if (use_new_can_protocol_ && !use_serial_) {
+    send_startup_frame();
+  }
 }
 
 Eigen::Quaterniond
@@ -89,6 +95,7 @@ void CBoard::send(Command command) {
       send_scm(force_ctrl, command.shoot, yaw, 0.f, 0.f, pitch, 0.f, 0.f);
       return;
     } else {
+
       // RAW 可变帧（无 CRC）：[SOF][ID][LEN=8][payload][EOF]
       uint8_t buf[1 + 1 + 1 + 8 + 1];
       size_t idx = 0;
@@ -115,6 +122,69 @@ void CBoard::send(Command command) {
       return;
     }
   } else {
+    // ===== CAN通信 =====
+    if (use_new_can_protocol_) {
+      // 新CAN协议发送
+      can_frame frame;
+      frame.can_id = new_can_cmd_id_;
+      frame.can_dlc = 6;  // 6字节数据
+
+      // 数据打包：
+      // byte 0: AimbotState (u8)
+      // byte 1: AimbotTarget (u8)
+      // byte 2-3: Yaw (int16, 需要×10000)
+      // byte 4-5: Pitch (int16, 需要×10000)
+      // byte 6: NucStartFlag (u8) - 注意：这里改为6字节，因为只有6个数据
+
+      // AimbotState: 使用compute_aimbotstate计算
+      frame.data[0] = compute_aimbotstate(command.control, command.shoot);
+
+      // AimbotTarget: 暂时固定为1（检测到目标）或0（未检测到）
+      frame.data[1] = command.control ? 1 : 0;
+
+      // Yaw和Pitch: 角度×10000转换为int16，大端字节序
+      double yaw_rel = static_cast<double>(command.yaw) + tx_yaw_bias_rad_;
+      double pitch_rel = static_cast<double>(command.pitch) + tx_pitch_bias_rad_;
+      int16_t yaw_int = static_cast<int16_t>(yaw_rel * 10000);
+      int16_t pitch_int = static_cast<int16_t>(pitch_rel * 10000);
+
+      frame.data[2] = (yaw_int >> 8) & 0xFF;    // Yaw高8位
+      frame.data[3] = yaw_int & 0xFF;            // Yaw低8位
+      frame.data[4] = (pitch_int >> 8) & 0xFF;   // Pitch高8位
+      frame.data[5] = pitch_int & 0xFF;          // Pitch低8位
+
+      // NucStartFlag: 程序启动后发送一次flag=1，之后保持0
+      // 注意：由于只有6字节，将NucStartFlag移到扩展帧或单独发送
+      // 这里暂时不发送，或者可以改为7字节
+      frame.can_dlc = 7;  // 改为7字节
+      if (!nuc_start_flag_sent_) {
+        frame.data[6] = 1;  // 首次发送时设置为1
+        nuc_start_flag_sent_ = true;
+        tools::logger()->info("[NewCAN] NUC start flag sent!");
+      } else {
+        frame.data[6] = 0;  // 之后保持0
+      }
+
+      try {
+        can_->write(&frame);
+
+        // 调试日志（低频）
+        static auto last_log = std::chrono::steady_clock::time_point::min();
+        auto now = std::chrono::steady_clock::now();
+        if (tools::delta_time(now, last_log) > 1.0) {
+          tools::logger()->debug(
+            "[NewCAN] CMD sent: state=0x{:02X}, target={}, yaw={:.4f}rad({}) pitch={:.4f}rad({}) flag={}",
+            frame.data[0], frame.data[1],
+            yaw_rel, yaw_int, pitch_rel, pitch_int, frame.data[6]);
+          last_log = now;
+        }
+      } catch (const std::exception &e) {
+        tools::logger()->warn("[NewCAN] write failed: {}", e.what());
+      }
+      return;
+    }
+
+    // ===== 旧CAN协议发送 =====
     can_frame frame;
     frame.can_id = send_canid_;
     frame.can_dlc = 8;
@@ -155,6 +225,97 @@ CBoard::~CBoard() {
 void CBoard::callback(const can_frame &frame) {
   auto timestamp = std::chrono::steady_clock::now();
 
+  // ===== 新CAN协议处理 =====
+  if (use_new_can_protocol_) {
+    // 处理四元数帧 (0x150)
+    if (frame.can_id == new_can_quat_id_) {
+      if (frame.can_dlc < 8) {
+        tools::logger()->warn("[NewCAN] Quaternion frame length invalid: {}", frame.can_dlc);
+        return;
+      }
+
+      // 解析四元数：4个int16，大端字节序
+      int16_t q_raw[4];
+      for (int i = 0; i < 4; i++) {
+        q_raw[i] = (int16_t)(frame.data[i*2] << 8 | frame.data[i*2+1]);
+      }
+
+      // 转换为浮点数（除以10000）
+      double qw = q_raw[0] / 10000.0;
+      double qx = q_raw[1] / 10000.0;
+      double qy = q_raw[2] / 10000.0;
+      double qz = q_raw[3] / 10000.0;
+
+      // 四元数有效性检查
+      double norm_sq = qw*qw + qx*qx + qy*qy + qz*qz;
+      if (std::abs(norm_sq - 1.0) > 0.1) {
+        tools::logger()->warn(
+          "[NewCAN] Invalid quaternion norm: {:.4f}, data: ({:.3f}, {:.3f}, {:.3f}, {:.3f})",
+          std::sqrt(norm_sq), qw, qx, qy, qz);
+        return;
+      }
+
+      // 归一化四元数
+      Eigen::Quaterniond q(qw, qx, qy, qz);
+      if (q.norm() > 1e-6) {
+        q.normalize();
+      }
+
+      // 压入队列
+      queue_.push({q, timestamp});
+
+      // 1Hz心跳日志
+      static auto last_log = std::chrono::steady_clock::time_point::min();
+      if (tools::delta_time(timestamp, last_log) > 1.0) {
+        tools::logger()->info(
+          "[NewCAN] Quaternion received: w={:.3f}, x={:.3f}, y={:.3f}, z={:.3f}",
+          q.w(), q.x(), q.y(), q.z());
+        last_log = timestamp;
+      }
+      return;
+    }
+
+    // 处理状态帧 (0x160)
+    if (frame.can_id == new_can_status_id_) {
+      if (frame.can_dlc < 4) {
+        tools::logger()->warn("[NewCAN] Status frame length invalid: {}", frame.can_dlc);
+        return;
+      }
+
+      // 解析状态信息
+      uint8_t robot_id = frame.data[0];
+      uint8_t mode_byte = frame.data[1];
+      uint16_t imu_count = (uint16_t)(frame.data[2] << 8 | frame.data[3]);
+
+      // 更新内部状态
+      robot_id_ = robot_id;
+      mode = static_cast<Mode>(mode_byte);
+
+      // 检测IMU计数器跳变（丢帧检测）
+      if (last_imu_count_ != 0 && imu_count != last_imu_count_ + 1) {
+        uint16_t dropped = imu_count > last_imu_count_ ?
+                          (imu_count - last_imu_count_ - 1) :
+                          (65536 - last_imu_count_ + imu_count - 1);
+        if (dropped > 0 && dropped < 1000) {  // 防止初始化时误报
+          tools::logger()->warn("[NewCAN] IMU frame dropped: {} frames lost", dropped);
+        }
+      }
+      last_imu_count_ = imu_count;
+      imu_count_ = imu_count;
+
+      // 1Hz心跳日志
+      static auto last_log = std::chrono::steady_clock::time_point::min();
+      if (tools::delta_time(timestamp, last_log) > 1.0) {
+        tools::logger()->info(
+          "[NewCAN] Status received: robot_id={}, mode={}, imu_count={}",
+          static_cast<int>(robot_id), MODES[mode], imu_count);
+        last_log = timestamp;
+      }
+      return;
+    }
+  }
+
+  // ===== 旧CAN协议处理 =====
   if (frame.can_id == quaternion_canid_) {
     auto x = (int16_t)(frame.data[0] << 8 | frame.data[1]) / 1e4;
     auto y = (int16_t)(frame.data[2] << 8 | frame.data[3]) / 1e4;
@@ -304,6 +465,31 @@ std::string CBoard::read_yaml(const std::string &config_path) {
   quaternion_canid_ = tools::read<int>(yaml, "quaternion_canid");
   bullet_speed_canid_ = tools::read<int>(yaml, "bullet_speed_canid");
   send_canid_ = tools::read<int>(yaml, "send_canid");
+
+  // 读取新CAN协议配置
+  if (yaml["use_new_can_protocol"]) {
+    use_new_can_protocol_ = yaml["use_new_can_protocol"].as<bool>();
+    if (use_new_can_protocol_) {
+      tools::logger()->info("[CBoard] Using NEW CAN protocol");
+
+      // 读取新协议的CAN ID配置（提供默认值）
+      if (yaml["new_can_quat_id"]) {
+        new_can_quat_id_ = yaml["new_can_quat_id"].as<int>();
+      }
+      if (yaml["new_can_status_id"]) {
+        new_can_status_id_ = yaml["new_can_status_id"].as<int>();
+      }
+      if (yaml["new_can_cmd_id"]) {
+        new_can_cmd_id_ = yaml["new_can_cmd_id"].as<int>();
+      }
+
+      tools::logger()->info(
+        "[CBoard] New CAN IDs: quat=0x{:03X}, status=0x{:03X}, cmd=0x{:03X}",
+        new_can_quat_id_, new_can_status_id_, new_can_cmd_id_);
+    } else {
+      tools::logger()->info("[CBoard] Using OLD CAN protocol");
+    }
+  }
 
   if (!yaml["can_interface"]) {
     throw std::runtime_error("Missing 'can_interface' in YAML configuration.");
@@ -506,6 +692,7 @@ void CBoard::send_scm(bool control, bool fire, float yaw, float yaw_vel, float y
     while (a > M_PI) a -= 2 * M_PI;
     return a;
   };
+
   if (normalize_abs_angles_) {
     abs_yaw = norm_pi(abs_yaw);
     abs_pitch = norm_pi(abs_pitch);
@@ -523,7 +710,6 @@ void CBoard::send_scm(bool control, bool fire, float yaw, float yaw_vel, float y
 
   frame.Pitch = rel_pitch_out;
   frame.Yaw = rel_yaw_out;
-
   frame.TargetPitchSpeed = out_pitch_vel;
   frame.TargetYawSpeed = out_yaw_vel;
   frame.SystemTimer = system_timer;
@@ -588,6 +774,34 @@ void CBoard::handle_serial_frame(uint8_t id, const uint8_t *payload,
     bullet_speed = static_cast<int16_t>(payload[0] << 8 | payload[1]) / 1e2;
     mode = Mode(payload[2]);
     shoot_mode = ShootMode(payload[3]);
+  }
+}
+
+void CBoard::send_startup_frame() {
+  // 新CAN协议：发送初始化帧，通知电控上位机已启动
+  // 帧格式：state=0, target=0, yaw=0, pitch=0, NucStartFlag=1
+  can_frame frame;
+  frame.can_id = new_can_cmd_id_;
+  frame.can_dlc = 7;
+
+  // 初始化所有字段为0
+  frame.data[0] = 0;  // AimbotState = 0 (无控制)
+  frame.data[1] = 0;  // AimbotTarget = 0 (无目标)
+  frame.data[2] = 0;  // Yaw高字节 = 0
+  frame.data[3] = 0;  // Yaw低字节 = 0
+  frame.data[4] = 0;  // Pitch高字节 = 0
+  frame.data[5] = 0;  // Pitch低字节 = 0
+  frame.data[6] = 1;  // NucStartFlag = 1 ⭐ (启动标志)
+
+  // 标记已发送，后续send()调用将使用flag=0
+  nuc_start_flag_sent_ = true;
+
+  try {
+    can_->write(&frame);
+    tools::logger()->info(
+      "[NewCAN] Startup frame sent! NucStartFlag=1, notifying MCU that vision system is ready.");
+  } catch (const std::exception &e) {
+    tools::logger()->error("[NewCAN] Failed to send startup frame: {}", e.what());
   }
 }
 

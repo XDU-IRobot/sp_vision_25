@@ -84,7 +84,24 @@ std::list<Target> Tracker::track(
     std::accumulate(
       target_.ekf().recent_nis_failures.begin(), target_.ekf().recent_nis_failures.end(), 0) >=
     (0.4 * target_.ekf().window_size)) {
-    tools::logger()->debug("[Target] Bad Converge Found!");
+    // Print detailed EKF diagnostics to help debug convergence issues
+    try {
+      auto & ekf = target_.ekf();
+      double recent_rate = ekf.data.at("recent_nis_failures");
+      double nis = ekf.data.at("nis");
+      double nees = ekf.data.at("nees");
+      double ry = ekf.data.at("residual_yaw");
+      double rp = ekf.data.at("residual_pitch");
+      double rd = ekf.data.at("residual_distance");
+      double ra = ekf.data.at("residual_angle");
+
+      tools::logger()->debug(
+        "[Target] Bad Converge Found! recent_rate={:.3f} last_nis={:.3f} nees={:.3f} resid=(yaw={:.3f},pitch={:.3f},dist={:.3f},ang={:.3f})",
+        recent_rate, nis, nees, ry, rp, rd, ra);
+    } catch (const std::exception & e) {
+      tools::logger()->debug("[Target] Bad Converge Found! (failed to read EKF data: {})", e.what());
+    }
+
     state_ = "lost";
     return {};
   }

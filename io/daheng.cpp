@@ -25,7 +25,12 @@ Daheng::Daheng(const std::string & config_path)
   
   // 调试开关
   debug_ = yaml["debug"] ? yaml["debug"].as<bool>() : false;
-  
+
+  // 硬触发相关参数（默认关闭）
+  trigger_enable_ = yaml["trigger_enable"] ? yaml["trigger_enable"].as<bool>() : false;
+  trigger_source_ = yaml["trigger_source"] ? yaml["trigger_source"].as<int>() : 0;
+  trigger_activation_ = yaml["trigger_activation"] ? yaml["trigger_activation"].as<int>() : 0;
+
   // 相机详细设置
   if (yaml["camera_settings"]) {
     auto settings = yaml["camera_settings"];
@@ -322,16 +327,109 @@ void Daheng::set_camera_params()
     }
   }
   
-  // 设置触发模式为连续模式
-  status = GXSetEnum(device_handle_, GX_ENUM_TRIGGER_MODE, GX_TRIGGER_MODE_OFF);
-  if (status != GX_STATUS_SUCCESS && debug_) {
-    tools::logger()->warn("Failed to set trigger mode");
-  }
-  
-  // 设置采集模式为连续采集
-  status = GXSetEnum(device_handle_, GX_ENUM_ACQUISITION_MODE, GX_ACQ_MODE_CONTINUOUS);
-  if (status != GX_STATUS_SUCCESS && debug_) {
-    tools::logger()->warn("Failed to set acquisition mode");
+  // 设置触发模式
+  if (!trigger_enable_) {
+    // 连续采集模式（默认）
+    status = GXSetEnum(device_handle_, GX_ENUM_TRIGGER_MODE, GX_TRIGGER_MODE_OFF);
+    if (status != GX_STATUS_SUCCESS && debug_) {
+      tools::logger()->warn("Failed to set trigger mode OFF");
+    }
+
+    // 连续采集
+    status = GXSetEnum(device_handle_, GX_ENUM_ACQUISITION_MODE, GX_ACQ_MODE_CONTINUOUS);
+    if (status != GX_STATUS_SUCCESS && debug_) {
+      tools::logger()->warn("Failed to set acquisition mode CONTINUOUS");
+    }
+
+    if (debug_) {
+      tools::logger()->info("Daheng camera configured in continuous mode (trigger disabled)");
+    }
+  } else {
+    // 启用硬触发（外部线触发）
+    status = GXSetEnum(device_handle_, GX_ENUM_TRIGGER_MODE, GX_TRIGGER_MODE_ON);
+    if (status != GX_STATUS_SUCCESS) {
+      tools::logger()->warn("Failed to enable trigger mode ON");
+    }
+
+    // 选择触发源：Line0/Line1/Line2
+    GX_TRIGGER_SOURCE_ENTRY src_entry = GX_TRIGGER_SOURCE_LINE0;
+    switch (trigger_source_) {
+      case 0: src_entry = GX_TRIGGER_SOURCE_LINE0; break;
+      case 1: src_entry = GX_TRIGGER_SOURCE_LINE1; break;
+      case 2: src_entry = GX_TRIGGER_SOURCE_LINE2; break;
+      default:
+        src_entry = GX_TRIGGER_SOURCE_LINE0;
+        tools::logger()->warn("Invalid trigger_source {}, using Line0", trigger_source_);
+        break;
+    }
+    status = GXSetEnum(device_handle_, GX_ENUM_TRIGGER_SOURCE, src_entry);
+    if (status != GX_STATUS_SUCCESS) {
+      tools::logger()->warn("Failed to set trigger source to Line{}", trigger_source_);
+    }
+
+    // 设置触发沿：Rising/Falling
+    GX_TRIGGER_ACTIVATION_ENTRY act_entry = GX_TRIGGER_ACTIVATION_RISINGEDGE;
+    switch (trigger_activation_) {
+      case 0: act_entry = GX_TRIGGER_ACTIVATION_RISINGEDGE; break;
+      case 1: act_entry = GX_TRIGGER_ACTIVATION_FALLINGEDGE; break;
+      default:
+        act_entry = GX_TRIGGER_ACTIVATION_RISINGEDGE;
+        tools::logger()->warn("Invalid trigger_activation {}, using RisingEdge", trigger_activation_);
+        break;
+    }
+    status = GXSetEnum(device_handle_, GX_ENUM_TRIGGER_ACTIVATION, act_entry);
+    if (status != GX_STATUS_SUCCESS) {
+      tools::logger()->warn("Failed to set trigger activation to {}", trigger_activation_);
+    }
+
+    // 触发选择：FrameStart（帧触发）
+    status = GXSetEnum(device_handle_, GX_ENUM_TRIGGER_SELECTOR, GX_ENUM_TRIGGER_SELECTOR_FRAME_START);
+    if (status != GX_STATUS_SUCCESS) {
+      tools::logger()->warn("Failed to set trigger selector FRAME_START");
+    }
+
+    // 采集模式设置为连续模式，由触发信号控制曝光
+    status = GXSetEnum(device_handle_, GX_ENUM_ACQUISITION_MODE, GX_ACQ_MODE_CONTINUOUS);
+    if (status != GX_STATUS_SUCCESS) {
+      tools::logger()->warn("Failed to set acquisition mode CONTINUOUS under trigger");
+    }
+
+    // 将对应的 Line 设置为输入模式
+    GX_LINE_SELECTOR_ENTRY line_selector;
+    const char* line_name;
+    switch (trigger_source_) {
+      case 2:
+        line_selector = GX_ENUM_LINE_SELECTOR_LINE2;
+        line_name = "Line2";
+        break;
+      case 1:
+        line_selector = GX_ENUM_LINE_SELECTOR_LINE1;
+        line_name = "Line1";
+        break;
+      case 0:
+      default:
+        line_selector = GX_ENUM_LINE_SELECTOR_LINE0;
+        line_name = "Line0";
+        break;
+    }
+
+    status = GXSetEnum(device_handle_, GX_ENUM_LINE_SELECTOR, line_selector);
+    if (status != GX_STATUS_SUCCESS && debug_) {
+      tools::logger()->warn("Failed to select {}", line_name);
+    }
+
+    status = GXSetEnum(device_handle_, GX_ENUM_LINE_MODE, GX_ENUM_LINE_MODE_INPUT);
+    if (status != GX_STATUS_SUCCESS && debug_) {
+      tools::logger()->warn("Failed to set {} mode to INPUT", line_name);
+    }
+
+    tools::logger()->info(
+      "Daheng external trigger enabled: source={} ({}), activation={} ({})",
+      trigger_source_,
+      line_name,
+      trigger_activation_,
+      trigger_activation_ == 0 ? "RisingEdge" : "FallingEdge"
+    );
   }
   
   // 设置像素格式为 Bayer8；若失败则尝试其他排列

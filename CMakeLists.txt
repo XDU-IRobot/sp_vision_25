@@ -116,6 +116,9 @@ target_link_libraries(camera_planner_simple ${OpenCV_LIBS} fmt::fmt yaml-cpp aut
 add_executable(camera_planner_realtime tests/camera_planner_realtime.cpp)
 target_link_libraries(camera_planner_realtime ${OpenCV_LIBS} fmt::fmt yaml-cpp auto_aim tools io)
 
+add_executable(trigger_test tests/trigger_test.cpp)
+target_link_libraries(trigger_test ${OpenCV_LIBS} fmt::fmt yaml-cpp tools io)
+
 # 检查 ROS 环境
 find_package(ament_cmake QUIET)
 find_package(rclcpp QUIET)

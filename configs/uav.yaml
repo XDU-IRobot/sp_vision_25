@@ -1,4 +1,4 @@
-enemy_color: "red"
+enemy_color: "blue"
 # enemy_color: "blue"
 
 
@@ -11,6 +11,44 @@ yolov5_model_path: assets/yolov5.xml
 device: CPU
 min_confidence: 0.8
 use_traditional: true
+
+
+#####-----大恒相机配置-----#####
+camera_name: "daheng"
+exposure_ms: 2.1
+gain: 24
+vid_pid: "2ba2:4d55"
+
+camera_settings:
+  width: 1920
+  height: 1200
+  exposure: 6000
+  auto_exposure: false
+  gain: 24
+  fps: 168
+  auto_white_balance: true
+  rgain: 0.0
+  bgain: 0.0
+  ggain: 0.0
+  time_offset: 45500000
+  auto_exp_change: false
+  max_exp: 3000
+  min_exp: 200
+  pixel_format: BayerRG8
+
+####-----gimbal参数（仅“直连云台测试程序”使用；当前仅连接 C 板可忽略）-----#####
+com_port: "/dev/ttyACM0"
+baudrate: 328125
+gimbal_protocol: "scm"  # 可选: scm | sp_crc16
+scm_sof: 85               # SOF 字节（0x55 = 85）
+scm_eof: 255              # EOF 字节（0xFF = 255）
+scm_rx_id: 1              # 云台->上位机 帧ID (MCU->Host)
+scm_tx_id: 2              # 上位机->云台 帧ID (Host->MCU)
+scm_angles_in_deg: true   # 角度单位是否使用度（true: 度，false: 弧度）
+yaw_kp: 0
+yaw_kd: 0
+pitch_kp: 0
+pitch_kd: 0
 
 #####-----ROI-----#####
 roi: 
@@ -54,14 +92,22 @@ max_side_ratio: 1.5
 max_rectangular_error: 25 # degree
 min_confidence: 0.8
 
-#####-----cboard参数-----#####
-quaternion_canid: 0x001
-bullet_speed_canid: 0x110
-send_canid: 0xff
-can_interface: "can0"
+# #####-----cboard参数-----#####
+# quaternion_canid: 0x001
+# bullet_speed_canid: 0x110
+# send_canid: 0xff
+# can_interface: "can0"
+
+#####-----predictor参数-----#####
+pos_alpha: 0.4
+vel_alpha: 0.4
+predict_time: 0.1
+
+#####-----armor_aimer参数-----#####
+delay_time: 0.1
 
 #####-----tracker参数-----#####
-min_detect_count: 5
+min_detect_count: 15
 max_temp_lost_count: 15
 outpost_max_temp_lost_count: 150
 
@@ -95,7 +141,8 @@ distort_coeffs: [-0.58886594170687334, 0.32512251112647716, 0.012447953238733123
 # 标定板同竖直摆放时的偏角: yaw-87.29 pitch7.65 roll-0.51 degree
 R_camera2gimbal: [0.00046423063676173171, 0.033770528223625203, 0.99942950522456209, -0.99970300483287733, 0.024367462669785803, -0.00035901413901253575, -0.02436568525675643, -0.99913251282626891, 0.03377181066266309]
 t_camera2gimbal: [-0.034955523715399906, -0.000074403211899371, 0.001248173910106823]
-
+# t_camera2gimbal:  [+0.012965, -0.006178, -0.018280]
+# R_camera2gimbal:  [-0.018356, -0.001372,  0.999831, -0.999364,  0.030599, -0.018305, -0.030569, -0.999531, -0.001933]
 
 #####-----buff_detector参数-----#####
 model: "assets/yolo11_buff_int8.xml"

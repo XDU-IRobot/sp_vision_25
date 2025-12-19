@@ -71,15 +71,38 @@ int main(int argc, char * argv[])
     Eigen::Vector3d ypr = tools::eulers(solver.R_gimbal2world(), 2, 1, 0);
 
     auto armors = detector.detect(img);
-
+    /** 绘制每一帧识别装甲板   */
+    int armor_idx = 0;
+    for (const auto & armor : armors) {
+      if (!armor.points.empty()) {
+        tools::draw_points(img, armor.points, {255, 255, 0}, 2);
+      } else {
+        cv::rectangle(img, armor.box, {255, 255, 0}, 2);
+      }
+      auto label = fmt::format(
+        "#{} {} {:.0f}%", armor_idx, auto_aim::ARMOR_NAMES[armor.name], armor.confidence * 100);
+      auto text_anchor = cv::Point(static_cast<int>(armor.center.x), static_cast<int>(armor.center.y));
+      tools::draw_text(img, label, text_anchor, {255, 255, 0}, 0.6, 2);
+      armor_idx += 1;
+    }
+    /** 绘制目标   */
     auto targets = tracker.track(armors, t);
 
     auto command = aimer.aim(targets, t, cboard.bullet_speed);
 
     command.shoot = shooter.shoot(command, aimer, targets, ypr);
+    //yaw,pitch范围为[-180,180],故需要增大180度
+    auto wrap_rad_2pi = [](double rad) {
+  double wrapped = std::fmod(rad, 2 * M_PI);
+  if (wrapped < 0) wrapped += 2 * M_PI;
+  return wrapped;
+};
 
-    cboard.send(command);
-
+command.yaw = wrap_rad_2pi(command.yaw);
+command.pitch = wrap_rad_2pi(command.pitch);
+    // cboard.send(command);
+    // cboard.send(command);
+    gimbal.send_command_scm(command);
     /// debug
     tools::draw_text(img, fmt::format("[{}]", tracker.state()), {10, 30}, {255, 255, 255});
 
@@ -98,10 +121,25 @@ int main(int argc, char * argv[])
         }
       }  //always left
       solver.solve(armor);
-      data["armor_x"] = armor.xyz_in_world[0];
-      data["armor_y"] = armor.xyz_in_world[1];
-      data["armor_yaw"] = armor.ypr_in_world[0] * 57.3;
-      data["armor_yaw_raw"] = armor.yaw_raw * 57.3;
+      //armor.name是字符串，转换为特定数字
+      int name_send  =0;
+      if (armor.name == auto_aim::ArmorName::outpost)
+      {
+        name_send = 18;
+      }
+      
+      data["armor_name"] = name_send;
+      // data["armor_x"] = armor.xyz_in_world[0];
+      // data["armor_y"] = armor.xyz_in_world[1];
+      // data["armor_yaw"] = armor.ypr_in_world[0] * 57.3;
+      // data["armor_yaw_raw"] = armor.yaw_raw * 57.3;
+      data["cmd_pose"]["position"] = { {"x", 0}, {"y", 0}, {"z", 0} };
+      data["cmd_pose"]["orientation"] = {
+      {"x", std::sin(command.yaw/2) * std::cos(command.pitch/2)},
+  {"y", std::sin(command.pitch/2)},
+  {"z", 0},
+        {"w", std::cos(command.yaw/2) * std::cos(command.pitch/2)}
+     };
     }
 
     if (!targets.empty()) {
@@ -139,7 +177,7 @@ int main(int argc, char * argv[])
       data["l"] = x[9];
       data["h"] = x[10];
       data["last_id"] = target.last_id;
-
+      // data["state"] = tracker.state();
       // 卡方检验数据
       data["residual_yaw"] = target.ekf().data.at("residual_yaw");
       data["residual_pitch"] = target.ekf().data.at("residual_pitch");

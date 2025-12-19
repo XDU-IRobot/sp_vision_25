@@ -4,13 +4,35 @@ center_distance_mm: 40
 
 R_gimbal2imubody: [1, 0, 0, 0, 1, 0,  0, 0, 1]
 
-camera_name: "hikrobot"
+camera_name: "daheng"
 exposure_ms: 3
 gain: 10.0
-vid_pid: "2bdf:0001"
+# vid_pid: "2bdf:0001"
+vid_pid: "2c97:0001"
+
+# 相机标定文件路径 
+camera_calibration_file: "configs/daheng_calibration.yaml"
 
 #####-----cboard参数-----#####
 quaternion_canid: 0x01
 bullet_speed_canid: 0x110
 send_canid: 0xff
-can_interface: "can0"
+# can_interface: "can0"
+# cboard_transport: "serial"   # 若使用串口需同时补齐串口字段
+com_port: "/dev/ttyACM0"
+baudrate: 328125
+gimbal_protocol: "scm"  # 可选: scm | sp_crc16
+scm_sof: 85               # SOF 字节（0x55 = 85）
+scm_eof: 255              # EOF 字节（0xFF = 255）
+scm_rx_id: 1              # 云台->上位机 帧ID (MCU->Host)
+scm_tx_id: 2              # 上位机->云台 帧ID (Host->MCU)
+scm_angles_in_deg: true   # 角度单位是否使用度（true: 度，false: 弧度）
+yaw_kp: 0
+yaw_kd: 0
+pitch_kp: 0
+pitch_kd: 0
+
+# camera_settings:
+#   width: 1920
+#   height: 1200
+#   exposure: 3000

@@ -23,6 +23,8 @@ add_library(auto_aim OBJECT
     voter.cpp
     shooter.cpp
     yolo.cpp
+    predictor.cpp
+    armor_aimer.cpp
     yolos/yolov5.cpp
     yolos/yolov8.cpp
     yolos/yolo11.cpp

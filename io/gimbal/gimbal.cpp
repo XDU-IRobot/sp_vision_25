@@ -138,6 +138,7 @@ void Gimbal::send(io::VisionToGimbal VisionToGimbal) {
     tools::logger()->warn("[Gimbal] Failed to write serial: {}", e.what());
   }
 }
+
 void Gimbal::send(bool control, bool fire, float yaw, float yaw_vel,
                   float yaw_acc, float pitch, float pitch_vel,
                   float pitch_acc) {
@@ -274,68 +275,21 @@ void Gimbal::send_scm(bool control, bool fire, float yaw, float yaw_vel,
   float system_timer =
       std::chrono::duration<float>(std::chrono::steady_clock::now() - start_tp_)
           .count();
-  
-   
+
   AimbotFrame_SCM_t frame{};
 
   frame.SOF = scm_sof_;
-  frame.SOF = 0x55;
-  // frame.ID = scm_tx_id_;
-  frame.ID = 0x02;
+  frame.ID = scm_tx_id_;
   frame.AimbotState = aimbot_state;
   frame.AimbotTarget = aimbot_target;
-  frame.PitchRelativeAngle = out_pitch;
-  frame.YawRelativeAngle = out_yaw;
+  frame.Pitch = out_pitch;
+  frame.Yaw = out_yaw;
   frame.TargetPitchSpeed = out_pitch_vel;
   frame.TargetYawSpeed = out_yaw_vel;
-  
-  frame.SystemTimer = static_cast<uint32_t>(  
-      std::chrono::duration_cast<std::chrono::milliseconds>(  
-          std::chrono::steady_clock::now() - start_tp_).count());  
-  
-  // frame.EOF = scm_eof_; 
-  frame.EOF = 0xFF; 
-  // frame.PitchRelativeAngle = frame.Pitch;
-  // frame.YawRelativeAngle = frame.Yaw;
-  
-  try {
-    serial_.write(reinterpret_cast<uint8_t *>(&frame), sizeof(frame));
-    // tools::logger()->info(
-    //     "[Gimbal][SCM] tx: mode={}, yaw={}, yaw_vel={}, yaw_acc={}, pitch_vel={}, pitch_acc={}, system_timer={}",
-    //     static_cast<int>(aimbot_state), static_cast<float>(out_yaw),
-    //     static_cast<float>(out_yaw_vel), static_cast<float>(yaw_acc),
-    //     static_cast<float>(out_pitch_vel), static_cast<float>(pitch_acc),
-    //     static_cast<float>(system_timer));
-  } catch (const std::exception &e) {
-    tools::logger()->warn("[Gimbal][SCM] Failed to write serial: {}", e.what());
-  }
-}
-void Gimbal::send_command_scm(io::Command command) {
-  // TODO: Implement SCM command sending
-  uint8_t aimbot_state = 2; // 0:不控 1:控不火 2:控且火
-  if (command.control)
-    aimbot_state = command.shoot ? 2 : 1;
-  uint8_t aimbot_target = 0;
-  float out_yaw = scm_angles_in_deg_ ? rad2deg(command.yaw) : command.yaw;
-  float out_pitch =
-      scm_angles_in_deg_ ? rad2deg(command.pitch) : command.pitch;
-  float system_timer =
-      std::chrono::duration<float>(std::chrono::steady_clock::now() - start_tp_)
-          .count();
-
-  AimbotFrame_SCM_t frame{};
-  frame.SOF = scm_sof_;
-  frame.ID = 0x03;
-  frame.AimbotState = aimbot_state;
-  frame.AimbotTarget = aimbot_target;
-  frame.PitchRelativeAngle = out_pitch;
-  frame.YawRelativeAngle = out_yaw;
-  frame.TargetPitchSpeed = 0.0f;
-  frame.TargetYawSpeed = 0.0f;
-  frame.SystemTimer = static_cast<uint32_t>(
-      std::chrono::duration_cast<std::chrono::milliseconds>(
-          std::chrono::steady_clock::now() - start_tp_).count());
+  frame.SystemTimer = system_timer;
   frame.EOF = scm_eof_;
+  frame.PitchRelativeAngle = frame.Pitch;
+  frame.YawRelativeAngle = frame.Yaw;
 
   try {
     serial_.write(reinterpret_cast<uint8_t *>(&frame), sizeof(frame));
@@ -405,9 +359,7 @@ bool Gimbal::parse_scm_rx() {
   state_.pitch_vel = 0;
   state_.bullet_speed = 0;
   state_.bullet_count = 0;
-  // tools::logger()->info(
-  //     "[Gimbal][SCM] rx: q1={}, q2={}, q3={}", static_cast<float>(rx.q1),
-  //     static_cast<float>(rx.q2), static_cast<float>(rx.q3));
+
   switch (rx.mode) {
   case 0:
     mode_ = GimbalMode::IDLE;

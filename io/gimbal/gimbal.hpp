@@ -12,7 +12,6 @@
 
 #include "serial/serial.h"
 #include "tools/thread_safe_queue.hpp"
-#include "io/command.hpp"
 
 namespace io {
 struct __attribute__((packed)) GimbalToVision {
@@ -75,7 +74,7 @@ public:
             float pitch, float pitch_vel, float pitch_acc);
 
   void send(io::VisionToGimbal VisionToGimbal);
-  void send_command_scm(io::Command command);
+
 private:
   serial::Serial serial_;
 
@@ -107,7 +106,6 @@ private:
 
   void send_scm(bool control, bool fire, float yaw, float yaw_vel,
                 float yaw_acc, float pitch, float pitch_vel, float pitch_acc);
-  // void send_command_scm(io::Command command);
   bool parse_scm_rx();
 };
 
@@ -124,18 +122,18 @@ typedef struct __attribute__((packed)) {
   uint8_t AimbotState;
   uint8_t AimbotTarget;
   // 自瞄数据
-  float PitchRelativeAngle;
-  float YawRelativeAngle;
+  float Pitch;
+  float Yaw;
   // 自瞄目标角速度
   float TargetPitchSpeed;
   float TargetYawSpeed;
   // 时间戳
-  uint32_t SystemTimer;
+  float SystemTimer;
   // 包尾
   uint8_t EOF;
-  // // 处理后数据
-  // float PitchRelativeAngle;
-  // float YawRelativeAngle;
+  // 处理后数据
+  float PitchRelativeAngle;
+  float YawRelativeAngle;
 } AimbotFrame_SCM_t;
 
 typedef struct __attribute__((packed)) {

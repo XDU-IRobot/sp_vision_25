@@ -12,44 +12,6 @@ device: CPU
 min_confidence: 0.8
 use_traditional: true
 
-
-#####-----大恒相机配置-----#####
-camera_name: "daheng"
-exposure_ms: 2.1
-gain: 24
-vid_pid: "2ba2:4d55"
-
-camera_settings:
-  width: 1920
-  height: 1200
-  exposure: 4000
-  auto_exposure: false
-  gain: 24
-  fps: 168
-  auto_white_balance: true
-  rgain: 0.0
-  bgain: 0.0
-  ggain: 0.0
-  time_offset: 45500000
-  auto_exp_change: false
-  max_exp: 3000
-  min_exp: 200
-  pixel_format: BayerRG8
-
-####-----gimbal参数（仅“直连云台测试程序”使用；当前仅连接 C 板可忽略）-----#####
-com_port: "/dev/ttyACM0"
-baudrate: 328125
-gimbal_protocol: "scm"  # 可选: scm | sp_crc16
-scm_sof: 85               # SOF 字节（0x55 = 85）
-scm_eof: 255              # EOF 字节（0xFF = 255）
-scm_rx_id: 1              # 云台->上位机 帧ID (MCU->Host)
-scm_tx_id: 2              # 上位机->云台 帧ID (Host->MCU)
-scm_angles_in_deg: true   # 角度单位是否使用度（true: 度，false: 弧度）
-yaw_kp: 0
-yaw_kd: 0
-pitch_kp: 0
-pitch_kd: 0
-
 #####-----ROI-----#####
 roi: 
   x: 420
@@ -59,25 +21,25 @@ roi:
 
 use_roi: false
 
-# #####-----工业相机参数-----#####
-# camera_name: "mindvision"
-# exposure_ms: 8
-# gamma: 0.6
-# vid_pid: "f622:d13a"
+#####-----工业相机参数-----#####
+camera_name: "mindvision"
+exposure_ms: 8
+gamma: 0.6
+vid_pid: "f622:d13a"
 
-# #####-----USB相机参数-----#####
-# image_width: 640
-# image_height: 360
-# new_image_width: 1280
-# new_image_height: 720
-# fov_h: 87.7
-# fov_v: 56.7 
-# new_fov_h: 67
-# new_fov_v: 40.9
-# usb_frame_rate: 100
-# usb_exposure: 315 #1-80000______250
-# usb_gamma: 160
-# usb_gain: 10 #0-96
+#####-----USB相机参数-----#####
+image_width: 640
+image_height: 360
+new_image_width: 1280
+new_image_height: 720
+fov_h: 87.7
+fov_v: 56.7 
+new_fov_h: 67
+new_fov_v: 40.9
+usb_frame_rate: 100
+usb_exposure: 315 #1-80000______250
+usb_gamma: 160
+usb_gain: 10 #0-96
 
 
 #####-----传统方法参数-----#####
@@ -92,11 +54,11 @@ max_side_ratio: 1.5
 max_rectangular_error: 25 # degree
 min_confidence: 0.8
 
-# #####-----cboard参数-----#####
-# quaternion_canid: 0x001
-# bullet_speed_canid: 0x110
-# send_canid: 0xff
-# can_interface: "can0"
+#####-----cboard参数-----#####
+quaternion_canid: 0x001
+bullet_speed_canid: 0x110
+send_canid: 0xff
+can_interface: "can0"
 
 #####-----tracker参数-----#####
 min_detect_count: 5
@@ -126,11 +88,8 @@ auto_fire: true # 是否由自瞄控制射击
 R_gimbal2imubody: [1, 0, 0, 0, 1, 0, 0, 0, 1]
 
 # 重投影误差: 0.1032px
-# camera_matrix: [2924.6190997571712, 0, 647.0245571651617, 0, 2927.4258594148396, 388.18625585771758, 0, 0, 1]
-# distort_coeffs: [-0.58886594170687334, 0.32512251112647716, 0.012447953238733123, -0.0032411418907421475, 0]
-# 相机标定
-camera_matrix: [2841.164508, 0.000000, 921.237888, 0.000000, 2838.274917, 607.300163, 0.000000, 0.000000, 1.000000]
-distort_coeffs: [-0.410395, 1.175226, -0.001696, -0.002849, 0.000000]
+camera_matrix: [2924.6190997571712, 0, 647.0245571651617, 0, 2927.4258594148396, 388.18625585771758, 0, 0, 1]
+distort_coeffs: [-0.58886594170687334, 0.32512251112647716, 0.012447953238733123, -0.0032411418907421475, 0]
 # 相机同理想情况的偏角: yaw0.02 pitch1.94 roll1.40 degree
 # 标定板到世界坐标系原点的水平距离: 4.12 m
 # 标定板同竖直摆放时的偏角: yaw-87.29 pitch7.65 roll-0.51 degree

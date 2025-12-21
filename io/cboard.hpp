@@ -5,7 +5,9 @@
 #include <atomic>
 #include <chrono>
 #include <cmath>
+#include <deque>
 #include <functional>
+#include <mutex>
 #include <string>
 #include <thread>
 #include <vector>
@@ -29,6 +31,15 @@ const std::vector<std::string> SHOOT_MODES = {"left_shoot", "right_shoot",
 
 class CBoard {
 public:
+  // IMU数据结构（移到public以便外部访问）
+  struct IMUData {
+    Eigen::Quaterniond q;
+    std::chrono::steady_clock::time_point timestamp;  // 上位机接收时间戳
+    uint32_t mcu_timestamp;  // 🆕 MCU发送时的时间戳（从0x160帧获取，单位：毫秒）
+    uint16_t imu_count;      // 完整的IMU计数器：0-9999循环（从0x160帧获取）
+    uint8_t cycle_count;     // IMU周期计数：1-10循环
+  };
+
   double bullet_speed;
   Mode mode;
   ShootMode shoot_mode;
@@ -39,16 +50,111 @@ public:
 
   Eigen::Quaterniond imu_at(std::chrono::steady_clock::time_point timestamp);
 
+  // 🆕 基于imu_count的硬同步查找（推荐使用）
+  // 从队列中查找指定imu_count的IMU数据
+  // 参数：target_count - 目标IMU计数器值（0-9999）
+  // 返回：找到的IMU四元数，如果找不到则等待或使用最近的数据
+  Eigen::Quaterniond imu_by_count(uint16_t target_count);
+
+  // 🆕 获取最近一次 imu_by_count() 匹配的 IMU 数据时间戳
+  // 注意：必须在调用 imu_by_count() 后立即调用，返回上次匹配的 IMU 时间戳
+  std::chrono::steady_clock::time_point get_last_matched_imu_timestamp() const {
+    // imu_by_count() 会更新 data_ahead_ 或 data_behind_
+    // 返回 data_behind_ 的时间戳（最近匹配的数据）
+    return data_behind_.timestamp;
+  }
+
+  // 🆕 获取最近一个完整的IMU周期（10帧）
+  // 返回count从1到10的完整序列，如果不完整则返回空
+  std::vector<Eigen::Quaterniond> get_last_imu_cycle();
+
+  // 🆕 获取最近一个完整IMU周期的中间帧（第5或第6帧）
+  Eigen::Quaterniond get_last_imu_cycle_middle();
+
+  // 🆕 获取最近的IMU数据（包含四元数、时间戳和imu_count）
+  IMUData get_last_imu_data() const { return data_behind_; }
+
+  // 🆕 获取当前的imu_count
+  uint16_t get_imu_count() const { return imu_count_; }
+
+  // 🆕 环形数组直接查询接口（推荐使用）
+  // 根据imu_count直接从环形数组中查询IMU数据
+  // 参数：target_imu_count - 目标IMU计数器值（0-9999）
+  // 返回：{q, mcu_timestamp, mcu_synced_timestamp, rx_timestamp, valid}
+  // 注意：mcu_synced_timestamp 是转换后的 MCU 时间戳，应作为后续解算的唯一时间基准
+  struct IMUQueryResult {
+    Eigen::Quaterniond q;
+    uint32_t mcu_timestamp;          // MCU 原始时间戳（毫秒，用于调试）
+    std::chrono::steady_clock::time_point mcu_synced_timestamp;  // 🔑 转换后的 MCU 时间戳（主时间基准）
+    std::chrono::steady_clock::time_point rx_timestamp;  // 上位机接收时间戳（仅供参考）
+    bool valid;
+  };
+  IMUQueryResult get_imu_from_ring_buffer(uint16_t target_imu_count) const;
+
   void send(Command command);
 
+#ifdef AMENT_CMAKE_FOUND
+  // 🆕 设置ROS2节点用于实时发布TF（IMU数据到达时立即发布）
+  void set_ros2_tf_publisher(
+    std::shared_ptr<void> node,  // 类型擦除，避免强依赖
+    const Eigen::Matrix3d & R_gimbal2imubody);
+
+  // 🆕 将 steady_clock 时间戳转换为 ROS 时间（使用与TF相同的时间基准）
+  // 用于确保 Marker 和 TF 使用同一时间戳
+  std::shared_ptr<void> convert_to_ros_time(std::chrono::steady_clock::time_point timestamp);
+#endif
+
 private:
-  struct IMUData {
-    Eigen::Quaterniond q;
-    std::chrono::steady_clock::time_point timestamp;
-  };
 
   tools::ThreadSafeQueue<IMUData>
       queue_; // 必须在can_之前初始化，否则存在死锁的可能
+
+  // 🆕 环形数组：用于高效存储和查询IMU数据
+  static constexpr size_t IMU_RING_BUFFER_SIZE = 2000;  // 环形数组大小：足够容纳约4秒@500Hz的数据
+
+  struct IMUFrame {
+    uint16_t imu_count;       // IMU计数器（0-9999循环）
+    uint32_t mcu_timestamp;   // MCU时间戳（毫秒，原始值，用于调试）
+    std::chrono::steady_clock::time_point mcu_synced_timestamp;  // 🔑 转换后的MCU时间戳（主时间基准）
+    std::chrono::steady_clock::time_point rx_timestamp;  // 上位机接收时间戳（仅供参考）
+    Eigen::Quaterniond q;     // 四元数
+    std::atomic<bool> valid;  // 数据有效性标志（原子操作，保证线程安全）
+
+    IMUFrame() : imu_count(0), mcu_timestamp(0), q(1, 0, 0, 0), valid(false) {}
+  };
+
+  IMUFrame imu_ring_buffer_[IMU_RING_BUFFER_SIZE];  // 环形数组
+
+  // 🆕 MCU 时间基准映射（用于将 MCU 时间戳转换为上位机 steady_clock）
+  std::atomic<bool> time_base_initialized_{false};  // 时间基准是否已初始化
+  uint32_t mcu_time_base_ = 0;                      // MCU 时间基准（毫秒）
+  std::chrono::steady_clock::time_point host_time_base_;  // 上位机时间基准
+
+  // 🆕 Pending缓存：用于临时存储未绑定的四元数（0x150帧先到的情况）
+  Eigen::Quaterniond pending_q_;                     // 待绑定的四元数
+  std::chrono::steady_clock::time_point pending_q_rx_timestamp_;  // 待绑定的四元数接收时间
+  std::atomic<bool> quaternion_ready_{false};        // 四元数是否就绪（原子操作）
+
+  // 🆕 帧配对缓存结构（保留向后兼容，但优先使用环形数组）
+  struct PendingQuatFrame {
+    Eigen::Quaterniond q;
+    std::chrono::steady_clock::time_point rx_timestamp;  // 上位机接收时间
+  };
+
+  struct PendingStatusFrame {
+    uint8_t robot_id;
+    uint8_t mode;
+    uint16_t imu_count;
+    uint32_t mcu_timestamp;  // MCU发送的时间戳
+    std::chrono::steady_clock::time_point rx_timestamp;  // 上位机接收时间
+  };
+
+  std::deque<PendingQuatFrame> pending_quat_frames_;      // 未匹配的0x150帧队列（向后兼容）
+  std::deque<PendingStatusFrame> pending_status_frames_;  // 未匹配的0x160帧队列（向后兼容）
+  std::mutex frame_match_mutex_;  // 保护帧配对缓存的互斥锁
+  const size_t max_pending_frames_ = 10;  // 最大缓存帧数
+  const double frame_match_time_window_ms_ = 10.0;  // 帧配对时间窗口（毫秒）
+
   // 传输后端：CAN（SocketCAN）或 SERIAL（USB 串口）
   std::unique_ptr<SocketCAN> can_;
   serial::Serial serial_;
@@ -68,7 +174,17 @@ private:
   uint8_t robot_id_ = 0;                 // 机器人ID（从0x160帧接收）
   uint16_t imu_count_ = 0;               // IMU计数器（从0x160帧接收）
   uint16_t last_imu_count_ = 0;          // 上次IMU计数器（用于检测丢帧）
-  bool nuc_start_flag_sent_ = false;     // NUC启动标志是否已发送
+  std::atomic<bool> mcu_online_{false};  // MCU是否在线（imu_count!=0时为true）
+
+  // 🆕 心跳线程（用于硬触发模式下在MCU上线前持续发送start=1）
+  std::thread heartbeat_thread_;             // 心跳线程
+  std::atomic<bool> heartbeat_quit_{false};  // 心跳线程退出标志
+  int heartbeat_interval_ms_ = 2;            // 心跳间隔（毫秒），默认2ms=500Hz
+
+  // 🆕 调试开关配置
+  bool debug_rx_ = false;                // 是否输出RX（接收）调试信息
+  bool debug_tx_ = false;                // 是否输出TX（发送）调试信息
+  bool debug_frame_match_ = false;       // 是否输出frame匹配调试信息
 
   // 串口帧配置（可与 CAN ID 对应，或独立配置）
   std::string serial_port_ = "/dev/ttyACM0";
@@ -146,7 +262,19 @@ private:
   // 发送启动帧（新CAN协议），通知电控上位机已启动
   void send_startup_frame();
 
+  // 🆕 心跳线程函数（在MCU上线前持续发送start=1心跳）
+  void heartbeat_loop();
+
   std::string read_yaml(const std::string &config_path);
+
+#ifdef AMENT_CMAKE_FOUND
+  // ROS2 TF发布相关
+  std::shared_ptr<void> ros_node_;  // 类型擦除，避免强依赖
+  std::shared_ptr<void> tf_broadcaster_;
+  Eigen::Matrix3d R_gimbal2imubody_;  // 用于计算R_gimbal2world
+  std::chrono::steady_clock::time_point ros_time_base_;  // steady_clock时间基准
+  std::shared_ptr<void> ros_time_start_;  // ROS时间基准 (类型擦除)
+#endif
 };
 
 } // namespace io

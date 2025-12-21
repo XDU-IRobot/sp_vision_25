@@ -49,4 +49,15 @@ void Camera::read(cv::Mat & img, std::chrono::steady_clock::time_point & timesta
   camera_->read(img, timestamp);
 }
 
+uint64_t Camera::get_last_frame_id() const
+{
+  // 尝试转换为Daheng相机，如果成功则返回frame_id
+  auto* daheng = dynamic_cast<Daheng*>(camera_.get());
+  if (daheng) {
+    return daheng->get_last_frame_id();
+  }
+  // 其他相机类型不支持frame_id，返回0
+  return 0;
+}
+
 }  // namespace io

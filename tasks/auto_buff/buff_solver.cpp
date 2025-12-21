@@ -38,8 +38,11 @@ Solver::Solver(const std::string & config_path) : R_gimbal2world_(Eigen::Matrix3
   auto distort_coeffs_data = yaml["distort_coeffs"].as<std::vector<double>>();
   Eigen::Matrix<double, 3, 3, Eigen::RowMajor> camera_matrix(camera_matrix_data.data());
   Eigen::Matrix<double, 1, 5> distort_coeffs(distort_coeffs_data.data());
-  cv::eigen2cv(camera_matrix, camera_matrix_);
-  cv::eigen2cv(distort_coeffs, distort_coeffs_);
+  cv::Mat temp_camera_matrix, temp_distort_coeffs;
+  cv::eigen2cv(camera_matrix, temp_camera_matrix);
+  cv::eigen2cv(distort_coeffs, temp_distort_coeffs);
+  camera_matrix_ = temp_camera_matrix.clone();
+  distort_coeffs_ = temp_distort_coeffs.clone();
 
   // compute_rotated_points(OBJECT_POINTS);
 }

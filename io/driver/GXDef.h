@@ -226,7 +226,8 @@ typedef struct GX_FRAME_CALLBACK_PARAM
 	GX_FRAME_STATUS     status;							///< \Chinese 图像的返回状态																\English The image state returned by the callback function. Please refer to GX_FRAME_STATUS
 	const void*			pImgBuf;						///< \Chinese 图像buffer地址（开启chunkdata后，pImgBuf 包含图像数据和帧信息数据 ）			\English The image data address (After the frame information is enabled, the pImgBuf contains image data and frame information data)
 	int32_t             nImgSize;						///< \Chinese 图像大小数据大小，单位字节（开启chunkdata后，nImgsize为图像数据大小+帧信息大小）	\English Data size, in bytes (After the frame information is enabled, nImgSize is the sum of the size of the image data and the size of the frame information)
-	int32_t             nWidth;							///< \Chinese 图像的宽																	\English Image width
+	int32_t             nWidth;							///< \Chinese 图像的宽
+	// 																	\English Image width
 	int32_t             nHeight;						///< \Chinese 图像的高																	\English Image height
 	int32_t             nPixelFormat;					///< \Chinese 图像的PixFormat															\English PixelFormat of image
 	uint64_t            nFrameID;						///< \Chinese 图像的帧号																	\English Frame identification of image

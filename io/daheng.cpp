@@ -104,6 +104,7 @@ void Daheng::read(cv::Mat & img, std::chrono::steady_clock::time_point & timesta
 
   img = data.img;
   timestamp = data.timestamp;
+  last_frame_id_ = data.frame_id;  // 🆕 保存frame_id供外部查询
 }
 
 void Daheng::try_open()
@@ -208,7 +209,8 @@ void Daheng::open()
             if (color_filter == BAYERGR) bayer_name = "BAYERGR";
             else if (color_filter == BAYERGB) bayer_name = "BAYERGB";
             else if (color_filter == BAYERBG) bayer_name = "BAYERBG";
-            tools::logger()->info("Processing frame {}, using Bayer filter: {}", frame_count, bayer_name);
+            // std::cout<<frame_data.nFrameID<<std::endl;
+            // tools::logger()->info("Processing frame {}, using Bayer filter: {}", frame_count, bayer_name);
           }
           frame_count++;
         }
@@ -227,11 +229,12 @@ void Daheng::open()
         cv::Mat img_rgb(height_, width_, CV_8UC3, rgb_buffer);
         cv::Mat img_bgr;
         cv::cvtColor(img_rgb, img_bgr, cv::COLOR_RGB2BGR);
-        
+
         CameraData data;
         data.img = img_bgr.clone();
         data.timestamp = std::chrono::steady_clock::now();
-        
+        data.frame_id = frame_data.nFrameID;  //保存相机帧ID
+        // std::cout<<"frame ID: "<<frame_data.nFrameID<<std::endl;
         queue_.push(data);
       }
       
@@ -462,6 +465,8 @@ void GX_STDC Daheng::frame_callback(GX_FRAME_CALLBACK_PARAM * frame_data)
 {
   // 这是回调函数的实现，目前使用主动获取图像的方式
   // 如果需要使用回调方式，可以在这里实现
+  std::cout << "Frame callback received frame ID: " << frame_data->nFrameID << std::endl;
 }
 
 }  // namespace io
+

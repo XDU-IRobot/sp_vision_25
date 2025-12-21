@@ -2,8 +2,16 @@
 
 #include <chrono>
 #include <fstream>
+#include <thread>
 #include <nlohmann/json.hpp>
 #include <opencv2/opencv.hpp>
+
+// ROS2 headers (仅在 ROS2 可用时编译)
+#ifdef AMENT_CMAKE_FOUND
+#include <rclcpp/rclcpp.hpp>
+#include <tf2_ros/static_transform_broadcaster.h>
+#include <geometry_msgs/msg/transform_stamped.hpp>
+#endif
 
 #include "io/camera.hpp"
 #include "tasks/auto_aim/aimer.hpp"
@@ -26,6 +34,48 @@ const std::string keys =
 
 int main(int argc, char * argv[])
 {
+  // 初始化 ROS2 (仅在 ROS2 可用时)
+#ifdef AMENT_CMAKE_FOUND
+  rclcpp::init(argc, argv);
+  auto ros_node = std::make_shared<rclcpp::Node>("auto_aim_test_visualizer");
+
+  // 发布静态 TF：world 坐标系
+  auto tf_broadcaster = std::make_shared<tf2_ros::StaticTransformBroadcaster>(ros_node);
+
+  // 创建静态 TF 消息
+  geometry_msgs::msg::TransformStamped world_transform;
+  world_transform.header.frame_id = "map";  // 父坐标系
+  world_transform.child_frame_id = "world";  // 子坐标系
+  world_transform.transform.translation.x = 0.0;
+  world_transform.transform.translation.y = 0.0;
+  world_transform.transform.translation.z = 0.0;
+  world_transform.transform.rotation.x = 0.0;
+  world_transform.transform.rotation.y = 0.0;
+  world_transform.transform.rotation.z = 0.0;
+  world_transform.transform.rotation.w = 1.0;
+
+  // 创建定时器定期发布静态 TF (每秒发布一次)
+  auto tf_timer = ros_node->create_wall_timer(
+    std::chrono::seconds(1),
+    [&world_transform, tf_broadcaster, ros_node]() {
+      world_transform.header.stamp = ros_node->now();
+      tf_broadcaster->sendTransform(world_transform);
+    });
+
+  // 立即发送一次
+  world_transform.header.stamp = ros_node->now();
+  tf_broadcaster->sendTransform(world_transform);
+
+  // 在后台线程中运行 ROS2 spin
+  std::thread ros_spin_thread([ros_node]() {
+    rclcpp::spin(ros_node);
+  });
+  ros_spin_thread.detach();
+
+  tools::logger()->info("ROS2 initialized for auto_aim_test visualization");
+  tools::logger()->info("Static TF publisher started: map -> world");
+#endif
+
   // 读取命令行参数
   cv::CommandLineParser cli(argc, argv, keys);
   if (cli.has("help")) {
@@ -72,6 +122,11 @@ int main(int argc, char * argv[])
   auto_aim::Solver solver(config_path);
   auto_aim::Tracker tracker(config_path, solver);
   auto_aim::Aimer aimer(config_path);
+
+#ifdef AMENT_CMAKE_FOUND
+  // 将 ROS2 节点设置给 tracker
+  tracker.set_ros2_node(ros_node);
+#endif
 
   cv::Mat img, drawing;
   auto t0 = std::chrono::steady_clock::now();
@@ -206,6 +261,20 @@ int main(int argc, char * argv[])
         solver.reproject_armor(aim_xyza.head(3), aim_xyza[3], target.armor_type, target.name);
       if (aim_point.valid) tools::draw_points(img, image_points, {0, 0, 255});
 
+      // 🆕 发布 ROS2 Markers (使用 tracker 的集成功能)
+#ifdef AMENT_CMAKE_FOUND
+      // 转换时间戳为ROS时间
+      auto ros_time = rclcpp::Time(
+        std::chrono::duration_cast<std::chrono::nanoseconds>(
+          timestamp.time_since_epoch()).count());
+
+      if (aim_point.valid) {
+        tracker.publish_markers(targets, ros_time, aim_xyza, true);
+      } else {
+        tracker.publish_markers(targets, ros_time, Eigen::Vector4d::Zero(), false);
+      }
+#endif
+
       // 观测器内部数据
       Eigen::VectorXd x = target.ekf_x();
       data["x"] = x[0];
@@ -240,6 +309,11 @@ int main(int argc, char * argv[])
     auto key = cv::waitKey(30);
     if (key == 'q') break;
   }
+
+  // 清理 ROS2
+#ifdef AMENT_CMAKE_FOUND
+  rclcpp::shutdown();
+#endif
 
   return 0;
 }

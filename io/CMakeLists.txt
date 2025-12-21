@@ -47,14 +47,23 @@ find_package(ament_cmake QUIET)
 find_package(rclcpp QUIET)
 find_package(std_msgs QUIET)
 find_package(rosidl_typesupport_cpp QUIET)
+find_package(tf2_ros QUIET)
+find_package(geometry_msgs QUIET)
 # find_package(sp_msgs QUIET)
+
+# 🆕 TF2 支持（用于 CBoard 实时发布 TF）
+if(ament_cmake_FOUND AND rclcpp_FOUND AND tf2_ros_FOUND AND geometry_msgs_FOUND)
+    message(STATUS "ROS2 TF2 support found, enabling real-time TF publishing in CBoard.")
+    target_compile_definitions(io PRIVATE AMENT_CMAKE_FOUND)
+    ament_target_dependencies(io rclcpp tf2_ros geometry_msgs)
+endif()
 
 # 如果找不到 ROS 环境，则跳过 ROS 相关的部分
 if(NOT ament_cmake_FOUND OR NOT rclcpp_FOUND OR NOT std_msgs_FOUND OR NOT rosidl_typesupport_cpp_FOUND OR NOT sp_msgs_FOUND)
     message(WARNING "ROS2 not found, skipping ROS2 specific code.")
 else()
     message(STATUS "ROS2 environment found, compiling ROS2-related code.")
-    
+
     # 添加 ROS2 相关的文件
     target_sources(io PRIVATE ros2/publish2nav.cpp ros2/ros2.cpp ros2/subscribe2nav.cpp)
 

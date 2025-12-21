@@ -136,7 +136,7 @@ debug: true
 camera_settings:
   width: 1920                    # 图像宽度
   height: 1200                   # 图像高度
-  exposure: 1000                 # 曝光时间（微秒）
+  exposure: 2000                 # 曝光时间（微秒）
   auto_exposure: false           # 是否自动曝光
   gain: 24                       # 增益值
   fps: 168                       # 目标帧率
@@ -154,7 +154,7 @@ camera_settings:
 # 是否启用硬触发（外部GPIO信号触发相机曝光）
 # false: 连续采集模式（软件自由采集）
 # true:  硬触发模式（等待外部信号）
-trigger_enable: false
+trigger_enable: true
 
 # 触发源选择（仅在trigger_enable=true时生效）
 # 0 = Line0 (GPIO 1, 相机Pin 1)

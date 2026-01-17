@@ -9,7 +9,10 @@
 namespace auto_aim
 {
 Predictor::Predictor(const std::string & config_path, Solver & solver)
-: solver_(solver), state_("lost")
+: solver_(solver), 
+  state_("lost"),
+  sample_count_(0),
+  last_timestamp_(std::chrono::steady_clock::now())
 {
     YAML::Node config = YAML::LoadFile(config_path);
     enemy_color_ = (config["enemy_color"].as<std::string>() == "red") ? Color::red : Color::blue;
@@ -23,18 +26,21 @@ Predictor::PredictResult Predictor::track(const Armor & armor, std::chrono::stea
 {
     auto logger = tools::logger();
     auto dt = tools::delta_time(t, last_timestamp_);
+    logger->debug("[Predictor::track] dt={:.6f}s", dt);
     // last_timestamp_ = t;
     auto_aim::Armor armor_copy = armor;
   // 时间间隔过长，说明可能发生了相机离线
     if (state_ != "lost" && dt > 0.1) {
-    tools::logger()->warn("[Tracker] Large dt: {:.3f}s", dt);
+    tools::logger()->warn("[Predictor] Large dt: {:.3f}s", dt);
     state_ = "lost";
+    sample_count_ = 0;
   }
   // 过滤掉非我方装甲板
   // armors_.remove_if([&](const auto_aim::Armor & a) { return a.color != enemy_color_; });
     ingest(armor, t);
-    last_timestamp_ = t;
+    // 删除重复更新：last_timestamp_ = t;
     if (!ready()) {
+    tools::logger()->debug("[Predictor] Not ready: state={}, sample_count={}", state_, sample_count_);
     return {false, t, {}, {}, 0, 0, 0, ArmorType::small, ArmorName::not_armor, 0};
   }
     auto pos_pred = predict_pos(default_horizon_);
@@ -85,33 +91,46 @@ Eigen::Vector3d Predictor::predict_pos(double horizon_sec) const
 }
 bool Predictor::ready() const
 {
-    return state_ == "tracking";
+    return state_ == "tracking" && sample_count_ >= 2;
 }
 void Predictor::ingest(const Armor & armor, std::chrono::steady_clock::time_point t)
 {
     auto logger = tools::logger();
     auto dt = tools::delta_time(t, last_timestamp_);
-    if (dt > 0.1) {
-    tools::logger()->warn("[Predictor] Large dt: {:.3f}s, reset", dt);
-    state_ = "lost";
-    return;
+    logger->debug("[Predictor::ingest] dt={:.6f}s, state={}", dt, state_);
+    
+    // 检查时间间隔（但这里不需要重复检查，因为 track() 已经检查过了）
+    // 只在状态为 tracking 时检查，避免首次调用时触发
+    if (state_ != "lost" && dt > 0.1) {
+        tools::logger()->warn("[Predictor] ingest: Large dt: {:.3f}s, reset", dt);
+        state_ = "lost";
+        sample_count_ = 0;
+        return;
     }
+    
     auto curr_pos = armor.xyz_in_world;
+    
     // 首次初始化
     if (state_ == "lost") {
-    pos_ewma = curr_pos;
-    vel_ewma = Eigen::Vector3d::Zero();
-    state_ = "tracking";
-  } else {
-    // 差分速度
-    auto vel = diff_velocity(curr_pos, dt);
+        pos_ewma = curr_pos;
+        vel_ewma = Eigen::Vector3d::Zero();
+        state_ = "tracking";
+        sample_count_ = 1;
+        tools::logger()->info("[Predictor] Initialized, sample_count=1");
+    } else {
+        // 差分速度
+        auto vel = diff_velocity(curr_pos, dt);
+        
+        // EWMA 更新
+        update_ewma(curr_pos, vel);
+        sample_count_++;
+        
+        if (sample_count_ == 2) {
+            tools::logger()->info("[Predictor] Ready! sample_count=2, vel_norm={:.3f}", vel.norm());
+        }
+    }
     
-    // EWMA 更新
-    update_ewma(curr_pos, vel);
-  }
-  
-  last_pos = curr_pos;
-  last_timestamp_ = t;
-  sample_count_++;
+    last_pos = curr_pos;
+    last_timestamp_ = t;
 }
 } // namespace auto_aim

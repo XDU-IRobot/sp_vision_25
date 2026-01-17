@@ -97,6 +97,7 @@ void Target::predict(double dt)
   if (name == ArmorName::outpost) {
     v1 = 10;   // 前哨站加速度方差
     v2 = 0.1;  // 前哨站角加速度方差
+    
   } else {
     v1 = 100;  // 加速度方差
     v2 = 400;  // 角加速度方差

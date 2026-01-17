@@ -28,14 +28,15 @@ public:
     const Armor & armor, std::chrono::steady_clock::time_point t, double radius, int armor_num,
     Eigen::VectorXd P0_dig);
   Target(double x, double vyaw, double radius, double h);
+  virtual ~Target() = default;
 
-  void predict(std::chrono::steady_clock::time_point t);
-  void predict(double dt);
-  void update(const Armor & armor);
+  virtual void predict(std::chrono::steady_clock::time_point t);
+  virtual void predict(double dt);
+  virtual void update(const Armor & armor);
 
   Eigen::VectorXd ekf_x() const;
   const tools::ExtendedKalmanFilter & ekf() const;
-  std::vector<Eigen::Vector4d> armor_xyza_list() const;
+  virtual std::vector<Eigen::Vector4d> armor_xyza_list() const;
 
   bool diverged() const;
 
@@ -45,7 +46,7 @@ public:
 
   bool checkinit();
 
-private:
+protected:
   int armor_num_;
   int switch_count_;
   int update_count_;
@@ -55,10 +56,12 @@ private:
   tools::ExtendedKalmanFilter ekf_;
   std::chrono::steady_clock::time_point t_;
 
-  void update_ypda(const Armor & armor, int id);  // yaw pitch distance angle
+  virtual void update_ypda(const Armor & armor, int id);  // yaw pitch distance angle
 
-  Eigen::Vector3d h_armor_xyz(const Eigen::VectorXd & x, int id) const;
-  Eigen::MatrixXd h_jacobian(const Eigen::VectorXd & x, int id) const;
+  virtual Eigen::Vector3d h_armor_xyz(const Eigen::VectorXd & x, int id) const;
+  virtual Eigen::MatrixXd h_jacobian(const Eigen::VectorXd & x, int id) const;
+
+  // virtual std::pair<double, double> get_process_noise() const=0;
 };
 
 }  // namespace auto_aim

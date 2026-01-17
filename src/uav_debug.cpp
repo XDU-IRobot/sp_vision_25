@@ -56,8 +56,8 @@ int main(int argc, char * argv[])
   auto_aim::Shooter shooter(config_path);
   
   // 创建tf pulisher 并设置到solver中
-  auto tf_publisher = std::make_shared<tools::TFPublisher>(node, "tf_publisher");
-  solver.set_tf_publisher(tf_publisher.get());
+  auto tf_publisher = std::make_shared<tools::TFPublisher>(node);
+  solver.set_TFPublisher(tf_publisher.get());
 
   cv::Mat img;
   Eigen::Quaterniond q;

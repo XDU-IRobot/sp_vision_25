@@ -1,5 +1,13 @@
 cmake_minimum_required(VERSION 3.16)
 
+# 检查ros2环境
+find_package(ament_cmake QUIET)
+find_package(rclcpp QUIET)
+find_package(tf2_ros QUIET)
+find_package(tf2_geometry_msgs QUIET)
+find_package(geometry_msgs QUIET)
+
+
 add_library(tools OBJECT 
     exiter.cpp
     extended_kalman_filter.cpp
@@ -12,4 +20,12 @@ add_library(tools OBJECT
     logger.cpp
     pid.cpp
     crc.cpp
+    tf_publisher.cpp
+)
+target_link_libraries(tools 
+    PUBLIC 
+    rclcpp::rclcpp
+    ${tf2_ros_TARGETS}
+    ${tf2_geometry_msgs_TARGETS}
+    ${geometry_msgs_TARGETS}
 )

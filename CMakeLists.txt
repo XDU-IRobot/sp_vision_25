@@ -16,6 +16,9 @@ find_package(yaml-cpp REQUIRED)
 find_package(nlohmann_json REQUIRED)
 set(OpenVINO_DIR "/opt/intel/openvino_2024.6.0/runtime/cmake/")
 find_package(OpenVINO REQUIRED)
+# find_package(tf2_ros REQUIRED)
+# find_package(tf2_geometry_msgs REQUIRED)
+# find_package(geometry_msgs REQUIRED )  // 已经在 tools 模块cmake中查找
 
 include_directories(${EIGEN3_INCLUDE_DIR})
 include_directories(${OpenCV_INCLUDE_DIRS})

@@ -8,6 +8,11 @@
 
 #include "armor.hpp"
 
+// 前向声明（避免引入ros头文件）
+namespace tools{
+  class TFPublisher;
+}
+
 namespace auto_aim
 {
 class Solver
@@ -32,10 +37,20 @@ public:
   std::vector<cv::Point2f> reproject_armor(
     const Eigen::Vector3d & xyz_in_world, double yaw, ArmorType type, ArmorName name) const;
 
-  double oupost_reprojection_error(Armor armor, const double & picth);
-
+  double oupost_reprojection_error(Armor armor, const double & pitch);
   std::vector<cv::Point2f> world2pixel(const std::vector<cv::Point3f> & worldPoints);
 
+  /* TF 发布相关函数 */
+  void set_TFPublisher(tools::TFPublisher * tf_publisher);
+
+  void publish_static_tfs() const;
+
+  void publish_armor_tf(const Armor & armor, const cv::Vec3d & rvec, const cv::Vec3d & tvec) const;
+
+  // 获取外参（用于外部tf发布）
+  const Eigen::Matrix3d & R_camera2gimbal() const {return R_camera2gimbal_;};
+  const Eigen::Vector3d & t_camera2gimbal() const {return t_camera2gimbal_;};
+  
 private:
   // 直接存储校准数据，避免 cv::Mat 的引用计数问题
   std::array<double, 9> camera_matrix_data_;
@@ -46,6 +61,9 @@ private:
   Eigen::Matrix3d R_camera2gimbal_;
   Eigen::Vector3d t_camera2gimbal_;
   Eigen::Matrix3d R_gimbal2world_;
+
+  /* TF 发布相关 */
+  tools::TFPublisher * tf_publisher_ = nullptr;
 
   void optimize_yaw(Armor & armor) const;
 

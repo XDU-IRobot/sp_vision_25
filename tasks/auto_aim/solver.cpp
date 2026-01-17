@@ -6,6 +6,7 @@
 
 #include "tools/logger.hpp"
 #include "tools/math_tools.hpp"
+#include "tools/tf_publisher.hpp"
 
 namespace auto_aim
 {
@@ -89,6 +90,9 @@ void Solver::solve(Armor & armor) const
   armor.ypr_in_world = tools::eulers(R_armor2world, 2, 1, 0);
 
   armor.ypd_in_world = tools::xyz2ypd(armor.xyz_in_world);
+
+  /* 发布world->armor坐标系变换 */
+  publish_armor_tf(armor, rvec, tvec);
 
   // 平衡不做yaw优化，因为pitch假设不成立
   auto is_balance = (armor.type == ArmorType::big) &&
@@ -303,5 +307,44 @@ std::vector<cv::Point2f> Solver::world2pixel(const std::vector<cv::Point3f> & wo
   std::vector<cv::Point2f> pixelPoints;
   cv::projectPoints(valid_world_points, rvec, tvec, camera_matrix_, distort_coeffs_, pixelPoints);
   return pixelPoints;
+}
+void Solver::set_TFPublisher(tools::TFPublisher * tf_publisher)
+{
+  tf_publisher_ = tf_publisher;
+}
+
+void Solver::publish_static_tfs() const
+{
+  if (!tf_publisher_) {
+    return;
+  }
+  // 1. 发布world->gimbal (动态， 随imu更新)
+  tf_publisher_->publishTransform(
+    "world", "gimbal", Eigen::Vector3d::Zero(), R_gimbal2world_);
+
+  // 2. 发布gimbal->camera (静态):固定外参
+  tf_publisher_->publishTransform(
+    "gimbal", "camera", t_camera2gimbal_, R_camera2gimbal_);
+
+}
+
+void Solver::publish_armor_tf(
+  const Armor & armor, const cv::Vec3d & rvec, const cv::Vec3d & tvec) const
+{
+  if (!tf_publisher_) {
+    return;
+  }
+  // 发布world->armor (用于验证坐标变换链)
+  cv::Mat rmat;
+  cv::Rodrigues(rvec, rmat);
+  Eigen::Matrix3d R_armor2camera;
+  cv::cv2eigen(rmat, R_armor2camera);
+  Eigen::Matrix3d R_armor2gimbal = R_camera2gimbal_ * R_armor2camera;
+  Eigen::Matrix3d R_armor2world = R_gimbal2world_ * R_armor2gimbal;
+  tf_publisher_->publishTransform(
+    "world", 
+    "armor",
+    armor.xyz_in_world,
+    Eigen::Quaterniond(R_armor2world));
 }
 }  // namespace auto_aim

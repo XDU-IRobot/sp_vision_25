@@ -1,6 +1,7 @@
 #include <chrono>
 #include <opencv2/opencv.hpp>
 #include <thread>
+#include <rclcpp/rclcpp.hpp>
 
 #include "io/camera.hpp"
 #include "io/dm_imu/dm_imu.hpp"
@@ -16,6 +17,8 @@
 #include "tools/math_tools.hpp"
 #include "tools/plotter.hpp"
 #include "tools/recorder.hpp"
+#include "tools/tf_publisher.hpp"
+#include "io/gimbal/gimbal.hpp"
 
 const std::string keys =
   "{help h usage ? |                  | 输出命令行参数说明}"
@@ -25,10 +28,16 @@ using namespace std::chrono_literals;
 
 int main(int argc, char * argv[])
 {
+  //初始化ros2
+  rclcpp::init(argc, argv);
+  auto node = std::make_shared<rclcpp::Node>("uav_debug");
+
+
   cv::CommandLineParser cli(argc, argv, keys);
   auto config_path = cli.get<std::string>("@config-path");
   if (cli.has("help") || !cli.has("@config-path")) {
     cli.printMessage();
+    rclcpp::shutdown(); // 关闭ros2
     return 0;
   }
 
@@ -45,6 +54,10 @@ int main(int argc, char * argv[])
   auto_aim::Tracker tracker(config_path, solver);
   auto_aim::Aimer aimer(config_path);
   auto_aim::Shooter shooter(config_path);
+  
+  // 创建tf pulisher 并设置到solver中
+  auto tf_publisher = std::make_shared<tools::TFPublisher>(node, "tf_publisher");
+  solver.set_tf_publisher(tf_publisher.get());
 
   cv::Mat img;
   Eigen::Quaterniond q;
@@ -55,7 +68,7 @@ int main(int argc, char * argv[])
 
   auto t0 = std::chrono::steady_clock::now();
 
-  while (!exiter.exit()) {
+  while (!exiter.exit() && rclcpp::ok()) {
     camera.read(img, t);
     q = cboard.imu_at(t - 1ms);
     mode = cboard.mode;
@@ -67,6 +80,8 @@ int main(int argc, char * argv[])
 
     /// 自瞄
     solver.set_R_gimbal2world(q);
+    // 发布固定坐标系 tf(world->gimbal->camera)
+    solver.publish_static_tfs();
 
     Eigen::Vector3d ypr = tools::eulers(solver.R_gimbal2world(), 2, 1, 0);
 
@@ -205,7 +220,11 @@ command.pitch = wrap_rad_2pi(command.pitch);
     cv::imshow("reprojection", img);
     auto key = cv::waitKey(1);
     if (key == 'q') break;
+
+    //处理ros回调
+    rclcpp::spin_some(node);
   }
 
+  rclcpp::shutdown(); // 关闭ros2
   return 0;
 }

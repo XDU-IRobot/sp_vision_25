@@ -1,6 +1,7 @@
 #include "tf_publisher.hpp"
 
 #include <tf2_geometry_msgs/tf2_geometry_msgs.hpp>
+#include <opencv2/calib3d.hpp>
 
 namespace tools
 {
@@ -56,7 +57,8 @@ void TFPublisher::publishTransform(
 {
     // OpenCV Rodrigues 旋转向量转旋转矩阵
     cv::Mat rmat;
-    
+    cv::Rodrigues(rvec, rmat);
+
     // 转换为 Eigen
     Eigen::Matrix3d rotation_matrix;
     rotation_matrix << 

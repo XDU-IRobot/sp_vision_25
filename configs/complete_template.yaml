@@ -22,9 +22,9 @@ yolo_name: yolo11
 classify_model: assets/tiny_resnet.onnx
 
 # YOLO模型路径（根据yolo_name选择对应模型）
-yolo11_model_path: assets/yolo11.xml        # 输入640×640
-yolov8_model_path: assets/yolov8.xml        # 输入416×416
-yolov5_model_path: assets/yolov5.xml        # 输入640×640
+yolo11_model_path: assets/best_openvino_model/best.xml        # 输入640×640
+yolov8_model_path: assets/best_openvino_model/best.xml        # 输入416×416
+yolov5_model_path: assets/best_openvino_model/best.xml        # 输入640×640
 
 # OpenVINO推理设备：CPU | GPU | AUTO
 # CPU: 使用CPU推理（兼容性最好）
@@ -231,8 +231,11 @@ new_can_quat_id: 0x150        # 四元数姿态帧ID
 new_can_status_id: 0x160      # 状态信息帧ID
 new_can_cmd_id: 0x170         # 自瞄指令帧ID
 
+debug_rx: false
+debug_tx: false
+debug_frame_match: true
 # CAN接口名称（仅在cboard_transport="can"时生效）
-can_interface: "can1"
+can_interface: "can2"
 
 #####-----串口通信配置-----#####
 # 注意：仅在cboard_transport="serial"时使用

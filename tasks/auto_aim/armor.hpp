@@ -64,6 +64,28 @@ const std::vector<std::tuple<Color, ArmorName, ArmorType>> armor_properties = {
   {blue, five, big},         {red, five, big},         {extinguish, five, big}};
 // clang-format on
 
+// YOLO11 模型的类别映射 (16类)
+// 0: blue_G, 1: blue_1, 2: blue_2, 3: blue_3, 4: blue_4, 5: blue_5, 6: blue_O, 7: blue_B
+// 8: red_G,  9: red_1,  10: red_2, 11: red_3, 12: red_4, 13: red_5, 14: red_O, 15: red_B
+const std::vector<std::tuple<Color, ArmorName, ArmorType>> yolo11_armor_properties = {
+  {blue, sentry, small},   // 0: blue_G
+  {blue, one, small},      // 1: blue_1
+  {blue, two, small},      // 2: blue_2
+  {blue, three, small},    // 3: blue_3
+  {blue, four, small},     // 4: blue_4
+  {blue, five, small},     // 5: blue_5
+  {blue, outpost, small},  // 6: blue_O
+  {blue, base, big},       // 7: blue_B
+  {red, sentry, small},    // 8: red_G
+  {red, one, small},       // 9: red_1
+  {red, two, small},       // 10: red_2
+  {red, three, small},     // 11: red_3
+  {red, four, small},      // 12: red_4
+  {red, five, small},      // 13: red_5
+  {red, outpost, small},   // 14: red_O
+  {red, base, big}         // 15: red_B
+};
+
 struct Lightbar
 {
   std::size_t id;

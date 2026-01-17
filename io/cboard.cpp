@@ -53,15 +53,11 @@ CBoard::CBoard(const std::string &config_path)
         transport, std::bind(&CBoard::callback, this, std::placeholders::_1));
   }
 
-  // 新CAN协议：立即发送启动帧，不等待MCU数据，避免死锁
+  // 🆕 新CAN协议：不在构造函数中立即启动heartbeat
+  // 等待程序完全初始化后，由外部调用 start_camera_trigger() 启动
   if (use_new_can_protocol_ && !use_serial_) {
-    tools::logger()->info("[Cboard] Sending startup frame immediately...");
-    send_startup_frame();
-
-    // 🆕 启动心跳线程：在MCU上线前持续发送start=1
-    heartbeat_quit_ = false;
-    heartbeat_thread_ = std::thread(&CBoard::heartbeat_loop, this);
-    tools::logger()->info("[Cboard] Heartbeat thread started (interval={}ms)", heartbeat_interval_ms_);
+    tools::logger()->info("[Cboard] CAN protocol ready. Waiting for start_camera_trigger() call...");
+    // heartbeat将在start_camera_trigger()中启动
   }
 
   tools::logger()->info("[Cboard] Waiting for q...");
@@ -1100,6 +1096,23 @@ Eigen::Quaterniond CBoard::get_last_imu_cycle_middle() {
   // 更精确的实现需要找到count=5或6的帧
 
   return data_behind_.q;
+}
+
+// 🆕 启动相机触发信号（在程序完全初始化后调用）
+void CBoard::start_camera_trigger() {
+  if (!use_new_can_protocol_ || use_serial_) {
+    tools::logger()->warn("[Cboard] start_camera_trigger() only works with new CAN protocol");
+    return;
+  }
+
+  // 发送启动帧
+  tools::logger()->info("[Cboard] 🚀 All modules initialized! Sending startup frame to MCU...");
+  send_startup_frame();
+
+  // 启动心跳线程
+  heartbeat_quit_ = false;
+  heartbeat_thread_ = std::thread(&CBoard::heartbeat_loop, this);
+  tools::logger()->info("[Cboard] ✅ Camera trigger enabled! Heartbeat started (interval={}ms)", heartbeat_interval_ms_);
 }
 
 // 🆕 心跳线程：在MCU上线前持续发送start=1心跳帧

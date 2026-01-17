@@ -93,6 +93,9 @@ public:
 
   void send(Command command);
 
+  // 🆕 启动相机触发信号（在程序完全初始化后调用）
+  void start_camera_trigger();
+
 #ifdef AMENT_CMAKE_FOUND
   // 🆕 设置ROS2节点用于实时发布TF（IMU数据到达时立即发布）
   void set_ros2_tf_publisher(

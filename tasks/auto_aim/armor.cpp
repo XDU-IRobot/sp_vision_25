@@ -84,8 +84,9 @@ Armor::Armor(
   ratio = max_length / max_width;
   // color = class_id == 0 ? Color::blue : Color::red;
 
-  if (class_id >= 0 && class_id < armor_properties.size()) {
-    auto [color, name, type] = armor_properties[class_id];
+  // 使用YOLO11的类别映射（16类）
+  if (class_id >= 0 && class_id < yolo11_armor_properties.size()) {
+    auto [color, name, type] = yolo11_armor_properties[class_id];
     this->color = color;
     this->name = name;
     this->type = type;
@@ -132,8 +133,9 @@ Armor::Armor(
   ratio = max_length / max_width;
   // color = class_id == 0 ? Color::blue : Color::red;
 
-  if (class_id >= 0 && class_id < armor_properties.size()) {
-    auto [color, name, type] = armor_properties[class_id];
+  // 使用YOLO11的类别映射（16类）
+  if (class_id >= 0 && class_id < yolo11_armor_properties.size()) {
+    auto [color, name, type] = yolo11_armor_properties[class_id];
     this->color = color;
     this->name = name;
     this->type = type;

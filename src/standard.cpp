@@ -85,7 +85,7 @@ int main(int argc, char * argv[])
   cboard.set_ros2_tf_publisher(ros_node, solver.R_gimbal2imubody());
   tools::logger()->info("[CBoard] TF publisher configured - TF will be sent on every IMU update");
 
-  // 📌 发布静态 TF：map -> world (根坐标系)
+  //  发布静态 TF：map -> world (根坐标系)
   geometry_msgs::msg::TransformStamped map_to_world;
   map_to_world.header.frame_id = "map";
   map_to_world.child_frame_id = "world";
@@ -117,14 +117,14 @@ int main(int argc, char * argv[])
 
   tools::logger()->info("Static TF published: map -> world");
 
-  // 📌 发布静态 TF：camera -> gimbal (相机外参)
-  // 🔧 使用配置文件中的标定参数
+  // 发布静态 TF：camera -> gimbal (相机外参)
+  // 使用配置文件中的标定参数
   geometry_msgs::msg::TransformStamped camera_to_gimbal;
   camera_to_gimbal.header.stamp = ros_node->now();
   camera_to_gimbal.header.frame_id = "gimbal";
   camera_to_gimbal.child_frame_id = "camera";
 
-  // 🔑 相机外参（从configs/complete_template.yaml）
+  // 相机外参（从configs/complete_template.yaml）
   // t_camera2gimbal: [0.13160669975045827, 0.10377721766577375, 0.024908271912914642]
   camera_to_gimbal.transform.translation.x = 0.13160669975045827;
   camera_to_gimbal.transform.translation.y = 0.10377721766577375;
@@ -145,6 +145,11 @@ int main(int argc, char * argv[])
   tools::logger()->info("Static TF published: gimbal -> camera");
 #endif
 
+  // 所有模块初始化完成，启动相机触发
+  tools::logger()->info("=== All modules initialized ===");
+  cboard.start_camera_trigger();
+  tools::logger()->info("=== Entering main loop ===");
+
   cv::Mat img;
   Eigen::Quaterniond q;
   std::chrono::steady_clock::time_point t;
@@ -157,20 +162,20 @@ int main(int argc, char * argv[])
   auto fps_start_time = std::chrono::steady_clock::now();
   double current_fps = 0.0;
 
-  // 🆕 调试信息输出计数器（独立于FPS计数）
+  // 调试信息输出计数器（独立于FPS计数）
   int debug_frame_count = 0;
 
   // 性能分析计时器
   std::chrono::steady_clock::time_point t_start, t_end;
   std::map<std::string, double> timing_stats;  // 存储各步骤耗时统计
 
-  // 🆕 同步匹配相关变量（需要在循环外声明，以便后续日志使用）
+  // 同步匹配相关变量（需要在循环外声明，以便后续日志使用）
   uint64_t frame_id = 0;
   uint16_t current_imu_count = 0;
   int64_t trigger_imu_count = 0;
 
-  // 🔧 同步方式选择：true = 基于时间戳 | false = 基于 count 硬同步
-  bool use_timestamp_sync = false;  // 🆕 启用硬同步方案（使用环形数组）
+  // 同步方式选择：true = 基于时间戳 | false = 基于 count 硬同步
+  bool use_timestamp_sync = false;  // 启用硬同步方案（使用环形数组）
 
   while (!exiter.exit()) {
     t_start = std::chrono::steady_clock::now();
@@ -181,7 +186,7 @@ int main(int argc, char * argv[])
 
     t_start = std::chrono::steady_clock::now();
 
-    // 🔧 IMU 同步方式选择
+    // IMU 同步方式选择
     Eigen::Quaterniond q;
     std::chrono::steady_clock::time_point synced_imu_timestamp;
 
@@ -193,7 +198,7 @@ int main(int argc, char * argv[])
 
       current_imu_count = cboard.get_imu_count();
       tools::logger()->info(
-        "[Sync-Timestamp] 📷 camera_t → 🧭 imu_at(t) | 📊 current_imu={} | q=({:.3f},{:.3f},{:.3f},{:.3f})",
+        "[Sync-Timestamp] camera_t → imu_at(t) | current_imu={} | q=({:.3f},{:.3f},{:.3f},{:.3f})",
         current_imu_count, q.w(), q.x(), q.y(), q.z());
 
     } else {
@@ -201,13 +206,8 @@ int main(int argc, char * argv[])
       // 核心思想：相机由MCU硬触发，IMU时间戳 = 相机时间戳
       //
       // MCU逻辑：当 imu_count % 10 == 0 时硬触发相机
-      // 映射关系：camera frame_id N → trigger_imu_count = (N+1) × 10 + offset
-      //
-      // 🔧 手动调试参数：
-      // - 启动程序，观察日志中的 diff 值（current_imu - trigger_imu）
-      // - 将 diff 的稳定值填入 frame_id_to_imu_offset
-      // - 例如：如果 diff 稳定在 +1095，则设置 offset = 1095
-      static const int64_t frame_id_to_imu_offset = 1090;  // 🔧 手动调试参数
+      // 映射关系：camera frame_id N → trigger_imu_count = (N+1) × 10 + offset(仅微调，为0即可)
+      static const int64_t frame_id_to_imu_offset = 0;  // 手动调试参数
 
       static bool first_frame = true;
 
@@ -218,18 +218,18 @@ int main(int argc, char * argv[])
       trigger_imu_count = (((frame_id + 1) * 10) + frame_id_to_imu_offset) % 10000;
       if (trigger_imu_count < 0) trigger_imu_count += 10000;
 
-      // 🆕 使用环形数组O(1)查询IMU数据
+      // 使用环形数组O(1)查询IMU数据
       auto imu_result = cboard.get_imu_from_ring_buffer(trigger_imu_count);
 
       if (imu_result.valid) {
-        // ✅ 环形数组查询成功
+        // 环形数组查询成功
         q = imu_result.q;  // 四元数
 
-        // 🔑 关键：使用转换后的 MCU 时间戳作为唯一时间基准
+        // 关键：使用转换后的 MCU 时间戳作为唯一时间基准
         // MCU 时间戳已在 CBoard 端转换为 steady_clock::time_point
         // 这样整个系统都基于统一的 MCU 硬件时间运行
-        synced_imu_timestamp = imu_result.mcu_synced_timestamp;  // 🔑 转换后的 MCU 时间戳
-        t = imu_result.mcu_synced_timestamp;  // 🔑 相机时间戳继承自 MCU
+        synced_imu_timestamp = imu_result.mcu_synced_timestamp;  // 转换后的 MCU 时间戳
+        t = imu_result.mcu_synced_timestamp;  // 相机时间戳继承自 MCU
 
         if (first_frame) {
           tools::logger()->info(
@@ -244,14 +244,14 @@ int main(int argc, char * argv[])
         else if (diff > 5000) diff -= 10000;
 
         tools::logger()->info(
-          "[Sync-RingBuffer] 📷 frame_id={} → 🎯 trigger_imu={} | 📊 current_imu={} diff={:+d} | ⏱️ mcu_ts={}ms | 🧭 q=({:.3f},{:.3f},{:.3f},{:.3f})",
+          "[Sync-RingBuffer] frame_id={} → trigger_imu={} | current_imu={} diff={:+d} | mcu_ts={}ms | q=({:.3f},{:.3f},{:.3f},{:.3f})",
           frame_id, trigger_imu_count, current_imu_count, diff,
           imu_result.mcu_timestamp, q.w(), q.x(), q.y(), q.z());
 
       } else {
-        // ⚠️ 环形数组查询失败（数据尚未到达或已被覆盖）
+        // 环形数组查询失败（数据尚未到达或已被覆盖）
         tools::logger()->warn(
-          "[Sync-RingBuffer] ❌ IMU data not ready! frame_id={} → trigger_imu={} (valid=false), using fallback",
+          "[Sync-RingBuffer] IMU data not ready! frame_id={} → trigger_imu={} (valid=false), using fallback",
           frame_id, trigger_imu_count);
 
         // 降级方案：使用旧的队列查询方式
@@ -264,7 +264,7 @@ int main(int argc, char * argv[])
     t_end = std::chrono::steady_clock::now();
     double t_imu = std::chrono::duration<double, std::milli>(t_end - t_start).count();
 
-    // 🔍 时间戳验证日志（每10帧输出一次，避免刷屏）
+    // 时间戳验证日志（每10帧输出一次，避免刷屏）
     static int timestamp_validation_counter = 0;
     if (++timestamp_validation_counter % 10 == 0 && !use_timestamp_sync) {
       // 计算相机原始时间戳与IMU时间戳的差值（用于验证时间戳继承）
@@ -318,7 +318,7 @@ int main(int argc, char * argv[])
     t_end = std::chrono::steady_clock::now();
     double t_solver_setup = std::chrono::duration<double, std::milli>(t_end - t_start).count();
 
-    // 🔑 发布 TF：使用硬同步后的 IMU 数据（与 Marker 严格同步）
+    // 发布 TF：使用硬同步后的 IMU 数据（与 Marker 严格同步）
 #ifdef AMENT_CMAKE_FOUND
     {
       // 使用与 Marker 相同的时间戳
@@ -354,13 +354,13 @@ int main(int argc, char * argv[])
     double t_detect = std::chrono::duration<double, std::milli>(t_end - t_start).count();
 
     t_start = std::chrono::steady_clock::now();
-    // 🔑 使用硬同步的 IMU 时间戳（与 TF/Marker 严格一致）
+    // 使用硬同步的 IMU 时间戳（与 TF/Marker 严格一致）
     auto targets = tracker.track(armors, synced_imu_timestamp);
     t_end = std::chrono::steady_clock::now();
     double t_track = std::chrono::duration<double, std::milli>(t_end - t_start).count();
 
     t_start = std::chrono::steady_clock::now();
-    // 🔑 使用硬同步的 IMU 时间戳（与 TF/Marker 严格一致）
+    // 使用硬同步的 IMU 时间戳（与 TF/Marker 严格一致）
     // to_now=false：不补偿处理延迟，使用触发时刻的状态（与 TF 时间一致）
     auto command = aimer.aim(targets, synced_imu_timestamp, cboard.bullet_speed, false);
     t_end = std::chrono::steady_clock::now();
@@ -373,7 +373,7 @@ int main(int argc, char * argv[])
 
     // 帧率计算
     frame_count++;
-    debug_frame_count++;  // 🆕 独立计数器
+    debug_frame_count++;  // 独立计数器
     auto fps_current_time = std::chrono::steady_clock::now();
     auto fps_elapsed = std::chrono::duration<double>(fps_current_time - fps_start_time).count();
 
@@ -404,9 +404,9 @@ int main(int argc, char * argv[])
         tools::draw_points(img, image_points, {0, 0, 255});
       }
 
-      // 🆕 发布 ROS2 Markers (使用 tracker 的集成功能)
+      // 发布 ROS2 Markers (使用 tracker 的集成功能)
 #ifdef AMENT_CMAKE_FOUND
-      // 🔑 使用强制同步后的 IMU 时间戳（而不是相机时间戳 t）
+      // 使用强制同步后的 IMU 时间戳（而不是相机时间戳 t）
       // 这样 Marker 和 TF 都基于同一个 IMU 数据的时间戳
       auto ros_time_ptr = cboard.convert_to_ros_time(synced_imu_timestamp);
       auto ros_time = *std::static_pointer_cast<rclcpp::Time>(ros_time_ptr);

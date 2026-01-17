@@ -4,11 +4,12 @@ set(OpenVINO_DIR "/opt/intel/openvino_2024.6.0/runtime/cmake")
 
 find_package(OpenVINO REQUIRED COMPONENTS Runtime)
 
-# 检查 ROS2 环境（用于 tracker 的 marker 功能）
-find_package(ament_cmake QUIET)
-find_package(rclcpp QUIET)
-find_package(std_msgs QUIET)
-find_package(visualization_msgs QUIET)
+find_package(rclcpp REQUIRED)
+find_package(tf2_ros REQUIRED)
+find_package(tf2_geometry_msgs REQUIRED)
+find_package(geometry_msgs REQUIRED)
+find_package(visualization_msgs REQUIRED)
+
 
 add_subdirectory(planner/tinympc)
 
@@ -33,15 +34,21 @@ add_library(auto_aim OBJECT
     multithread/mt_detector.cpp
     planner/planner.cpp
 )
-
-target_link_libraries(auto_aim io openvino::runtime tinympcstatic)
-
-# 如果 ROS2 可用，添加 ROS2 支持
-if(ament_cmake_FOUND AND rclcpp_FOUND AND std_msgs_FOUND AND visualization_msgs_FOUND)
-    message(STATUS "[auto_aim] ROS2 support enabled for tracker marker visualization")
-    target_compile_definitions(auto_aim PRIVATE AMENT_CMAKE_FOUND)
-    target_link_libraries(auto_aim rclcpp::rclcpp)
-    ament_target_dependencies(auto_aim rclcpp std_msgs visualization_msgs)
-else()
-    message(STATUS "[auto_aim] ROS2 not available, tracker marker visualization disabled")
-endif()
+target_include_directories(auto_aim PUBLIC
+  ${rclcpp_INCLUDE_DIRS}
+  ${tf2_ros_INCLUDE_DIRS}
+  ${tf2_geometry_msgs_INCLUDE_DIRS}
+  ${geometry_msgs_INCLUDE_DIRS}
+  ${visualization_msgs_INCLUDE_DIRS}
+)
+target_link_libraries(auto_aim PUBLIC
+  rclcpp::rclcpp
+  ${tf2_ros_TARGETS}
+  ${tf2_geometry_msgs_TARGETS}
+  ${geometry_msgs_TARGETS}
+  ${visualization_msgs_TARGETS}
+  io
+  openvino::runtime
+  tinympcstatic
+)
+# target_link_libraries(auto_aim io openvino::runtime tinympcstatic)

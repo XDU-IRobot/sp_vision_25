@@ -279,7 +279,9 @@ void Gimbal::send_scm(bool control, bool fire, float yaw, float yaw_vel,
   AimbotFrame_SCM_t frame{};
 
   frame.SOF = scm_sof_;
+  frame.SOF = 0x55;
   frame.ID = scm_tx_id_;
+  // frame.ID = 0x02;
   frame.AimbotState = aimbot_state;
   frame.AimbotTarget = aimbot_target;
   frame.Pitch = out_pitch;
@@ -308,8 +310,49 @@ void Gimbal::send_scm(bool control, bool fire, float yaw, float yaw_vel,
     tools::logger()->warn("[Gimbal][SCM] Failed to write serial: {}", e.what());
   }
 }
-void Gimbal::send_command_scm(io::Command command) {
-  // TODO: Implement SCM command sending
+
+/*send_command_scm 对uav数据包实现*/
+// void Gimbal::send_command_scm(io::Command command) {
+//   // TODO: Implement SCM command sending
+//   uint8_t aimbot_state = 2; // 0:不控 1:控不火 2:控且火
+//   if (command.control)
+//     aimbot_state = command.shoot ? 2 : 1;
+//   uint8_t aimbot_target = 0;
+//   float out_yaw = scm_angles_in_deg_ ? rad2deg(command.yaw) : command.yaw;
+//   float out_pitch =
+//       scm_angles_in_deg_ ? rad2deg(command.pitch) : command.pitch;
+//   float system_timer =
+//       std::chrono::duration<float>(std::chrono::steady_clock::now() - start_tp_)
+//           .count();
+
+//   AimbotFrame_SCM_t frame{};
+//   frame.SOF = 0x55;
+//   // frame.ID = 0x02;
+//   frame.ID = scm_tx_id_;
+//   frame.AimbotState = aimbot_state;
+//   frame.AimbotTarget = aimbot_target;
+//   frame.PitchRelativeAngle = out_pitch;
+//   frame.YawRelativeAngle = out_yaw;
+//   frame.TargetPitchSpeed = 0.0f;
+//   frame.TargetYawSpeed = 0.0f;
+//   frame.SystemTimer = static_cast<uint32_t>(
+//       std::chrono::duration_cast<std::chrono::milliseconds>(
+//           std::chrono::steady_clock::now() - start_tp_).count());
+//   frame.EOF = 0xFF;
+
+//   try {
+//     serial_.write(reinterpret_cast<uint8_t *>(&frame), sizeof(frame));
+//     tools::logger()->info(
+//         "[Gimbal][SCM] tx command: mode={}, yaw={}, pitch={}, system_timer={}",
+//         static_cast<int>(aimbot_state), static_cast<float>(out_yaw),
+//         static_cast<float>(out_pitch), static_cast<float>(system_timer));
+//   } catch (const std::exception &e) {
+//     tools::logger()->warn("[Gimbal][SCM] Failed to write serial: {}", e.what());
+//   }
+// }
+
+/*send_command_scm 对步兵数据包实现*/
+void Gimbal::send_command_scm(io::Command command){
   uint8_t aimbot_state = 2; // 0:不控 1:控不火 2:控且火
   if (command.control)
     aimbot_state = command.shoot ? 2 : 1;
@@ -320,21 +363,17 @@ void Gimbal::send_command_scm(io::Command command) {
   float system_timer =
       std::chrono::duration<float>(std::chrono::steady_clock::now() - start_tp_)
           .count();
-
-  AimbotFrame_SCM_t frame{};
+  AimbotFrame_SCM_t_bot3 frame{};
   frame.SOF = 0x55;
-  frame.ID = 0x02;
+  frame.ID = scm_tx_id_;
   frame.AimbotState = aimbot_state;
   frame.AimbotTarget = aimbot_target;
-  frame.PitchRelativeAngle = out_pitch;
-  frame.YawRelativeAngle = out_yaw;
-  frame.TargetPitchSpeed = 0.0f;
-  frame.TargetYawSpeed = 0.0f;
-  frame.SystemTimer = static_cast<uint32_t>(
+  frame.Pitch = out_pitch;
+  frame.Yaw = out_yaw;
+  frame.SystemTimer = static_cast<float>(
       std::chrono::duration_cast<std::chrono::milliseconds>(
           std::chrono::steady_clock::now() - start_tp_).count());
-  frame.EOF = 0xFF;
-
+  frame._EOF = 0xFF;
   try {
     serial_.write(reinterpret_cast<uint8_t *>(&frame), sizeof(frame));
     tools::logger()->info(
@@ -345,7 +384,6 @@ void Gimbal::send_command_scm(io::Command command) {
     tools::logger()->warn("[Gimbal][SCM] Failed to write serial: {}", e.what());
   }
 }
-
 bool Gimbal::parse_scm_rx() {
   Gimaballmurname_SCM_t rx{};
   // 寻找 SOF：逐字节直到匹配
@@ -386,7 +424,7 @@ bool Gimbal::parse_scm_rx() {
   }
   if (rx.ID != scm_rx_id_) {
     const uint32_t ts_copy = static_cast<uint32_t>(rx.TimeStamp);
-    if ((++id_err % 1000) == 1) {
+    if ((++id_err % 1000) == 3) {
       tools::logger()->warn(
           "[Gimbal][SCM] ID mismatch: got {}, expect {} (ts={})",
           static_cast<int>(rx.ID), static_cast<int>(scm_rx_id_), ts_copy);

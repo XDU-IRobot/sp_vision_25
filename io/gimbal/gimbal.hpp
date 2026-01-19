@@ -99,13 +99,14 @@ private:
   bool use_scm_ = false;          // 是否启用你提供的 SCM 协议
   uint8_t scm_sof_ = 0x55;        // SOF 默认 0x55（可配置）
   uint8_t scm_eof_ = 0xFF;        // EOF 默认 0xFF（可配置）
-  uint8_t scm_rx_id_ = 0x01;      // 电控→自瞄 帧 ID（可配置）
-  uint8_t scm_tx_id_ = 0x02;      // 自瞄→电控 帧 ID（可配置）
+  uint8_t scm_rx_id_ = 0x03;      // 电控→自瞄 帧 ID（可配置）
+  uint8_t scm_tx_id_ = 0x03;      // 自瞄→电控 帧 ID（可配置）
   bool scm_angles_in_deg_ = true; // 角度单位是否使用度
   std::chrono::steady_clock::time_point start_tp_; // 发送中的 SystemTimer 基准
 
   void send_scm(bool control, bool fire, float yaw, float yaw_vel,
                 float yaw_acc, float pitch, float pitch_vel, float pitch_acc);
+  
   bool parse_scm_rx();
 };
 
@@ -114,6 +115,7 @@ private:
 #undef EOF
 #endif
 
+/*uav 发送数据包结构*/
 typedef struct __attribute__((packed)) {
   // 包头
   uint8_t SOF;
@@ -135,6 +137,20 @@ typedef struct __attribute__((packed)) {
   float PitchRelativeAngle;
   float YawRelativeAngle;
 } AimbotFrame_SCM_t;
+
+/*步兵 发送数据包结构*/
+typedef struct __attribute__((packed)) {
+  // 包头
+  uint8_t SOF;
+  uint8_t ID;
+  // 自瞄状态
+  uint8_t AimbotState;
+  uint8_t AimbotTarget;
+  float Pitch;
+  float Yaw;
+  float SystemTimer;
+  uint8_t _EOF;
+}AimbotFrame_SCM_t_bot3;
 
 typedef struct __attribute__((packed)) {
   // 包头

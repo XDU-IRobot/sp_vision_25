@@ -52,7 +52,7 @@ int main(int argc, char * argv[])
   Eigen::Quaterniond q;
   std::chrono::steady_clock::time_point t;
 
-  // auto mode = io::Mode::idle; //修改为gimbalmode
+  // auto mode = io::Mode::idle; //if gimbal 修改为gimbalmode
   auto mode = io::GimbalMode::IDLE;
   // auto last_mode = io::Mode::idle;
   auto last_mode = io::GimbalMode::IDLE;
@@ -66,10 +66,14 @@ int main(int argc, char * argv[])
     // mode = cboard.mode;
     mode = gimbal.mode();
     // recorder.record(img, q, t);
-    if (last_mode != mode) {
-      tools::logger()->info("Switch to {}", gimbal.str(mode));
-      last_mode = mode;
-    }
+
+    /*unknow code*/
+    // if (last_mode != mode) {
+    //   tools::logger()->info("Switch to {}", gimbal.str(mode));
+    //   last_mode = mode;
+    // }
+
+
     /// 自瞄
     solver.set_R_gimbal2world(q);
     Eigen::Vector3d ypr = tools::eulers(solver.R_gimbal2world(), 2, 1, 0);
@@ -106,6 +110,7 @@ int main(int argc, char * argv[])
     /* 暂不引入shooter */
     
     gimbal.send_command_scm(command);
+    // cboard.send(command);
     
     /*todo: plotjuggler数据*/
     

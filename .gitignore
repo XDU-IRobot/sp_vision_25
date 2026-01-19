@@ -14,3 +14,4 @@ watchdog.sh
 records_24/
 records_25/
 patterns/
+.cache/

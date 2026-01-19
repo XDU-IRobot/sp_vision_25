@@ -346,5 +346,24 @@ void Solver::publish_armor_tf(
     "armor",
     armor.xyz_in_world,
     Eigen::Quaterniond(R_armor2world));
+  double width = (armor.type == ArmorType::big) ? 0.23 : 0.135;  // 米
+  double height = 0.055;  // 米
+
+  // 根据装甲板颜色选择 Marker 颜色
+  int r = 0, g = 0, b = 255;  // 默认蓝色
+  if (static_cast<int>(armor.name) >= 6 && static_cast<int>(armor.name) <= 12) {
+    r = 255; g = 0; b = 0;  // 红色
+  }
+
+  // 在 world 坐标系发布 Marker
+  tf_publisher_->publishArmorMarker(
+    "world",
+    static_cast<int>(armor.name),  // 使用装甲板编号作为 Marker ID
+    armor.xyz_in_world,
+    Eigen::Quaterniond(R_armor2world),
+    width,
+    height,
+    r, g, b
+  );
 }
 }  // namespace auto_aim

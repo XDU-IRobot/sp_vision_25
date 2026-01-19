@@ -154,7 +154,7 @@ cboard_serial_port: "/dey/cboard"     # 建议使用 udev 规则创建的稳定�
 cboard_serial_baudrate: 115200         # 按 CBoard 固件设置修改
 cboard_serial_timeout_ms: 20
 cboard_serial_sof: 85                  # 0x55
-cboard_serial_eof: 255                 # 0xFF
+cboard_serial_eof: 255+                 # 0xFF
 cboard_serial_id_quat: 16              # 0x10 （板子发送四元数的 ID）
 cboard_serial_id_status: 17            # 0x11 （板子发送状态/弹速的 ID）
 cboard_serial_id_cmd: 18               # 0x12 （主机->板子 指令 ID）

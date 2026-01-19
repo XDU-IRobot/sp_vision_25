@@ -105,7 +105,7 @@ void TFPublisher::publishArmorMarker(
     // 尺寸（装甲板是薄板）
     marker.scale.x = width;
     marker.scale.y = height;
-    marker.scale.z = 0.005;  // 5mm 厚度
+    marker.scale.z = 0.01;  // 10mm 厚度
 
     // 颜色（半透明）
     marker.color.r = color_r / 255.0;

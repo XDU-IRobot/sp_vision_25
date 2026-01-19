@@ -353,9 +353,9 @@ void Gimbal::send_scm(bool control, bool fire, float yaw, float yaw_vel,
 
 /*send_command_scm 对步兵数据包实现*/
 void Gimbal::send_command_scm(io::Command command){
-  uint8_t aimbot_state = 2; // 0:不控 1:控不火 2:控且火
+  uint8_t aimbot_state = 0; // 0:不控 1:控不火 2:控且火
   if (command.control)
-    aimbot_state = command.shoot ? 2 : 1;
+    aimbot_state = command.shoot ? 3 : 1;
   uint8_t aimbot_target = 0;
   float out_yaw = scm_angles_in_deg_ ? rad2deg(command.yaw) : command.yaw;
   float out_pitch =

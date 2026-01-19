@@ -100,7 +100,7 @@ private:
   uint8_t scm_sof_ = 0x55;        // SOF 默认 0x55（可配置）
   uint8_t scm_eof_ = 0xFF;        // EOF 默认 0xFF（可配置）
   uint8_t scm_rx_id_ = 0x03;      // 电控→自瞄 帧 ID（可配置）
-  uint8_t scm_tx_id_ = 0x03;      // 自瞄→电控 帧 ID（可配置）
+  uint8_t scm_tx_id_ = 0x02;      // 自瞄→电控 帧 ID（可配置）
   bool scm_angles_in_deg_ = true; // 角度单位是否使用度
   std::chrono::steady_clock::time_point start_tp_; // 发送中的 SystemTimer 基准
 

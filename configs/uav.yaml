@@ -37,13 +37,13 @@ camera_settings:
   pixel_format: BayerRG8
 
 ####-----gimbal参数（仅“直连云台测试程序”使用；当前仅连接 C 板可忽略）-----#####
-com_port: "/dev/ttyACM0"
+com_port: "/dev/gimbal"
 baudrate: 328125
 gimbal_protocol: "scm"  # 可选: scm | sp_crc16
 scm_sof: 85               # SOF 字节（0x55 = 85）
 scm_eof: 255              # EOF 字节（0xFF = 255）
 scm_rx_id: 3              # 云台->上位机 帧ID (MCU->Host) 1
-scm_tx_id: 3              # 上位机->云台 帧ID (Host->MCU) 2
+scm_tx_id: 2              # 上位机->云台 帧ID (Host->MCU) 2
 scm_angles_in_deg: false  # 角度单位是否使用度（true: 度，false: 弧度）
 yaw_kp: 0
 yaw_kd: 0

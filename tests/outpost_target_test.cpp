@@ -1,102 +1,137 @@
+#include <fmt/core.h>
+
 #include <chrono>
+#include <fstream>
+#include <nlohmann/json.hpp>
 #include <opencv2/opencv.hpp>
-#include <thread>
-#include <rclcpp/rclcpp.hpp>
 
 #include "io/camera.hpp"
-#include "io/gimbal/gimbal.hpp"
-#include "tasks/auto_aim/detector.hpp"
 #include "tasks/auto_aim/solver.hpp"
 #include "tasks/auto_aim/tracker.hpp"
+#include "tasks/auto_aim/yolo.hpp"
 #include "tasks/auto_aim/outpost_target.hpp"
 #include "tools/exiter.hpp"
 #include "tools/img_tools.hpp"
 #include "tools/logger.hpp"
 #include "tools/math_tools.hpp"
 #include "tools/plotter.hpp"
+#include <rclcpp/rclcpp.hpp>
 #include "tools/tf_publisher.hpp"
 #include "tools/marker_publisher.hpp"
 
 const std::string keys =
-  "{help h usage ? |                        | 输出命令行参数说明}"
-  "{@config-path   | configs/outpost.yaml   | yaml配置文件路径 }";
-
-using namespace std::chrono_literals;
+  "{help h usage ? |                     | 输出命令行参数说明 }"
+  "{config-path c  | configs/camera.yaml | yaml配置文件的路径}"
+  "{use-camera     | false               | 使用真实相机而非视频文件 }"
+  "{start-index s  | 0                   | 视频起始帧下标    }"
+  "{end-index e    | 0                   | 视频结束帧下标    }"
+  "{@input-path    | assets/demo/outpost | avi和txt文件的路径}";
 
 int main(int argc, char * argv[])
 {
   // 初始化 ROS2
   rclcpp::init(argc, argv);
   auto node = std::make_shared<rclcpp::Node>("outpost_target_test");
- 
+
+  // 读取命令行参数
   cv::CommandLineParser cli(argc, argv, keys);
-  auto config_path = cli.get<std::string>("@config-path");
-  if (cli.has("help") || !cli.has("@config-path")) {
+  if (cli.has("help")) {
     cli.printMessage();
     rclcpp::shutdown();
     return 0;
   }
+  auto input_path = cli.get<std::string>(0);
+  auto config_path = cli.get<std::string>("config-path");
+  auto use_camera = cli.get<bool>("use-camera");
+  auto start_index = cli.get<int>("start-index");
+  auto end_index = cli.get<int>("end-index");
 
-  tools::Exiter exiter;
   tools::Plotter plotter;
+  tools::Exiter exiter;
 
-  // ============================================
+  // 根据选择使用相机或视频文件
+  std::unique_ptr<io::Camera> camera;
+  cv::VideoCapture video;
+  std::ifstream text;
+  
+  if (use_camera) {
+    tools::logger()->info("使用真实相机输入");
+    camera = std::make_unique<io::Camera>(config_path);
+  } else {
+    tools::logger()->info("使用视频文件: {}", input_path);
+    auto video_path = fmt::format("{}.avi", input_path);
+    auto text_path = fmt::format("{}.txt", input_path);
+    video.open(video_path);
+    text.open(text_path);
+    
+    if (!video.isOpened()) {
+      tools::logger()->error("无法打开视频: {}", video_path);
+      rclcpp::shutdown();
+      return -1;
+    }
+    
+    video.set(cv::CAP_PROP_POS_FRAMES, start_index);
+    for (int i = 0; i < start_index; i++) {
+      double t, w, x, y, z;
+      text >> t >> w >> x >> y >> z;
+    }
+  }
+
   // 初始化模块
-  // ============================================
-  io::Camera camera(config_path);
-  io::Gimbal gimbal(config_path);
-
-  auto_aim::Detector detector(config_path);
+  auto_aim::YOLO yolo(config_path);
   auto_aim::Solver solver(config_path);
   auto_aim::Tracker tracker(config_path, solver);
 
-  // ✅ 创建 TF Publisher
+  // 创建 TF Publisher 和 Marker Publisher
   auto tf_publisher = std::make_shared<tools::TFPublisher>(node);
   solver.set_TFPublisher(tf_publisher.get());
-
-  // ✅ 创建 Marker Publisher（只用于手动可视化）
+  
   auto marker_publisher = std::make_shared<tools::MarkerPublisher>(node);
 
-  // ============================================
-  // 主循环变量
-  // ============================================
   cv::Mat img;
-  Eigen::Quaterniond q;
-  std::chrono::steady_clock::time_point t;
-
-  auto mode = io::GimbalMode::IDLE;
-  auto last_mode = io::GimbalMode::IDLE;
-  
   auto t0 = std::chrono::steady_clock::now();
-  int frame_count = 0;
 
   tools::logger()->info("========================================");
   tools::logger()->info("前哨站目标测试程序启动");
   tools::logger()->info("按 'q' 退出");
   tools::logger()->info("========================================");
 
-  while (!exiter.exit() && rclcpp::ok()) {
-    // ============================================
-    // 1. 读取数据
-    // ============================================
-    camera.read(img, t);
-    q = gimbal.q(t - 1ms);
-    mode = gimbal.mode();
+  for (int frame_count = start_index; !exiter.exit() && rclcpp::ok(); frame_count++) {
+    if (end_index > 0 && frame_count > end_index) break;
 
-    if (last_mode != mode) {
-      tools::logger()->info("模式切换: {}", gimbal.str(mode));
-      last_mode = mode;
+    std::chrono::steady_clock::time_point timestamp;
+    
+    if (use_camera) {
+      // 使用相机输入
+      camera->read(img, timestamp);
+      if (img.empty()) {
+        tools::logger()->warn("无法从相机读取图像");
+        continue;
+      }
+      
+      // 相机模式：使用单位四元数（无云台运动）
+      solver.set_R_gimbal2world({1, 0, 0, 0});
+      
+    } else {
+      // 使用视频文件
+      video.read(img);
+      if (img.empty()) break;
+
+      double t, w, x, y, z;
+      text >> t >> w >> x >> y >> z;
+      timestamp = t0 + std::chrono::microseconds(int(t * 1e6));
+      
+      // 设置云台姿态
+      solver.set_R_gimbal2world({w, x, y, z});
     }
 
-    // ============================================
-    // 2. 检测装甲板
-    // ============================================
-    solver.set_R_gimbal2world(q);
     solver.publish_static_tfs();
 
-    auto armors = detector.detect(img);
+    // 检测装甲板
+    auto yolo_start = std::chrono::steady_clock::now();
+    auto armors = yolo.detect(img, frame_count);
 
-    // ✅ 过滤：只保留前哨站装甲板
+    // 过滤：只保留前哨站装甲板
     std::list<auto_aim::Armor> outpost_armors;
     for (const auto & armor : armors) {
       if (armor.name == auto_aim::ArmorName::outpost) {
@@ -104,21 +139,28 @@ int main(int argc, char * argv[])
       }
     }
 
-    // ============================================
-    // 3. 可视化检测结果
-    // ============================================
+    auto tracker_start = std::chrono::steady_clock::now();
+    auto targets = tracker.track(outpost_armors, timestamp);
+    auto finish = std::chrono::steady_clock::now();
+
+    // 性能统计
+    tools::logger()->info(
+      "[{}] yolo: {:.1f}ms, tracker: {:.1f}ms, outpost_num: {}", 
+      frame_count,
+      tools::delta_time(tracker_start, yolo_start) * 1e3,
+      tools::delta_time(finish, tracker_start) * 1e3,
+      outpost_armors.size());
+
+    // 可视化检测结果
     int armor_idx = 0;
     for (const auto & armor : outpost_armors) {
-      // 绘制装甲板轮廓
       if (!armor.points.empty()) {
         tools::draw_points(img, armor.points, {0, 255, 255}, 2);  // 青色：前哨站
       } else {
         cv::rectangle(img, armor.box, {0, 255, 255}, 2);
       }
 
-      // 绘制标签
-      auto label = fmt::format(
-        "Outpost #{} {:.0f}%", armor_idx, armor.confidence * 100);
+      auto label = fmt::format("Outpost #{} {:.0f}%", armor_idx, armor.confidence * 100);
       auto text_anchor = cv::Point(
         static_cast<int>(armor.center.x), 
         static_cast<int>(armor.center.y)
@@ -127,22 +169,27 @@ int main(int argc, char * argv[])
       armor_idx++;
     }
 
-    // ============================================
-    // 4. 跟踪前哨站目标（使用 list）
-    // ============================================
-    auto targets = tracker.track(outpost_armors, t);
+    // 数据记录
+    nlohmann::json data;
 
-    // ============================================
-    // 5. 可视化跟踪结果
-    // ============================================
+    // 装甲板原始观测数据
+    data["armor_num"] = armors.size();
+    data["outpost_num"] = static_cast<int>(outpost_armors.size());
+
+    if (!use_camera) {
+      data["video_frame"] = frame_count;
+    } else {
+      data["frame"] = frame_count;
+      data["timestamp"] = tools::delta_time(timestamp, t0);
+    }
+
+    // 可视化跟踪结果
     if (!targets.empty()) {
       auto & target = targets.front();
 
-      // ✅ 手动调用可视化（只针对这一个目标）
-#ifdef HAS_VISUALIZATION
+      // RViz 可视化
       target.set_marker_publisher(marker_publisher.get());
-      target.visualize(0);  // base_id = 0
-#endif
+      target.visualize(0);
 
       // 重投影所有预测的装甲板（3个）
       std::vector<Eigen::Vector4d> armor_xyza_list = target.armor_xyza_list();
@@ -154,7 +201,7 @@ int main(int argc, char * argv[])
           xyza.head(3), xyza[3], target.armor_type, target.name
         );
 
-        // 不同装甲板用不同颜色
+        // 不同装甲板用不同颜色区分
         cv::Scalar color;
         if (i == static_cast<size_t>(target.last_id)) {
           color = {0, 255, 0};  // 绿色：当前匹配
@@ -170,19 +217,16 @@ int main(int argc, char * argv[])
         tools::draw_points(img, image_points, color, 2);
       }
 
-      // ============================================
-      // 6. 绘制状态信息
-      // ============================================
+      // 绘制状态信息
       Eigen::VectorXd x = target.ekf_x();
       
-      // 左上角状态信息
       int y_offset = 30;
       auto draw_info = [&](const std::string & text) {
         tools::draw_text(img, text, {10, y_offset}, {255, 255, 255}, 0.6, 2);
         y_offset += 25;
       };
 
-      draw_info(fmt::format("帧数: {}", frame_count++));
+      draw_info(fmt::format("帧数: {}", frame_count));
       draw_info(fmt::format("前哨站数量: {}", outpost_armors.size()));
       draw_info(fmt::format("当前ID: {}", target.last_id));
       draw_info(fmt::format("中心: ({:.2f}, {:.2f}, {:.2f})", x[0], x[2], x[4]));
@@ -190,59 +234,46 @@ int main(int argc, char * argv[])
       draw_info(fmt::format("角速度: {:.2f} rad/s", x[7]));
       draw_info(fmt::format("半径: {:.3f} m", x[8]));
       
-      // ✅ 前哨站特有：高度差
+      // 前哨站特有：高度差
       if (x.size() >= 13) {
         draw_info(fmt::format("h1: {:.3f} m", x[11]));
         draw_info(fmt::format("h2: {:.3f} m", x[12]));
       }
 
-      // ============================================
-      // 7. 数据记录（用于绘图）
-      // ============================================
-      nlohmann::json data;
-      data["t"] = tools::delta_time(std::chrono::steady_clock::now(), t0);
-      data["outpost_num"] = static_cast<int>(outpost_armors.size());
-      
-      // EKF 状态
+      // 观测器内部数据
       data["x"] = x[0];
-      data["y"] = x[2];
-      data["z"] = x[4];
       data["vx"] = x[1];
+      data["y"] = x[2];
       data["vy"] = x[3];
+      data["z"] = x[4];
       data["vz"] = x[5];
-      data["angle"] = x[6] * 57.3;
-      data["vyaw"] = x[7];
-      data["radius"] = x[8];
-      
+      data["a"] = x[6] * 57.3;
+      data["w"] = x[7];
+      data["r"] = x[8];
+      data["last_id"] = target.last_id;
+
       if (x.size() >= 13) {
         data["h1"] = x[11];
         data["h2"] = x[12];
       }
 
-      // 卡方检验
+      // 卡方检验数据
       data["nis"] = target.ekf().data.at("nis");
       data["nees"] = target.ekf().data.at("nees");
-      data["last_id"] = target.last_id;
-
-      plotter.plot(data);
     } else {
       // 没有检测到前哨站
-      tools::draw_text(
-        img, "未检测到前哨站", {10, 30}, {0, 0, 255}, 0.8, 2
-      );
+      tools::draw_text(img, "未检测到前哨站", {10, 30}, {0, 0, 255}, 0.8, 2);
     }
 
-    // ============================================
-    // 8. 显示图像
-    // ============================================
+    plotter.plot(data);
+
+    // 显示图像
     cv::resize(img, img, {}, 0.5, 0.5);
     cv::imshow("Outpost Target Test", img);
-    auto key = cv::waitKey(1);
+    auto key = cv::waitKey(30);
     if (key == 'q') break;
 
-    // ============================================
-    // 9. ROS2 回调（发布 TF 和 Marker）
-    // ============================================
+    // ROS2 回调
     rclcpp::spin_some(node);
   }
 

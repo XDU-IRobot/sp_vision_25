@@ -11,6 +11,7 @@
 #include "armor.hpp"
 #include "tools/extended_kalman_filter.hpp"
 
+#include "tools/marker_publisher.hpp"
 
 namespace auto_aim
 {
@@ -47,6 +48,10 @@ public:
 
   bool checkinit();
 
+  /* 可视化相关 */
+  virtual void set_marker_publisher(tools::MarkerPublisher* marker_pub);
+  virtual void visualize(int base_id) const;
+
 protected:
   int armor_num_;
   int switch_count_;
@@ -63,6 +68,8 @@ protected:
   virtual Eigen::MatrixXd h_jacobian(const Eigen::VectorXd & x, int id) const;
 
   // virtual std::pair<double, double> get_process_noise() const=0;
+
+  tools::MarkerPublisher* marker_pub_ = nullptr;
 };
 
 }  // namespace auto_aim

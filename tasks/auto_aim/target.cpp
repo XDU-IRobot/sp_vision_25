@@ -318,4 +318,69 @@ Eigen::MatrixXd Target::h_jacobian(const Eigen::VectorXd & x, int id) const
   return H_armor_ypda * H_armor_xyza;
 }
 bool Target::checkinit() { return isinit; }    
+void Target::set_marker_publisher(tools::MarkerPublisher* marker_pub)
+{
+  marker_pub_ = marker_pub;
+}
+
+void Target::visualize(int base_id) const
+{
+  if (!marker_pub_) return;
+
+  // 获取中心位置和状态
+  Eigen::Vector3d center(ekf_.x[0], ekf_.x[2], ekf_.x[4]);
+  double radius = ekf_.x[8];
+  double vyaw = ekf_.x[7];
+
+  // ============================================
+  // 1. 可视化旋转中心、半径、角速度（一次性）
+  // ============================================
+  
+  // 中心球体（黄色）
+  marker_pub_->publishSphereMarker(
+    "world", base_id, center, 0.08, 255, 255, 0
+  );
+
+  // 旋转半径圆环（黄色半透明）
+  marker_pub_->publishCircleMarker(
+    "world", base_id + 1, center, radius, 255, 255, 0, 0.3
+  );
+
+  // 角速度箭头（紫色，只在转动时显示）
+  if (std::abs(vyaw) > 0.1) {
+    Eigen::Vector3d arrow_end = center;
+    arrow_end[2] += vyaw * 0.2;  // 高度表示速度
+    marker_pub_->publishArrowMarker(
+      "world", base_id + 2, center, arrow_end, 255, 0, 255
+    );
+  }
+
+  // ============================================
+  // 2. 可视化所有装甲板
+  // ============================================
+  
+  std::vector<Eigen::Vector4d> armor_list = armor_xyza_list();
+  
+  for (size_t i = 0; i < armor_list.size(); i++) {
+    const auto& xyza = armor_list[i];
+    Eigen::Vector3d armor_pos(xyza[0], xyza[1], xyza[2]);
+    double armor_yaw = xyza[3];
+    
+    // 四元数
+    Eigen::Quaterniond q(Eigen::AngleAxisd(armor_yaw, Eigen::Vector3d::UnitZ()));
+    
+    // 尺寸
+    double width = (armor_type == ArmorType::small) ? 0.135 : 0.23;
+    double height = 0.055;
+    
+    // 颜色：当前匹配的亮蓝，其他暗蓝
+    int r = (i == static_cast<size_t>(last_id)) ? 0 : 100;
+    int g = (i == static_cast<size_t>(last_id)) ? 255 : 100;
+    int b = 255;
+    
+    marker_pub_->publishArmorMarker(
+      "world", base_id + 100 + i, armor_pos, q, width, height, r, g, b
+    );
+  }
+}
 }  // namespace auto_aim

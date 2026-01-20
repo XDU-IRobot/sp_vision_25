@@ -159,6 +159,89 @@ Eigen::MatrixXd OutpostTarget::h_jacobian(const Eigen::VectorXd & x, int id) con
 
   return H_armor_ypda * H_armor_xyza;
 }
+void OutpostTarget::visualize(int base_id) const
+{
+  if (!marker_pub_) return;
+
+  // 获取状态
+  Eigen::Vector3d center(ekf_.x[0], ekf_.x[2], ekf_.x[4]);
+  double radius = ekf_.x[8];
+  double vyaw = ekf_.x[7];
+
+  // ============================================
+  // 1. 可视化旋转信息
+  // ============================================
+
+  marker_pub_->publishSphereMarker(
+    "world", base_id, center, 0.08, 255, 255, 0
+  );
+
+  marker_pub_->publishCircleMarker(
+    "world", base_id + 1, center, radius, 255, 255, 0, 0.3
+  );
+
+  if (std::abs(vyaw) > 0.1) {
+    Eigen::Vector3d arrow_end = center;
+    arrow_end[2] += vyaw * 0.2;
+    marker_pub_->publishArrowMarker(
+      "world", base_id + 2, center, arrow_end, 255, 0, 255
+    );
+  }
+
+  // ============================================
+  // 2. 可视化三个装甲板
+  // ============================================
+  
+  std::vector<Eigen::Vector4d> armor_list = armor_xyza_list();
+  
+  for (size_t i = 0; i < armor_list.size(); i++) {
+    const auto& xyza = armor_list[i];
+    Eigen::Vector3d armor_pos(xyza[0], xyza[1], xyza[2]);
+    double armor_yaw = xyza[3];
+    
+    Eigen::Quaterniond q(Eigen::AngleAxisd(armor_yaw, Eigen::Vector3d::UnitZ()));
+    
+    // 前哨站装甲板尺寸
+    double width = (armor_type == ArmorType::small) ? 0.135 : 0.23;
+    double height = 0.125;
+    
+    // 不同装甲板用不同颜色区分
+    int r, g, b;
+    if (i == static_cast<size_t>(last_id)) {
+      r = 0; g = 255; b = 0;  // 当前匹配：绿色
+    } else {
+      switch (i) {
+        case 0: r = 255; g = 100; b = 100; break;  // 红
+        case 1: r = 100; g = 100; b = 255; break;  // 蓝
+        case 2: r = 255; g = 255; b = 100; break;  // 黄
+        default: r = 150; g = 150; b = 150; break;
+      }
+    }
+
+    marker_pub_->publishArmorMarker(
+      "world", base_id + 100 + i, armor_pos, q, width, height, r, g, b
+    );
+  }
+
+  // ============================================
+  // 3. 可视化三角形结构（使用 ARROW 替代 LINE）
+  // ============================================
+  
+  if (armor_list.size() == 3) {
+    for (size_t i = 0; i < 3; i++) {
+      size_t next = (i + 1) % 3;
+      
+      Eigen::Vector3d p1(armor_list[i][0], armor_list[i][1], armor_list[i][2]);
+      Eigen::Vector3d p2(armor_list[next][0], armor_list[next][1], armor_list[next][2]);
+
+      // ✅ 使用箭头显示连线（去掉箭头头部，只留线段）
+      marker_pub_->publishArrowMarker(
+        "world", base_id + 200 + i, p1, p2, 255, 255, 255, 0.5
+      );
+    }
+  }
+}
+
 
 // std::pair<double, double> OutpostTarget::get_process_noise() const
 // {

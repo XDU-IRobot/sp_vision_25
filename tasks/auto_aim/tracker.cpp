@@ -96,7 +96,7 @@ std::list<Target> Tracker::track(
   state_machine(found);
 
   // 发散检测
-  if (state_ != "lost" && target_.diverged()) {
+  if (state_ != "lost" && target_ && target_->diverged()) {
     tools::logger()->debug("[Tracker] Target diverged!");
     state_ = "lost";
     return {};
@@ -104,34 +104,18 @@ std::list<Target> Tracker::track(
 
   // 收敛效果检测：
   if (
+    target_ &&
     std::accumulate(
-      target_.ekf().recent_nis_failures.begin(), target_.ekf().recent_nis_failures.end(), 0) >=
-    (0.4 * target_.ekf().window_size)) {
-    // Print detailed EKF diagnostics to help debug convergence issues
-    try {
-      auto & ekf = target_.ekf();
-      double recent_rate = ekf.data.at("recent_nis_failures");
-      double nis = ekf.data.at("nis");
-      double nees = ekf.data.at("nees");
-      double ry = ekf.data.at("residual_yaw");
-      double rp = ekf.data.at("residual_pitch");
-      double rd = ekf.data.at("residual_distance");
-      double ra = ekf.data.at("residual_angle");
-
-      tools::logger()->debug(
-        "[Target] Bad Converge Found! recent_rate={:.3f} last_nis={:.3f} nees={:.3f} resid=(yaw={:.3f},pitch={:.3f},dist={:.3f},ang={:.3f})",
-        recent_rate, nis, nees, ry, rp, rd, ra);
-    } catch (const std::exception & e) {
-      tools::logger()->debug("[Target] Bad Converge Found! (failed to read EKF data: {})", e.what());
-    }
-
+      target_->ekf().recent_nis_failures.begin(), target_->ekf().recent_nis_failures.end(), 0) >=
+    (0.4 * target_->ekf().window_size)) {
+    tools::logger()->debug("[Target] Bad Converge Found!");
     state_ = "lost";
     return {};
   }
 
-  if (state_ == "lost") return {};
+  if (state_ == "lost" || !target_) return {};
 
-  std::list<Target> targets = {target_};
+  std::list<Target> targets = {*target_};
   return targets;
 }
 
@@ -171,15 +155,15 @@ std::tuple<omniperception::DetectionResult, std::list<Target>> Tracker::track(
   }
 
   // 此时主相机画面中出现了优先级更高的装甲板，切换目标
-  else if (state_ == "tracking" && !armors.empty() && armors.front().priority < target_.priority) {
+  else if (state_ == "tracking" && !armors.empty() && target_ && armors.front().priority < target_->priority) {
     found = set_target(armors, t);
     tools::logger()->debug("auto_aim switch target to {}", ARMOR_NAMES[armors.front().name]);
   }
 
   // 此时全向感知相机画面中出现了优先级更高的装甲板，切换目标
   else if (
-    state_ == "tracking" && !temp_target.armors.empty() &&
-    temp_target.armors.front().priority < target_.priority && target_.convergened()) {
+    state_ == "tracking" && !temp_target.armors.empty() && target_ &&
+    temp_target.armors.front().priority < target_->priority && target_->convergened()) {
     state_ = "switching";
     switch_target = omniperception::DetectionResult{
       temp_target.armors, t, temp_target.delta_yaw, temp_target.delta_pitch};
@@ -205,15 +189,15 @@ std::tuple<omniperception::DetectionResult, std::list<Target>> Tracker::track(
   state_machine(found);
 
   // 发散检测
-  if (state_ != "lost" && target_.diverged()) {
+  if (state_ != "lost" && target_ && target_->diverged()) {
     tools::logger()->debug("[Tracker] Target diverged!");
     state_ = "lost";
     return {switch_target, {}};  // 返回switch_target和空的targets
   }
 
-  if (state_ == "lost") return {switch_target, {}};  // 返回switch_target和空的targets
+  if (state_ == "lost" || !target_) return {switch_target, {}};  // 返回switch_target和空的targets
 
-  std::list<Target> targets = {target_};
+  std::list<Target> targets = {*target_};
   return {switch_target, targets};
 }
 
@@ -257,7 +241,7 @@ void Tracker::state_machine(bool found)
       state_ = "tracking";
     } else {
       temp_lost_count_++;
-      if (target_.name == ArmorName::outpost)
+      if (target_ && target_->name == ArmorName::outpost)
         //前哨站的temp_lost_count需要设置的大一些
         max_temp_lost_count_ = outpost_max_temp_lost_count_;
       else
@@ -282,22 +266,25 @@ bool Tracker::set_target(std::list<Armor> & armors, std::chrono::steady_clock::t
 
   if (is_balance) {
     Eigen::VectorXd P0_dig{{1, 64, 1, 64, 1, 64, 0.4, 100, 1, 1, 1}};
-    target_ = Target(armor, t, 0.2, 2, P0_dig);
+    target_ = std::make_shared<Target>(armor, t, 0.2, 2, P0_dig);
   }
 
   else if (armor.name == ArmorName::outpost) {
-    Eigen::VectorXd P0_dig{{1, 64, 1, 64, 1, 81, 0.4, 100, 1e-4, 0, 0}};
-    target_ = Target(armor, t, 0.2765, 3, P0_dig);
+    // ✅ 创建 OutpostTarget（13维状态）
+    Eigen::VectorXd P0_dig{{1, 64, 1, 64, 1, 81, 0.4, 100, 1e-4, 0, 0, 1, 1}};  // 13维
+    std::vector<double> armor_heights = {0.0, 0.0, 0.0};  // 初始高度差，会由EKF自动估计
+    target_ = std::make_shared<OutpostTarget>(armor, t, 0.2765, 3, P0_dig, armor_heights);
+    tools::logger()->info("✅ Created OutpostTarget (13D state)");
   }
 
   else if (armor.name == ArmorName::base) {
     Eigen::VectorXd P0_dig{{1, 64, 1, 64, 1, 64, 0.4, 100, 1e-4, 0, 0}};
-    target_ = Target(armor, t, 0.3205, 3, P0_dig);
+    target_ = std::make_shared<Target>(armor, t, 0.3205, 3, P0_dig);
   }
 
   else {
     Eigen::VectorXd P0_dig{{1, 64, 1, 64, 1, 64, 0.4, 100, 1, 1, 1}};
-    target_ = Target(armor, t, 0.2, 4, P0_dig);
+    target_ = std::make_shared<Target>(armor, t, 0.2, 4, P0_dig);
   }
 
   return true;
@@ -305,12 +292,14 @@ bool Tracker::set_target(std::list<Armor> & armors, std::chrono::steady_clock::t
 
 bool Tracker::update_target(std::list<Armor> & armors, std::chrono::steady_clock::time_point t)
 {
-  target_.predict(t);
+  if (!target_) return false;
+  
+  target_->predict(t);
 
   int found_count = 0;
   double min_x = 1e10;  // 画面最左侧
   for (const auto & armor : armors) {
-    if (armor.name != target_.name || armor.type != target_.armor_type) continue;
+    if (armor.name != target_->name || armor.type != target_->armor_type) continue;
     found_count++;
     min_x = armor.center.x < min_x ? armor.center.x : min_x;
   }
@@ -319,14 +308,14 @@ bool Tracker::update_target(std::list<Armor> & armors, std::chrono::steady_clock
 
   for (auto & armor : armors) {
     if (
-      armor.name != target_.name || armor.type != target_.armor_type
+      armor.name != target_->name || armor.type != target_->armor_type
       //  || armor.center.x != min_x
     )
       continue;
 
     solver_.solve(armor);
 
-    target_.update(armor);
+    target_->update(armor);
   }
 
   return true;

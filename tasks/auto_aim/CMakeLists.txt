@@ -20,6 +20,7 @@ add_library(auto_aim OBJECT
     solver.cpp
     aimer.cpp
     target.cpp
+    outpost_target.cpp
     tracker.cpp
     voter.cpp
     shooter.cpp

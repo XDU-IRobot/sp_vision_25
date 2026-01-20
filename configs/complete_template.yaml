@@ -23,14 +23,19 @@ classify_model: assets/tiny_resnet.onnx
 
 # YOLO模型路径（根据yolo_name选择对应模型）
 yolo11_model_path: assets/best_openvino_model/best.xml        # 输入640×640
-yolov8_model_path: assets/best_openvino_model/best.xml        # 输入416×416
-yolov5_model_path: assets/best_openvino_model/best.xml        # 输入640×640
+yolov8_model_path: assets/yolov8.xml        # 输入416×416
+yolov5_model_path: assets/yolov5.xml      # 输入640×640
 
 # OpenVINO推理设备：CPU | GPU | AUTO
 # CPU: 使用CPU推理（兼容性最好）
 # GPU: 使用GPU推理（需要Intel核显驱动）
 # AUTO: 自动选择最优设备
 device: CPU
+
+# 是否使用异步推理（仅yolo11）
+# true:  异步推理模式（高吞吐量，使用流水线，但有一帧延迟）
+# false: 同步推理模式（低延迟，实时处理当前帧）
+use_async_inference: true
 
 # 分类器最小置信度（0.0-1.0）
 min_confidence: 0.8
@@ -149,6 +154,8 @@ camera_settings:
   max_exp: 3000                  # 最大曝光时间
   min_exp: 200                   # 最小曝光时间
   pixel_format: BayerRG8         # 像素格式
+  bayer_pattern: BayerBG8        # Bayer转换模式（BayerRG8/BayerGR8/BayerGB8/BayerBG8）
+                                 # 如果图像红蓝翻转，尝试其他模式
 
 #####-----相机硬触发配置-----#####
 # 是否启用硬触发（外部GPIO信号触发相机曝光）
@@ -414,7 +421,4 @@ R_pitch: [1]                            # 控制代价矩阵
 #    - CAN通信：需要CAN总线适配器
 #    - 串口通信：使用USB数据线连接
 #
-# 更多信息请参考：
-# - docs/TRIGGER_GUIDE.md （相机硬触发详细说明）
-# - docs/NEW_CAN_PROTOCOL.md （新CAN协议说明）
 # ==========================================

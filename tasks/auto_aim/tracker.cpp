@@ -6,6 +6,7 @@
 
 #include "tools/logger.hpp"
 #include "tools/math_tools.hpp"
+#include "io/cboard.hpp"  // 🆕 引入CBoard头文件
 
 // ROS2 headers (仅在 ROS2 可用时编译)
 #ifdef AMENT_CMAKE_FOUND
@@ -46,6 +47,21 @@ std::list<Target> Tracker::track(
     tools::logger()->warn("[Tracker] Large dt: {:.3f}s", dt);
     state_ = "lost";
   }
+
+  // 🆕 自动从CBoard获取robot_id并更新敌方颜色
+  if (cboard_ != nullptr) {
+    int enemy_color_int = cboard_->get_enemy_color();
+    Color new_enemy_color = static_cast<Color>(enemy_color_int);
+
+    // 仅在颜色变化时输出日志
+    if (new_enemy_color != enemy_color_) {
+      const char* color_name = (new_enemy_color == Color::red) ? "红色" : "蓝色";
+      tools::logger()->info("[Tracker] 🎯 根据robot_id={} 更新敌方颜色为: {}",
+                           cboard_->get_robot_id(), color_name);
+      enemy_color_ = new_enemy_color;
+    }
+  }
+
   // 过滤掉非我方装甲板
   armors.remove_if([&](const auto_aim::Armor & a) { return a.color != enemy_color_; });
 

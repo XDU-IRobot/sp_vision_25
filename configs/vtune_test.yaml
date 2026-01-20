@@ -1,0 +1,430 @@
+# ==========================================
+# SP_vision_USB 完整配置模板
+# 版本: v2.0
+# 更新日期: 2025-12-09
+# ==========================================
+# 说明：
+# - 本文件包含所有可配置项的完整说明
+# - 未注释的配置为推荐默认值
+# - 带 # 的配置为可选项或备选值
+# - 请根据实际硬件和需求修改相应配置
+# ==========================================
+
+#####-----基础配置-----#####
+# 敌方颜色：red | blue
+enemy_color: "red"
+
+#####-----神经网络参数-----#####
+# 选择装甲板识别后端：yolov8 | yolo11 | yolov5
+yolo_name: yolo26
+
+# 数字/字迹分类器模型路径
+classify_model: ../assets/tiny_resnet.onnx
+
+# YOLO模型路径（根据yolo_name选择对应模型）
+yolo11_model_path: ../assets/best_openvino_model/best.xml        # 输入640×640
+yolov8_model_path: assets/yolov8.xml        # 输入416×416
+yolov5_model_path: assets/yolov5.xml      # 输入640×640
+yolo26_model_path: ../assets/yolo26.xml        # yolo_name: yolo26 时使用（输入640）
+# yolo26_model_path: ../assets/little_yolo26_fp32/best.xml
+# OpenVINO推理设备：CPU | GPU | AUTO
+# CPU: 使用CPU推理（兼容性最好）
+# GPU: 使用GPU推理（需要Intel核显驱动）
+# AUTO: 自动选择最优设备
+device: CPU
+
+# 是否使用异步推理（仅yolo11）
+# true:  异步推理模式（高吞吐量，使用流水线，但有一帧延迟）
+# false: 同步推理模式（低延迟，实时处理当前帧）
+use_async_inference: true
+
+# 分类器最小置信度（0.0-1.0）
+# 注意：yolo26模型输出置信度异常低（0.2-0.3），临时设置为0.15用于测试
+# yolo11模型可以使用0.8
+min_confidence: 0.15
+
+# 是否启用传统角点微调（仅yolov5使用）
+use_traditional: true
+
+#####-----功能开关-----#####
+# 是否启用打符模块
+enable_buff: false
+
+# 强制进入自瞄模式（无需等待MCU切档）
+# 注意：需要配合下位机安全策略使用
+force_auto_aim: false
+
+#####-----ROI（感兴趣区域）参数-----#####
+roi:
+  x: 420          # ROI左上角X坐标
+  y: 50           # ROI左上角Y坐标
+  width: 600      # ROI宽度
+  height: 600     # ROI高度
+
+# 是否启用ROI裁剪（首次联调建议false）
+use_roi: false
+
+#####-----传统检测方法参数-----#####
+# 注意：仅在use_traditional=true时使用
+threshold: 150                         # 二值化阈值（0-255）
+max_angle_error: 45                    # 灯条最大倾角误差（度）
+min_lightbar_ratio: 1.5                # 灯条高宽比下限
+max_lightbar_ratio: 20                 # 灯条高宽比上限
+min_lightbar_length: 8                 # 灯条最小长度（像素）
+min_armor_ratio: 1                     # 装甲板宽高比下限
+max_armor_ratio: 5                     # 装甲板宽高比上限
+max_side_ratio: 1.5                    # 两侧灯条长度比上限
+max_rectangular_error: 25              # 矩形偏差上限（度）
+
+#####-----Tracker（跟踪器）参数-----#####
+# 连续检测到目标的最小帧数，达到后进入tracking状态
+min_detect_count: 5
+
+# 临时丢失目标的最大容忍帧数
+max_temp_lost_count: 15
+
+# 前哨站的临时丢失容忍帧数（通常设置更大）
+outpost_max_temp_lost_count: 75
+
+#####-----Aimer（瞄准器）参数-----#####
+# 瞄准角度偏置（用于快速校准）
+yaw_offset: -1        # 偏航角偏置（度）
+pitch_offset: -1.4    # 俯仰角偏置（度）
+
+# 小陀螺目标瞄准参数
+comming_angle: 60     # 装甲板出现角度（度）
+leaving_angle: 20     # 装甲板离开角度（度）
+
+# 高低速判断阈值（rad/s）
+decision_speed: 8
+
+# 延迟补偿时间
+high_speed_delay_time: 0.030    # 高速延迟（秒）
+low_speed_delay_time: 0.015     # 低速延迟（秒）
+
+# 执行延迟补偿（毫秒）
+# 用于补偿命令从发送到实际执行的延迟
+actuation_delay_ms: 0
+
+# 斜坡补偿时间常数（秒）
+# 用于补偿匀速目标的稳态偏差：yaw_cmd = yaw + ramp_t0 × yaw_vel
+# 建议范围：0.05~0.20，设为0表示关闭
+yaw_ramp_t0: 0.10               # 通用斜坡补偿
+
+# 方向专用斜坡补偿（可选）
+yaw_ramp_t0_pos: 0.10           # 向右运动时的补偿
+yaw_ramp_t0_neg: 0.10           # 向左运动时的补偿
+
+#####-----Shooter（开火控制）参数-----#####
+# 射击容差（度）
+first_tolerance: 3      # 近距离射击容差
+second_tolerance: 2     # 远距离射击容差
+
+# 距离判断阈值（米）
+judge_distance: 2
+
+# 是否由自瞄控制射击
+auto_fire: false
+
+#####-----相机配置-----#####
+# 相机类型：daheng | hikrobot | mindvision | usbcamera
+camera_name: "daheng"
+
+# 相机基础参数
+exposure_ms: 2.1        # 曝光时间（毫秒）
+gain: 24                # 增益
+
+# 相机VID:PID（用于识别特定相机）
+vid_pid: "2ba2:4d55"    # 大恒相机的VID:PID
+
+# 是否启用调试模式
+debug: true
+
+# 相机详细设置
+camera_settings:
+  width: 1920                    # 图像宽度
+  height: 1200                   # 图像高度
+  exposure: 2000                 # 曝光时间（微秒）
+  auto_exposure: false           # 是否自动曝光
+  gain: 24                       # 增益值
+  fps: 168                       # 目标帧率
+  auto_white_balance: true       # 是否自动白平衡
+  rgain: 0.0                     # R通道增益（手动白平衡时使用）
+  bgain: 0.0                     # B通道增益
+  ggain: 0.0                     # G通道增益
+  time_offset: 45500000          # 时间戳偏移
+  auto_exp_change: false         # 是否允许自动曝光变化
+  max_exp: 3000                  # 最大曝光时间
+  min_exp: 200                   # 最小曝光时间
+  pixel_format: BayerRG8         # 像素格式
+  bayer_pattern: BayerBG8        # Bayer转换模式（BayerRG8/BayerGR8/BayerGB8/BayerBG8）
+                                 # 如果图像红蓝翻转，尝试其他模式
+
+#####-----相机硬触发配置-----#####
+# 是否启用硬触发（外部GPIO信号触发相机曝光）
+# false: 连续采集模式（软件自由采集）
+# true:  硬触发模式（等待外部信号）
+trigger_enable: false
+
+# 触发源选择（仅在trigger_enable=true时生效）
+# 0 = Line0 (GPIO 1, 相机Pin 1)
+# 1 = Line1 (GPIO 2, 相机Pin 2)
+# 2 = Line2 (GPIO 3, 相机Pin 3)
+trigger_source: 2
+
+# 触发沿选择（仅在trigger_enable=true时生效）
+# 0 = 上升沿触发 (低电平→高电平)
+# 1 = 下降沿触发 (高电平→低电平)
+trigger_activation: 0
+
+#####-----相机标定参数-----#####
+# 云台到IMU Body的旋转矩阵（3×3，行优先）
+R_gimbal2imubody: [1, 0, 0, 0, 1, 0, 0, 0, 1]
+
+# 相机内参矩阵（3×3，行优先）
+# [fx, 0, cx, 0, fy, cy, 0, 0, 1]
+camera_matrix: [2807.679657, 0.000000, 954.251797, 0.000000, 2804.280283, 601.906719, 0.000000, 0.000000, 1.000000]
+
+# 相机畸变系数（5个参数）
+# [k1, k2, p1, p2, k3]
+distort_coeffs: [-0.250596, -0.395102, -0.001980, 0.001022, 0.000000]
+
+# 相机到云台的旋转矩阵（3×3，行优先，需手眼标定）
+R_camera2gimbal: [-0.027182119030230909, -0.12616154330853446, 0.99163723074269183, -0.99949106557517331, 0.019998323121329122, -0.024853106601381177, -0.016695575474690555, -0.99180811252093692, -0.12664093215554434]
+
+# 相机到云台的平移向量（3个参数，需手眼标定）
+t_camera2gimbal: [0.13160669975045827, 0.10377721766577375, 0.024908271912914642]
+
+# ==========================================
+# CBoard通信配置
+# ==========================================
+# 说明：
+# 1. 通信方式选择：CAN总线 或 USB串口
+# 2. CAN协议选择：旧协议 或 新协议
+# 3. 所有配置项都有详细说明
+# ==========================================
+
+#####-----通信方式选择-----#####
+# 选择通信后端：can | serial
+# - can:    使用SocketCAN（需要连接CAN总线）
+# - serial: 使用USB虚拟串口（推荐，更稳定）
+cboard_transport: "can"
+
+#####-----旧CAN协议配置-----#####
+# 注意：仅在cboard_transport="can"且use_new_can_protocol=false时使用
+quaternion_canid: 0x100       # 四元数接收ID（下位机→上位机）
+bullet_speed_canid: 0x101     # 状态信息接收ID（下位机→上位机）
+send_canid: 0xff              # 命令发送ID（上位机→下位机）
+
+#####-----新CAN协议配置-----#####
+# 是否使用新CAN协议
+# false: 使用旧CAN协议（兼容旧版下位机）
+# true:  使用新CAN协议（支持更多功能）
+use_new_can_protocol: true
+
+# 新协议CAN ID配置（仅在use_new_can_protocol=true时生效）
+# 协议说明：
+#   [接收] 0x150: 四元数姿态帧
+#          - 4个int16，每个 = float × 10000
+#          - 字节顺序：大端（高字节在前）
+#   [接收] 0x160: 状态信息帧
+#          - byte 0: robot_id (u8)
+#          - byte 1: mode (u8)
+#          - byte 2-3: imu_count (u16, 大端)
+#   [发送] 0x170: 自瞄指令帧
+#          - byte 0: AimbotState (u8)
+#          - byte 1: AimbotTarget (u8)
+#          - byte 2-3: Yaw (int16, × 10000, 大端)
+#          - byte 4-5: Pitch (int16, × 10000, 大端)
+#          - byte 6: NucStartFlag (u8)
+new_can_quat_id: 0x150        # 四元数姿态帧ID
+new_can_status_id: 0x160      # 状态信息帧ID
+new_can_cmd_id: 0x170         # 自瞄指令帧ID
+
+debug_rx: false
+debug_tx: false
+debug_frame_match: true
+# CAN接口名称（仅在cboard_transport="can"时生效）
+can_interface: "can2"
+
+#####-----串口通信配置-----#####
+# 注意：仅在cboard_transport="serial"时使用
+
+# 串口基础参数
+cboard_serial_port: "/dev/gimbal"       # 串口设备路径（建议使用udev别名）
+# 备选路径："/dev/ttyACM0"
+
+cboard_serial_baudrate: 115200          # 波特率（需与下位机一致）
+cboard_serial_timeout_ms: 20            # 读取超时（毫秒）
+
+# 串口帧格式配置
+cboard_serial_sof: 85                   # 帧头（0x55 = 85）
+cboard_serial_eof: 255                  # 帧尾（0xFF = 255）
+cboard_serial_id_quat: 16               # 四元数帧ID（0x10 = 16）
+cboard_serial_id_status: 17             # 状态帧ID（0x11 = 17）
+cboard_serial_id_cmd: 18                # 命令帧ID（0x12 = 18）
+
+# CRC校验配置
+cboard_serial_skip_crc: true            # 是否跳过CRC校验
+                                        # true:  不使用CRC（联调阶段推荐）
+                                        # false: 使用CRC校验（稳定后推荐）
+
+# 调试配置
+cboard_serial_debug_hex: true           # 是否打印十六进制调试信息
+cboard_serial_log_rx: false             # 是否打印接收数据日志（电控→上位机）
+cboard_serial_log_tx: true              # 是否打印发送数据日志（上位机→电控）
+
+#####-----串口协议选择-----#####
+# 串口通信协议类型：raw | scm
+# - raw: 可变长度帧 [SOF][ID][LEN][PAYLOAD][CRC?][EOF]
+# - scm: 固定长度帧（SCM协议，25字节）
+cboard_serial_protocol: "scm"
+
+# SCM协议配置（仅在cboard_serial_protocol="scm"时使用）
+cboard_serial_scm_rx_id: 1              # 电控→上位机帧ID
+cboard_serial_scm_tx_id: 2              # 上位机→电控帧ID
+cboard_serial_angles_in_deg: true       # 角度单位（true=度，false=弧度）
+
+#####-----状态位配置-----#####
+# AimbotState编码方式：bitfield | enum
+# - bitfield: 位域模式（推荐）
+#   * bit0: HAS_TARGET（检测到目标）
+#   * bit1: SUGGEST_FIRE（建议开火）
+#   * bit5: SELF_AIM（自瞄标志）
+# - enum: 枚举模式（兼容旧固件）
+#   * 0: 不控制
+#   * 1: 控制但不开火
+#   * 2: 控制且开火
+cboard_serial_aimbotstate_mode: "bitfield"
+
+# 联调辅助配置
+cboard_serial_force_fire_when_control: false    # control=true时强制置建议开火位
+cboard_serial_force_control: true               # 强制按"有目标"发送
+
+#####-----发送角度配置-----#####
+# 云台绝对角零位偏置（用于对齐IMU欧拉角）
+# 可选配置方式：
+# 1. 使用度（推荐）
+# gimbal_yaw_offset_deg: 0.0
+# gimbal_pitch_offset_deg: 0.0
+# 2. 使用弧度
+# gimbal_yaw_offset_rad: 0.0
+# gimbal_pitch_offset_rad: 0.0
+
+# 发送角度细调偏置（用于外场快速校准）
+# 可选配置方式：
+# 1. 使用度（推荐）
+# tx_yaw_bias_deg: 0.0      # 正数=向右
+# tx_pitch_bias_deg: 0.0    # 正数=向上
+# 2. 使用弧度
+# tx_yaw_bias_rad: 0.0
+# tx_pitch_bias_rad: 0.0
+
+# 发送角度滤波配置（抑制抖动）
+# tx_filter_enable: true                # 是否启用滤波
+# tx_ema_alpha: 0.5                     # EMA平滑系数（0-1，越大越平滑）
+# tx_yaw_rate_limit_deg_s: 180.0        # Yaw角速度限制（度/秒，0=不限制）
+# tx_pitch_rate_limit_deg_s: 180.0      # Pitch角速度限制（度/秒，0=不限制）
+
+# 欧拉角提取配置
+# gimbal_pitch_from_x: false            # false=从Y轴取pitch，true=从X轴取pitch
+# yaw_sign: 1                           # Yaw符号（+1或-1）
+# pitch_sign: 1                         # Pitch符号（+1或-1）
+# normalize_abs_angles: true            # 是否归一化到(-π, π]
+
+#####-----轨迹规划器（Planner）参数-----#####
+# 开火阈值（rad）
+fire_thresh: 0.0035
+
+# Yaw轴MPC参数
+max_yaw_acc: 50                         # 最大加速度（rad/s²）
+Q_yaw: [9e6, 0]                         # 状态代价矩阵
+R_yaw: [1]                              # 控制代价矩阵
+
+# Pitch轴MPC参数
+max_pitch_acc: 100                      # 最大加速度（rad/s²）
+Q_pitch: [9e6, 0]                       # 状态代价矩阵
+R_pitch: [1]                            # 控制代价矩阵
+
+#####-----打符模块配置-----#####
+# 打符识别模型路径（仅在enable_buff=true时使用）
+# model: "assets/yolo11_buff_int8.xml"
+
+#####-----其他相机配置（备选）-----#####
+
+# camera_name: "mindvision"
+# exposure_ms: 2
+# gamma: 0.5
+# vid_pid: "f622:d13a"
+
+# camera_name: "hikrobot"
+# exposure_ms: 3
+# gain: 10.0
+# vid_pid: "2bdf:0001"
+
+# USB摄像头配置
+# camera_name: "usbcamera"
+# device_index: 0
+
+#####-----IMU配置（DM_IMU，可选）-----#####
+# 注意：通常使用CBoard的IMU，此配置用于独立IMU设备
+# dm_imu:
+#   port: "/dev/ttyACM0"        # IMU串口设备
+#   baudrate: 921600            # 波特率
+#   timeout_ms: 20              # 读超时
+#   sof: 85                     # 帧头(0x55)
+#   flag: 1                     # 标志位
+#   slave_id: 0                 # 从设备ID
+#   reg_acc: 0                  # 寄存器地址
+#   skip_crc: true              # 跳过CRC
+#   debug_hex: false            # 调试输出
+
+#####-----云台直连配置（可选）-----#####
+# 注意：仅用于直连云台的测试程序，实际使用时通过CBoard通信
+# com_port: "/dev/gimbal"
+# baudrate: 328125
+# gimbal_protocol: "scm"          # scm | sp_crc16
+# scm_sof: 85                     # 0x55
+# scm_eof: 255                    # 0xFF
+# scm_rx_id: 1                    # 云台→上位机
+# scm_tx_id: 2                    # 上位机→云台
+# scm_angles_in_deg: true         # 角度单位
+# yaw_kp: 0
+# yaw_kd: 0
+# pitch_kp: 0
+# pitch_kd: 0
+
+# ==========================================
+# 配置模板结束
+# ==========================================
+# 快速配置指南：
+#
+# 1. 使用CAN通信（旧协议）：
+#    cboard_transport: "can"
+#    use_new_can_protocol: false
+#    can_interface: "can0"
+#
+# 2. 使用CAN通信（新协议）：
+#    cboard_transport: "can"
+#    use_new_can_protocol: true
+#    can_interface: "can0"
+#
+# 3. 使用USB串口通信：
+#    cboard_transport: "serial"
+#    cboard_serial_port: "/dev/gimbal"
+#
+# 4. 启用相机硬触发：
+#    trigger_enable: true
+#    trigger_source: 2          # Line2
+#    trigger_activation: 0      # 上升沿
+#
+# 5. 硬件连接要求：
+#    - 硬触发：触发源GPIO → 相机Line2 (Pin 3)
+#              触发源GND → 相机GND (Pin 4)
+#    - CAN通信：需要CAN总线适配器
+#    - 串口通信：使用USB数据线连接
+#
+# 更多信息请参考：
+# - docs/TRIGGER_GUIDE.md （相机硬触发详细说明）
+# - docs/NEW_CAN_PROTOCOL.md （新CAN协议说明）
+# ==========================================

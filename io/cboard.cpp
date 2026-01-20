@@ -186,14 +186,11 @@ Eigen::Quaterniond CBoard::imu_by_count(uint16_t target_count) {
 }
 
 void CBoard::send(Command command) {
-  // 🆕 第一次调用send时停止心跳线程（主循环已开始工作）
-  static bool first_send = true;
-  if (first_send && heartbeat_thread_.joinable()) {
-    heartbeat_quit_ = true;
-    heartbeat_thread_.join();
-    tools::logger()->info("[Cboard] Heartbeat thread stopped (main loop started)");
-    first_send = false;
-  }
+  // 🆕 更新最后一次send()调用的时间戳（纳秒），通知心跳线程主循环正在运行
+  auto now = std::chrono::steady_clock::now();
+  int64_t now_ns = std::chrono::duration_cast<std::chrono::nanoseconds>(
+    now.time_since_epoch()).count();
+  last_send_timestamp_ns_.store(now_ns, std::memory_order_release);
 
   if (use_serial_) {
     if (serial_protocol_scm_) {
@@ -245,8 +242,8 @@ void CBoard::send(Command command) {
       // 检查MCU是否在线
       if (!mcu_online_) {
         // MCU未在线：发送空数据（其他字段全0），仅保持start=1
-        frame.data[0] = 0;  // AimbotState = 0
-        frame.data[1] = 0;  // AimbotTarget = 0
+        frame.data[0] = 0;  // AimbotState = 0 (无目标)
+        frame.data[1] = 0;  // AimbotTarget = 0 (无目标)
         frame.data[2] = 0;  // Yaw高字节 = 0
         frame.data[3] = 0;  // Yaw低字节 = 0
         frame.data[4] = 0;  // Pitch高字节 = 0
@@ -281,15 +278,25 @@ void CBoard::send(Command command) {
       // MCU已在线：正常发送数据
       // 数据打包：
       // byte 0: AimbotState (u8)
+      //         0 = 无目标
+      //         1 = 有目标不开火
+      //         3 = 有目标且建议开火
       // byte 1: AimbotTarget (u8)
+      //         0 = 有目标
+      //         1 = 无目标
       // byte 2-3: Yaw (int16, 需要×10000)
       // byte 4-5: Pitch (int16, 需要×10000)
       // byte 6: NucStartFlag (u8) - 一直为1
 
-      // AimbotState: 使用compute_aimbotstate计算
-      frame.data[0] = compute_aimbotstate(command.control, command.shoot);
+      // 🆕 AimbotState: 根据control和shoot状态设置
+      // 由于Tracker已自动过滤己方颜色，control=true时一定是检测到敌方目标
+      if (command.control) {
+        frame.data[0] = command.shoot ? 3 : 1;  // 有目标: 开火=3, 不开火=1
+      } else {
+        frame.data[0] = 0;  // 无目标=0
+      }
 
-      // AimbotTarget: 暂时固定为1（检测到目标）或0（未检测到）
+      // 🆕 AimbotTarget: 有目标=0, 无目标=1（与AimbotState逻辑一致）
       frame.data[1] = command.control ? 1 : 0;
 
       // Yaw和Pitch: 角度×10000转换为int16，大端字节序
@@ -378,6 +385,22 @@ CBoard::~CBoard() {
   }
 }
 
+// 🆕 根据robot_id获取敌方颜色
+int CBoard::get_enemy_color() const {
+  // robot_id = 0: 己方蓝色，击打红色 (返回0)
+  // robot_id = 1: 己方红色，击打蓝色 (返回1)
+  // 对应 auto_aim::Color 枚举：red=0, blue=1
+  if (robot_id_ == 0) {
+    return 0;  // red
+  } else if (robot_id_ == 1) {
+    return 1;  // blue
+  } else {
+    // 如果robot_id未设置或无效，返回red作为默认值
+    tools::logger()->warn("[CBoard] Invalid robot_id: {}, defaulting to enemy_color=red", robot_id_);
+    return 0;  // red
+  }
+}
+
 void CBoard::callback(const can_frame &frame) {
   auto timestamp = std::chrono::steady_clock::now();
 
@@ -457,6 +480,16 @@ void CBoard::callback(const can_frame &frame) {
                                           frame.data[6] << 8  | frame.data[7]);
 
       // 更新内部状态（保留向后兼容性）
+      // 🆕 检测robot_id变化
+      static uint8_t last_robot_id = 255;  // 初始值设为无效值
+      if (robot_id != last_robot_id) {
+        const char* self_color = (robot_id == 0) ? "蓝色" : "红色";
+        const char* enemy_color = (robot_id == 0) ? "红色" : "蓝色";
+        tools::logger()->info(
+          "[CBoard] 🎯 robot_id changed: {} -> {} | 己方={}, 击打目标={}",
+          last_robot_id, robot_id, self_color, enemy_color);
+        last_robot_id = robot_id;
+      }
       robot_id_ = robot_id;
       mode = static_cast<Mode>(mode_byte);
       imu_count_ = imu_count;  // 保留全局变量，用于旧代码兼容
@@ -1053,8 +1086,8 @@ void CBoard::send_startup_frame() {
   frame.can_dlc = 7;
 
   // 初始化所有字段为0，仅start为1
-  frame.data[0] = 0;  // AimbotState = 0 (无控制)
-  frame.data[1] = 0;  // AimbotTarget = 0 (无目标)
+  frame.data[0] = 0;  // AimbotState = 0 (无目标)
+  frame.data[1] = 1;  // AimbotTarget = 1 (无目标)
   frame.data[2] = 0;  // Yaw高字节 = 0
   frame.data[3] = 0;  // Yaw低字节 = 0
   frame.data[4] = 0;  // Pitch高字节 = 0
@@ -1115,53 +1148,114 @@ void CBoard::start_camera_trigger() {
   tools::logger()->info("[Cboard] ✅ Camera trigger enabled! Heartbeat started (interval={}ms)", heartbeat_interval_ms_);
 }
 
-// 🆕 心跳线程：在MCU上线前持续发送start=1心跳帧
+// 🆕 心跳线程：智能切换机制
+// - MCU未上线时：持续发送start=1心跳帧
+// - MCU上线后：监测主循环send()调用
+//   - 如果主循环正常发送数据（最近100ms内有调用send()），心跳线程休眠
+//   - 如果主循环停止发送（超过100ms未调用send()），心跳线程接管，继续发送心跳
 void CBoard::heartbeat_loop() {
-  tools::logger()->info("[Cboard][Heartbeat] Thread started, sending start=1 at 500Hz");
+  tools::logger()->info("[Cboard][Heartbeat] Thread started with smart switching (takeover_timeout={}ms)",
+    heartbeat_takeover_timeout_ms_);
 
-  // 注意：只检查heartbeat_quit_，不检查mcu_online_
-  // 让心跳线程持续运行，直到主循环第一次调用send()时主动停止它
+  bool is_heartbeat_active = false;  // 当前是否在主动发送心跳
+  auto last_log_time = std::chrono::steady_clock::time_point::min();
+
   while (!heartbeat_quit_) {
-    // 构造心跳帧：start=1, 其他数据全0
-    can_frame frame;
-    frame.can_id = new_can_cmd_id_;
-    frame.can_dlc = 7;
-    frame.data[0] = 0;  // AimbotState = 0
-    frame.data[1] = 0;  // AimbotTarget = 0
-    frame.data[2] = 0;  // Yaw高字节 = 0
-    frame.data[3] = 0;  // Yaw低字节 = 0
-    frame.data[4] = 0;  // Pitch高字节 = 0
-    frame.data[5] = 0;  // Pitch低字节 = 0
-    frame.data[6] = 1;  // NucStartFlag = 1 ⭐
+    auto now = std::chrono::steady_clock::now();
+    int64_t now_ns = std::chrono::duration_cast<std::chrono::nanoseconds>(
+      now.time_since_epoch()).count();
 
-    try {
-      can_->write(&frame);
+    // 读取最后一次send()的时间戳
+    int64_t last_send_ns = last_send_timestamp_ns_.load(std::memory_order_acquire);
 
-      // 🆕 调试输出（低频，避免刷屏）
-      if (debug_tx_) {
-        static auto last_log = std::chrono::steady_clock::time_point::min();
-        auto now = std::chrono::steady_clock::now();
-        if (tools::delta_time(now, last_log) > 1.0) {
-          tools::logger()->info(
-            "[TX][Heartbeat] id=0x{:03X} dlc={} data=[{:02X} {:02X} {:02X} {:02X} {:02X} {:02X} {:02X}] | 500Hz heartbeat, mcu_online={}",
-            frame.can_id, frame.can_dlc,
-            frame.data[0], frame.data[1], frame.data[2], frame.data[3],
-            frame.data[4], frame.data[5], frame.data[6], mcu_online_.load());
-          last_log = now;
-        }
+    // 计算距离上次send()的时间（毫秒）
+    int64_t elapsed_ms = (now_ns - last_send_ns) / 1000000;
+
+    // 判断是否需要心跳接管
+    bool should_send_heartbeat = false;
+
+    if (!mcu_online_) {
+      // MCU未上线：始终发送心跳
+      should_send_heartbeat = true;
+
+      // 状态变化日志
+      if (!is_heartbeat_active) {
+        tools::logger()->info("[Heartbeat] MCU offline, sending continuous heartbeat");
+        is_heartbeat_active = true;
       }
-    } catch (const std::exception &e) {
-      tools::logger()->warn("[Heartbeat] write failed: {}", e.what());
+    } else if (last_send_ns == 0) {
+      // MCU已上线，但主循环还没开始发送（第一次send()还没调用）
+      should_send_heartbeat = true;
+
+      if (!is_heartbeat_active) {
+        tools::logger()->info("[Heartbeat] MCU online, waiting for main loop to start...");
+        is_heartbeat_active = true;
+      }
+    } else if (elapsed_ms > heartbeat_takeover_timeout_ms_) {
+      // 主循环超时，心跳接管
+      should_send_heartbeat = true;
+
+      // 状态变化日志（只在状态切换时打印）
+      if (!is_heartbeat_active) {
+        tools::logger()->warn(
+          "[Heartbeat] ⚠️ Main loop stopped sending (timeout={}ms)! Heartbeat TAKING OVER...",
+          elapsed_ms);
+        is_heartbeat_active = true;
+      }
+    } else {
+      // 主循环正常工作，心跳休眠
+      should_send_heartbeat = false;
+
+      // 状态变化日志（只在状态切换时打印）
+      if (is_heartbeat_active) {
+        tools::logger()->info("[Heartbeat] Main loop active, heartbeat standing by");
+        is_heartbeat_active = false;
+      }
     }
 
-    // 500Hz = 2ms间隔
-    std::this_thread::sleep_for(std::chrono::milliseconds(heartbeat_interval_ms_));
+    if (should_send_heartbeat) {
+      // 构造心跳帧：start=1, 其他数据全0
+      can_frame frame;
+      frame.can_id = new_can_cmd_id_;
+      frame.can_dlc = 7;
+      frame.data[0] = 0;  // AimbotState = 0 (无目标)
+      frame.data[1] = 0;  // AimbotTarget = 0 (无目标)
+      frame.data[2] = 0;  // Yaw高字节 = 0
+      frame.data[3] = 0;  // Yaw低字节 = 0
+      frame.data[4] = 0;  // Pitch高字节 = 0
+      frame.data[5] = 0;  // Pitch低字节 = 0
+      frame.data[6] = 1;  // NucStartFlag = 1
+
+      try {
+        can_->write(&frame);
+
+        // 低频调试日志（1Hz，避免刷屏）
+        if (debug_tx_ && tools::delta_time(now, last_log_time) > 1.0) {
+          tools::logger()->info(
+            "[TX][Heartbeat] id=0x{:03X} dlc={} data=[{:02X} {:02X} {:02X} {:02X} {:02X} {:02X} {:02X}] | "
+            "500Hz heartbeat (mcu_online={}, elapsed_since_send={}ms)",
+            frame.can_id, frame.can_dlc,
+            frame.data[0], frame.data[1], frame.data[2], frame.data[3],
+            frame.data[4], frame.data[5], frame.data[6],
+            mcu_online_.load(), elapsed_ms);
+          last_log_time = now;
+        }
+      } catch (const std::exception &e) {
+        tools::logger()->warn("[Heartbeat] write failed: {}", e.what());
+      }
+
+      // 500Hz = 2ms间隔
+      std::this_thread::sleep_for(std::chrono::milliseconds(heartbeat_interval_ms_));
+    } else {
+      // 主循环正常工作，心跳休眠（较长时间，节省CPU）
+      std::this_thread::sleep_for(std::chrono::milliseconds(10));
+    }
   }
 
   tools::logger()->info("[Cboard][Heartbeat] Thread exiting (quit=true)");
 }
 
-// 🆕 环形数组直接查询接口
+// 环形数组直接查询接口
 CBoard::IMUQueryResult CBoard::get_imu_from_ring_buffer(uint16_t target_imu_count) const {
   // 计算环形数组索引
   size_t index = target_imu_count % IMU_RING_BUFFER_SIZE;

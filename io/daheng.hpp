@@ -1,12 +1,12 @@
 #ifndef IO__DAHENG_HPP
 #define IO__DAHENG_HPP
 
+#include <atomic>
 #include <chrono>
 #include <opencv2/opencv.hpp>
 #include <thread>
 
 #include "driver/GxIAPI.h"
-#include "driver/DxImageProc.h"
 #include "io/camera.hpp"
 #include "tools/thread_safe_queue.hpp"
 
@@ -19,16 +19,15 @@ public:
   ~Daheng() override;
   void read(cv::Mat & img, std::chrono::steady_clock::time_point & timestamp) override;
 
-  // 🆕 获取最后读取的相机帧ID
+  // 获取最后读取的相机帧ID
   uint64_t get_last_frame_id() const { return last_frame_id_; }
 
 private:
   struct CameraData
   {
     cv::Mat img;
-    std::chrono::steady_clock::time_point timestamp;  // 转换后的系统时间戳
-    uint64_t frame_id;        // 🆕 相机SDK的帧ID
-    uint64_t hw_timestamp;    // 🆕 相机硬件时间戳 (nTimestamp)
+    std::chrono::steady_clock::time_point timestamp;
+    uint64_t frame_id;   // 来自 Daheng SDK 的 nFrameID
   };
 
   double exposure_, gain_;
@@ -39,6 +38,7 @@ private:
   int max_exp_, min_exp_;
   bool debug_;
   std::string vid_pid_;
+  int bayer_code_;  // OpenCV Bayer转换代码（如 cv::COLOR_BayerBG2BGR）
 
   // 硬触发相关参数
   bool trigger_enable_;          // 是否启用硬触发
@@ -47,17 +47,17 @@ private:
 
   GX_DEV_HANDLE device_handle_;
   int64_t payload_size_;
-  bool quit_, ok_;
+  std::atomic<bool> quit_;
+  std::atomic<bool> ok_;
   std::thread capture_thread_;
   std::thread daemon_thread_;
-  tools::ThreadSafeQueue<CameraData> queue_;
-  uint64_t last_frame_id_;  // 🆕 最后读取的帧ID
+  tools::ThreadSafeQueue<CameraData, true> queue_;  // PopWhenFull=true，新帧覆盖旧帧
+  uint64_t last_frame_id_;  // 最近一次 read() 对应的帧 ID
 
   void open();
   void try_open();
   void close();
   void set_camera_params();
-  static void GX_STDC frame_callback(GX_FRAME_CALLBACK_PARAM * frame_data);
 };
 
 }  // namespace io

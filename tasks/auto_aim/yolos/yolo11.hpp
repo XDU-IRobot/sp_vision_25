@@ -27,6 +27,7 @@ private:
   std::string device_, model_path_;
   std::string save_path_, debug_path_;
   bool debug_, use_roi_;
+  bool use_async_inference_;  // 是否使用异步推理
 
   const int class_num_ = 16;
   const float nms_threshold_ = 0.3;
@@ -35,6 +36,19 @@ private:
 
   ov::Core core_;
   ov::CompiledModel compiled_model_;
+
+  // 异步推理：使用2个InferRequest形成流水线
+  ov::InferRequest infer_request_current_;  // 当前帧推理请求
+  ov::InferRequest infer_request_next_;     // 下一帧推理请求
+  bool first_frame_ = true;                 // 是否为第一帧
+
+  // 存储上一帧的预处理结果（用于异步流水线）
+  cv::Mat prev_preprocessed_img_;
+  cv::Mat prev_raw_img_;  // 保存上一帧的原始图像（用于parse）
+  float prev_scale_ = 1.0f;
+  int prev_pad_x_ = 0;
+  int prev_pad_y_ = 0;
+  int prev_frame_count_ = 0;
 
   cv::Rect roi_;
   cv::Point2f offset_;
@@ -56,4 +70,4 @@ private:
 
 }  // namespace auto_aim
 
-#endif  //AUTO_AIM__YOLO11_HPP
+#endif  // AUTO_AIM__YOLO11_HPP

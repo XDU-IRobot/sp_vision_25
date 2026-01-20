@@ -25,15 +25,19 @@
 #include "tools/plotter.hpp"
 
 const std::string keys =
-  "{help h usage ? |                     | 输出命令行参数说明 }"
-  "{config-path c  | configs/camera.yaml | yaml配置文件的路径}"
-  "{use-camera     | false               | 使用真实相机而非视频文件 }"
-  "{start-index s  | 0                   | 视频起始帧下标    }"
-  "{end-index e    | 0                   | 视频结束帧下标    }"
-  "{@input-path    | assets/demo/demo    | avi和txt文件的路径}";
+  "{help h usage ? |                              | 输出命令行参数说明 }"
+  "{config-path c  | ../configs/vtune_test.yaml   | yaml配置文件的路径（相对于build目录）}"
+  "{use-camera     | true                         | 使用真实相机而非视频文件（默认启用）}"
+  "{start-index s  | 0                            | 视频起始帧下标    }"
+  "{end-index e    | 0                            | 视频结束帧下标    }"
+  "{@input-path    | ../assets/demo/demo          | avi和txt文件的路径（相对于build目录）}";
 
 int main(int argc, char * argv[])
 {
+  // 完全禁用OpenCV多线程，避免TBB版本冲突
+  // OpenVINO会独占TBB，OpenCV只做单线程的简单操作
+  cv::setNumThreads(0);  // 0 = 完全禁用OpenCV线程池
+
   // 初始化 ROS2 (仅在 ROS2 可用时)
 #ifdef AMENT_CMAKE_FOUND
   rclcpp::init(argc, argv);
@@ -261,7 +265,7 @@ int main(int argc, char * argv[])
         solver.reproject_armor(aim_xyza.head(3), aim_xyza[3], target.armor_type, target.name);
       if (aim_point.valid) tools::draw_points(img, image_points, {0, 0, 255});
 
-      // 🆕 发布 ROS2 Markers (使用 tracker 的集成功能)
+      // 发布 ROS2 Markers (使用 tracker 的集成功能)
 #ifdef AMENT_CMAKE_FOUND
       // 转换时间戳为ROS时间
       auto ros_time = rclcpp::Time(
@@ -306,7 +310,7 @@ int main(int argc, char * argv[])
 
     cv::resize(img, img, {}, 0.5, 0.5);  // 显示时缩小图片尺寸
     cv::imshow("reprojection", img);
-    auto key = cv::waitKey(30);
+    auto key = cv::waitKey(1);  // 改为1ms，减少等待时间
     if (key == 'q') break;
   }
 

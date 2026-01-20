@@ -96,6 +96,15 @@ public:
   // 🆕 启动相机触发信号（在程序完全初始化后调用）
   void start_camera_trigger();
 
+  // 🆕 根据robot_id获取敌方颜色
+  // robot_id = 0: 己方蓝色，击打红色
+  // robot_id = 1: 己方红色，击打蓝色
+  // 返回值需要包含auto_aim::Color枚举，因此这里返回int（0=red, 1=blue）
+  int get_enemy_color() const;
+
+  // 🆕 获取当前的robot_id
+  uint8_t get_robot_id() const { return robot_id_; }
+
 #ifdef AMENT_CMAKE_FOUND
   // 🆕 设置ROS2节点用于实时发布TF（IMU数据到达时立即发布）
   void set_ros2_tf_publisher(
@@ -183,6 +192,10 @@ private:
   std::thread heartbeat_thread_;             // 心跳线程
   std::atomic<bool> heartbeat_quit_{false};  // 心跳线程退出标志
   int heartbeat_interval_ms_ = 2;            // 心跳间隔（毫秒），默认2ms=500Hz
+
+  // 🆕 主循环发送监测（用于智能切换心跳/正常数据发送）
+  std::atomic<int64_t> last_send_timestamp_ns_{0};  // 最后一次send()调用的时间戳（纳秒）
+  int64_t heartbeat_takeover_timeout_ms_ = 100;     // 心跳接管超时时间（毫秒）：超过此时间未调用send()，心跳线程接管
 
   // 🆕 调试开关配置
   bool debug_rx_ = false;                // 是否输出RX（接收）调试信息

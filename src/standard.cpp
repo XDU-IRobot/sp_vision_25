@@ -74,6 +74,7 @@ int main(int argc, char * argv[])
   auto_aim::YOLO detector(config_path, false);
   auto_aim::Solver solver(config_path);
   auto_aim::Tracker tracker(config_path, solver);
+  // tracker.set_cboard(&cboard);  // 🆕 设置CBoard，Tracker将自动根据robot_id过滤颜色
   auto_aim::Aimer aimer(config_path);
   auto_aim::Shooter shooter(config_path);
 
@@ -81,7 +82,7 @@ int main(int argc, char * argv[])
   // 将 ROS2 节点设置给 tracker
   tracker.set_ros2_node(ros_node);
 
-  // 🔄 设置CBoard的TF发布器（IMU数据到达时立即发布TF）
+  // 设置CBoard的TF发布器（IMU数据到达时立即发布TF）
   cboard.set_ros2_tf_publisher(ros_node, solver.R_gimbal2imubody());
   tools::logger()->info("[CBoard] TF publisher configured - TF will be sent on every IMU update");
 
@@ -203,7 +204,7 @@ int main(int argc, char * argv[])
 
     } else {
       // ==================== 方案B：基于 count 硬同步（使用环形数组） ====================
-      // 核心思想：相机由MCU硬触发，IMU时间戳 = 相机时间戳
+      // 相机由MCU硬触发，IMU时间戳 = 相机时间戳
       //
       // MCU逻辑：当 imu_count % 10 == 0 时硬触发相机
       // 映射关系：camera frame_id N → trigger_imu_count = (N+1) × 10 + offset(仅微调，为0即可)
@@ -233,7 +234,7 @@ int main(int argc, char * argv[])
 
         if (first_frame) {
           tools::logger()->info(
-            "[Sync-RingBuffer Init] 🚀 Hardware sync enabled! frame_id={} → trigger_imu={}, current_imu={} | mcu_ts={}ms",
+            "[Sync-RingBuffer Init]  Hardware sync enabled! frame_id={} → trigger_imu={}, current_imu={} | mcu_ts={}ms",
             frame_id, trigger_imu_count, current_imu_count, imu_result.mcu_timestamp);
           first_frame = false;
         }
@@ -275,20 +276,20 @@ int main(int argc, char * argv[])
       tools::logger()->info(
         "┌────────────────────────────────────────────────────────────────┐");
       tools::logger()->info(
-        "│ 🔍 时间戳验证（Time Synchronization Validation）                │");
+        "│ 时间戳验证(Time Synchronization Validation)                │");
       tools::logger()->info(
         "├────────────────────────────────────────────────────────────────┤");
       tools::logger()->info(
-        "│ 📷 Camera Frame:  frame_id={:<6} → trigger_imu={:<6}          │",
+        "│ Camera Frame:  frame_id={:<6} → trigger_imu={:<6}          │",
         frame_id, trigger_imu_count);
       tools::logger()->info(
-        "│ ⏱️  Time Source:   MCU Hardware Timestamp (converted)          │");
+        "│ Time Source:   MCU Hardware Timestamp (converted)          │");
       tools::logger()->info(
-        "│ 🎯 IMU Count:     target={:<6} current={:<6} diff={:+4d}     │",
+        "│ IMU Count:     target={:<6} current={:<6} diff={:+4d}     │",
         trigger_imu_count, current_imu_count,
         (int64_t)current_imu_count - (int64_t)trigger_imu_count);
       tools::logger()->info(
-        "│ ✅ Time Inheritance (MCU-based):                               │");
+        "│ Time Inheritance (MCU-based):                               │");
       tools::logger()->info(
         "│    • camera_timestamp ← MCU mcu_synced_timestamp              │");
       tools::logger()->info(
@@ -298,8 +299,8 @@ int main(int argc, char * argv[])
       tools::logger()->info(
         "│    • Predictor dt     ← MCU timestamp diff                   │");
       tools::logger()->info(
-        "│ 🔗 Time Consistency: {:<40} │",
-        (std::abs(time_diff_ms) < 0.001) ? "✅ PERFECT" : "⚠️  CHECK NEEDED");
+        "│ Time Consistency: {:<40} │",
+        (std::abs(time_diff_ms) < 0.001) ? "PERFECT" : "CHECK NEEDED");
       tools::logger()->info(
         "└────────────────────────────────────────────────────────────────┘");
     }
@@ -366,6 +367,12 @@ int main(int argc, char * argv[])
     t_end = std::chrono::steady_clock::now();
     double t_aim = std::chrono::duration<double, std::milli>(t_end - t_start).count();
 
+    // 火控逻辑：判断是否应该开火
+    t_start = std::chrono::steady_clock::now();
+    command.shoot = shooter.shoot(command, aimer, targets, ypr);
+    t_end = std::chrono::steady_clock::now();
+    double t_shoot = std::chrono::duration<double, std::milli>(t_end - t_start).count();
+
     t_start = std::chrono::steady_clock::now();
     cboard.send(command);
     t_end = std::chrono::steady_clock::now();
@@ -427,7 +434,7 @@ int main(int argc, char * argv[])
     cv::resize(img, img_display, {}, 0.5, 0.5);
 
     // 计算总耗时
-    double t_total = t_camera + t_imu + t_solver_setup + t_detect + t_track + t_aim + t_send + t_visualize;
+    double t_total = t_camera + t_imu + t_solver_setup + t_detect + t_track + t_aim + t_shoot + t_send + t_visualize;
 
     // 显示帧率和性能数据
     int y_offset = 30;
@@ -471,6 +478,11 @@ int main(int argc, char * argv[])
                 cv::Scalar(200, 200, 200), 1);
     y_offset += 25;
 
+    cv::putText(img_display, fmt::format("Shoot: {:.1f}ms", t_shoot),
+                cv::Point(10, y_offset), cv::FONT_HERSHEY_SIMPLEX, 0.5,
+                cv::Scalar(200, 200, 200), 1);
+    y_offset += 25;
+
     cv::putText(img_display, fmt::format("Visual: {:.1f}ms", t_visualize),
                 cv::Point(10, y_offset), cv::FONT_HERSHEY_SIMPLEX, 0.5,
                 cv::Scalar(200, 200, 200), 1);
@@ -479,10 +491,10 @@ int main(int argc, char * argv[])
     if (frame_count % 30 == 0) {
       tools::logger()->info(
         "[Performance] FPS: {:.1f} | Total: {:.1f}ms | Camera: {:.1f}ms | IMU: {:.2f}ms | "
-        "Detect: {:.1f}ms | Track: {:.2f}ms | Aim: {:.2f}ms | Visual: {:.2f}ms | Send: {:.2f}ms",
-        current_fps, t_total, t_camera, t_imu, t_detect, t_track, t_aim, t_visualize, t_send);
+        "Detect: {:.1f}ms | Track: {:.2f}ms | Aim: {:.2f}ms | Shoot: {:.2f}ms | Visual: {:.2f}ms | Send: {:.2f}ms",
+        current_fps, t_total, t_camera, t_imu, t_detect, t_track, t_aim, t_shoot, t_visualize, t_send);
 
-      // 🆕 显示frame匹配信息
+      // 显示frame匹配信息
       tools::logger()->info(
         "[Frame Match] current_imu_count={} trigger_imu={} q(w,x,y,z)=({:.4f},{:.4f},{:.4f},{:.4f})",
         current_imu_count, trigger_imu_count,

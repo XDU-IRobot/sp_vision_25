@@ -13,6 +13,11 @@
 #include "tasks/omniperception/perceptron.hpp"
 #include "tools/thread_safe_queue.hpp"
 
+// 前向声明
+namespace io {
+class CBoard;
+}
+
 // ROS2 前向声明（避免强制依赖）
 #ifdef AMENT_CMAKE_FOUND
 namespace rclcpp {
@@ -37,6 +42,15 @@ public:
   std::tuple<omniperception::DetectionResult, std::list<Target>> track(
     const std::vector<omniperception::DetectionResult> & detection_queue, std::list<Armor> & armors,
     std::chrono::steady_clock::time_point t, bool use_enemy_color = true);
+
+  // 🆕 动态设置敌方颜色（用于根据robot_id实时切换）
+  void set_enemy_color(Color color) { enemy_color_ = color; }
+
+  // 🆕 获取当前敌方颜色
+  Color get_enemy_color() const { return enemy_color_; }
+
+  // 🆕 设置CBoard指针（用于自动从robot_id获取敌方颜色）
+  void set_cboard(io::CBoard* cboard) { cboard_ = cboard; }
 
 #ifdef AMENT_CMAKE_FOUND
   // 设置 ROS2 节点用于发布 marker（可选）
@@ -64,6 +78,9 @@ private:
   Target target_;
   std::chrono::steady_clock::time_point last_timestamp_;
   ArmorPriority omni_target_priority_;
+
+  // 🆕 CBoard指针（用于自动获取robot_id并更新敌方颜色）
+  io::CBoard* cboard_ = nullptr;
 
 #ifdef AMENT_CMAKE_FOUND
   std::shared_ptr<rclcpp::Node> ros_node_;

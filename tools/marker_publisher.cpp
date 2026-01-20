@@ -13,8 +13,8 @@ void MarkerPublisher::publishArmorMarker(
     int id,
     const Eigen::Vector3d & position,
     const Eigen::Quaterniond & orientation,
-    double width,
-    double height,
+    double width = 0.1,
+    double height = 0.1,
     int r,
     int g,
     int b,
@@ -35,12 +35,15 @@ void MarkerPublisher::publishArmorMarker(
    marker.pose.orientation.y = orientation.y();
    marker.pose.orientation.z = orientation.z();
    marker.pose.orientation.w = orientation.w();
-   marker.scale.x = width;
-   marker.scale.y = height;
-   marker.scale.z = 0.1;
-   marker.color.r = r;
-   marker.color.g = g;
-   marker.color.b = b;
+   // 装甲板坐标系：x=厚度（薄），y=宽度，z=高度
+   // 使用相同的尺寸使其呈现正方形
+   double size = std::max(width, height);
+   marker.scale.x = 0.01;   // x轴：厚度方向（非常薄）
+   marker.scale.y = size;   // y轴：宽度方向（正方形）
+   marker.scale.z = size;   // z轴：高度方向（正方形）
+   marker.color.r = 1.0;   // 纯红色
+   marker.color.g = 0.0;
+   marker.color.b = 0.0;
    marker.color.a = alpha;
    marker.lifetime = rclcpp::Duration::from_seconds(0.2);
    marker_array.markers.push_back(marker);
@@ -60,13 +63,14 @@ void MarkerPublisher::publishArmorMarker(
     edge_marker.color.b = 0.0;
     edge_marker.color.a = 1.0;
     edge_marker.lifetime = marker.lifetime;
-    double hw = width / 2.0;
-    double hh = height / 2.0;
+    // 使用之前计算的正方形尺寸
+    double half_size = size / 2.0;
     geometry_msgs::msg::Point p1, p2, p3, p4, p5;
-  p1.x = -hw; p1.y = -hh; p1.z = 0;
-  p2.x =  hw; p2.y = -hh; p2.z = 0;
-  p3.x =  hw; p3.y =  hh; p3.z = 0;
-  p4.x = -hw; p4.y =  hh; p4.z = 0;
+  // 装甲板在 yz 平面，x=0（厚度方向）
+  p1.x = 0; p1.y = -half_size; p1.z = -half_size;
+  p2.x = 0; p2.y =  half_size; p2.z = -half_size;
+  p3.x = 0; p3.y =  half_size; p3.z =  half_size;
+  p4.x = 0; p4.y = -half_size; p4.z =  half_size;
   p5 = p1;
 
   edge_marker.points = {p1, p2, p3, p4, p5};
@@ -99,12 +103,12 @@ void MarkerPublisher::publishSphereMarker(
    marker.pose.orientation.y = 0.0;
    marker.pose.orientation.z = 0.0;
    marker.pose.orientation.w = 1.0;
-   marker.scale.x = radius * 2;
-   marker.scale.y = radius * 2;
-   marker.scale.z = radius * 2;
-   marker.color.r = r;
-   marker.color.g = g;
-   marker.color.b = b;
+   marker.scale.x = radius * 0.3;  // 球体大小：从 2*radius 改为 0.3*radius（更小）
+   marker.scale.y = radius * 0.3;
+   marker.scale.z = radius * 0.3;
+   marker.color.r = 0.0;   // 绿色
+   marker.color.g = 1.0;
+   marker.color.b = 0.0;
    marker.color.a = alpha;
    marker.lifetime = rclcpp::Duration::from_seconds(0.2);
    marker_array.markers.push_back(marker);

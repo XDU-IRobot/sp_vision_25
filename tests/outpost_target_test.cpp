@@ -28,7 +28,7 @@ int main(int argc, char * argv[])
   // 初始化 ROS2
   rclcpp::init(argc, argv);
   auto node = std::make_shared<rclcpp::Node>("outpost_target_test");
-
+ 
   cv::CommandLineParser cli(argc, argv, keys);
   auto config_path = cli.get<std::string>("@config-path");
   if (cli.has("help") || !cli.has("@config-path")) {

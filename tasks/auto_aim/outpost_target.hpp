@@ -40,7 +40,12 @@ namespace auto_aim
 
     // 重写predict以使用13维状态转移
     void predict(double dt) override;
-    
+
+    // 重载update以处理13维状态
+    void update(const Armor & armor) override;
+    // 加入匹配函数： 根据对应的z坐标和高度差匹配到相应的装甲板id
+    int match_armor_id(double z_obs) const;
+
     // 重写可视化方法
     void visualize(int base_id) const override;
   protected:

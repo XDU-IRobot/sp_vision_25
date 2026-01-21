@@ -12,15 +12,15 @@ OutpostTarget::OutpostTarget(
   Eigen::VectorXd x_13d(13);
   x_13d.head(11) = ekf_.x;  // 复制前11维
   
-  // 从配置初始化h1, h2（相对于中间装甲板的高度差）
-  // 假设armor_heights = [h0, h1, h2]，我们让z=中间值，h1=装甲板1-中间，h2=装甲板2-中间
+  // -z (x_13d[4]) = 第一块装甲板的高度，将第一块装甲板观测的z坐标作为前哨站center的高度即可在第一帧完成初始化
+  // -h1,h2 = 其他两块装甲板相对于第一块装甲板的高度差
   if (armor_heights.size() == 3) {
-    double h_mid = armor_heights[1];  // 中间装甲板高度作为参考
-    x_13d[11] = armor_heights[0] - h_mid;  // h1: 装甲板0相对于中间的高度差
-    x_13d[12] = armor_heights[2] - h_mid;  // h2: 装甲板2相对于中间的高度差
-    
-    // 调整z坐标到中间装甲板高度
-    x_13d[4] = ekf_.x[4] - h_mid;
+    // todo: 使用测量高度完成装甲板的先验
+
+    x_13d[11] = armor_heights[1] - armor_heights[0];  // h1: 装甲板1相对于装甲板0的高度差
+    x_13d[12] = armor_heights[2] - armor_heights[0];  // h2: 装甲板2相对于装甲板0的高度差
+    tools::logger()->info("OutpostTarget init: z={:.3f}, h1={:.3f}, h2={:.3f}",
+                         x_13d[4], x_13d[11], x_13d[12]);
   } else {
     // 默认初始化为0
     x_13d[11] = 0.0;
@@ -101,6 +101,41 @@ void OutpostTarget::predict(double dt)
   ekf_.predict(F, Q, f);
 }
 
+int OutpostTarget::match_armor_id(double z_obs) const
+{
+  // 计算观测高度与各装甲板预测高度的差值
+  double z0 = ekf_.x[4];                     // 装甲板0的预测高度
+  double z1 = ekf_.x[4] + ekf_.x[11];       // 装甲板1的预测高度
+  double z2 = ekf_.x[4] + ekf_.x[12];       // 装甲板2的预测高度
+
+  double diff0 = std::abs(z_obs - z0);
+  double diff1 = std::abs(z_obs - z1);
+  double diff2 = std::abs(z_obs - z2);
+
+  // 找到最小差值对应的装甲板id
+  if (diff0 <= diff1 && diff0 <= diff2) {
+    return 0;
+  } else if (diff1 <= diff0 && diff1 <= diff2) {
+    return 1;
+  } else {
+    return 2;
+  }
+}
+
+void OutpostTarget::update(const Armor & armor)
+{
+  // 从armor中提取观测的z坐标
+  double z_obs = armor.xyz_in_world[2]; 
+  
+  // 动态匹配装甲板 ID
+  int matched_id = match_armor_id(z_obs);
+  
+  tools::logger()->debug("OutpostTarget: z_obs={:.3f} → id={}", z_obs, matched_id);
+  
+  // 调用 update_ypda（继承自 Target）
+  update_ypda(armor, matched_id);
+}
+
 Eigen::Vector3d OutpostTarget::h_armor_xyz(const Eigen::VectorXd & x, int id) const
 {
   auto angle = tools::limit_rad(x[6] + id * 2 * CV_PI / armor_num_);
@@ -109,14 +144,14 @@ Eigen::Vector3d OutpostTarget::h_armor_xyz(const Eigen::VectorXd & x, int id) co
   auto armor_x = x[0] - r * std::cos(angle);
   auto armor_y = x[2] - r * std::sin(angle);
   
-  // 根据id选择对应的高度
+  // 根据id映射到对应的高度
   double armor_z;
   if (id == 0) {
-    armor_z = x[4] + x[11];  // z + h1
+    armor_z = x[4];
   } else if (id == 1) {
-    armor_z = x[4];          // z (中间装甲板)
+    armor_z = x[4] + x[11];         //第二块观测装甲板
   } else {  // id == 2
-    armor_z = x[4] + x[12];  // z + h2
+    armor_z = x[4] + x[12];  // 第三块观测装甲板
   }
 
   return {armor_x, armor_y, armor_z};
@@ -134,7 +169,7 @@ Eigen::MatrixXd OutpostTarget::h_jacobian(const Eigen::VectorXd & x, int id) con
   auto dy_dr = -std::sin(angle);
 
   // 高度差的雅可比
-  double dz_dh1 = (id == 0) ? 1.0 : 0.0;
+  double dz_dh1 = (id == 1) ? 1.0 : 0.0;
   double dz_dh2 = (id == 2) ? 1.0 : 0.0;
 
   // 13列的雅可比矩阵：[x, vx, y, vy, z, vz, a, w, r, l, h, h1, h2]

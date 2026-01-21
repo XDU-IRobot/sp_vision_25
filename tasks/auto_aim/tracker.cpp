@@ -208,15 +208,24 @@ void Tracker::state_machine(bool found)
 
     state_ = "detecting";
     detect_count_ = 1;
+    temp_lost_count_ = 0;  // 重置临时丢失计数
   }
 
   else if (state_ == "detecting") {
     if (found) {
       detect_count_++;
+      temp_lost_count_ = 0;  // 重置临时丢失计数
       if (detect_count_ >= min_detect_count_) state_ = "tracking";
     } else {
-      detect_count_ = 0;
-      state_ = "lost";
+      // 前哨站在detecting阶段也允许较长时间丢失（最多10帧）
+      // 因为旋转时可能某些角度检测不到装甲板，或被遮挡
+      temp_lost_count_++;
+      int max_detecting_lost = (target_ && target_->name == ArmorName::outpost) ? 10 : 0;
+      
+      if (temp_lost_count_ > max_detecting_lost) {
+        detect_count_ = 0;
+        state_ = "lost";
+      }
     }
   }
 
@@ -270,7 +279,7 @@ bool Tracker::set_target(std::list<Armor> & armors, std::chrono::steady_clock::t
   }
 
   else if (armor.name == ArmorName::outpost) {
-    // ✅ 创建 OutpostTarget（13维状态）
+    //  创建 OutpostTarget（13维状态）
     Eigen::VectorXd P0_dig{{1, 64, 1, 64, 1, 81, 0.4, 100, 1e-4, 0, 0, 1, 1}};  // 13维
     std::vector<double> armor_heights = {0.0, 0.0, 0.0};  // 初始高度差，会由EKF自动估计
     target_ = std::make_shared<OutpostTarget>(armor, t, 0.2765, 3, P0_dig, armor_heights);

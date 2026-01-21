@@ -33,9 +33,9 @@ OutpostTarget::OutpostTarget(
   P_13d(11, 11) = 1e-2;  // h1的初始方差
   P_13d(12, 12) = 1e-2;  // h2的初始方差
   
-  // 更新ekf的状态和协方差
-  ekf_.x = x_13d;
-  ekf_.P = P_13d;
+  // 重新初始化EKF以更新内部单位矩阵I的维度（从11x11到13x13）
+  // 这一步至关重要，否则update时会出现维度不匹配
+  ekf_ = tools::ExtendedKalmanFilter(x_13d, P_13d);
 }
 
 void OutpostTarget::predict(double dt)

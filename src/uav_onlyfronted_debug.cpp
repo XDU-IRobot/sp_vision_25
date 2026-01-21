@@ -25,16 +25,20 @@ const std::string keys =
 using namespace std::chrono_literals;
 int main(int argc, char * argv[])
 {
+  rclcpp::init(argc, argv);
+  auto node = std::make_shared<rclcpp::Node>("uav_onlyfronted_debug");
   cv::CommandLineParser cli(argc, argv, keys);
   auto config_path = cli.get<std::string>("@config-path");
   if (cli.has("help") || !cli.has("@config-path")) {
     cli.printMessage();
+    rclcpp::shutdown(); // 关闭ros2
     return 0;
   }
 
   tools::Exiter exiter;
   tools::Plotter plotter;
   tools::Recorder recorder;
+  tools::MarkerPublisher marker_pub(node);
   
   // io::Camera camera(config_path);
   // io::CBoard cboard(config_path);
@@ -46,6 +50,7 @@ int main(int argc, char * argv[])
   auto_aim::Shooter shooter(config_path);
   auto_aim::Predictor predictor(config_path,solver);
   auto_aim::armor_aimer armor_aimer(config_path);
+  predictor.set_marker_publisher(&marker_pub);
 
   cv::Mat img;
   Eigen::Quaterniond q;
@@ -58,7 +63,7 @@ int main(int argc, char * argv[])
   auto t0 = std::chrono::steady_clock::now();
 
   // 自瞄流程
-  while (!exiter.exit()) {
+  while (!exiter.exit() && rclcpp::ok()) {
     camera.read(img, t);
     // q = cboard.imu_at(t - 1ms);
     q = gimbal.q(t - 1ms);
@@ -92,6 +97,7 @@ int main(int argc, char * argv[])
         prediction = predictor.track(armors.front(), t);  // ← 传入 Armor 和时间戳
         has_prediction = prediction.valid;
         tools::logger()->info("[Main] Frame: has_prediction={}, valid={}", has_prediction, prediction.valid);
+        predictor.visualize(200); // 可视化预测结果
     }
     
     // 只有在有有效预测时才传递给 aimer
@@ -253,7 +259,9 @@ int main(int argc, char * argv[])
     cv::imshow("predictor_debug", img);
     auto key = cv::waitKey(1);
     if (key == 'q') break;
+    rclcpp::spin_some(node);
 }
+rclcpp::shutdown(); // 关闭ros2
 return 0;
 }
 

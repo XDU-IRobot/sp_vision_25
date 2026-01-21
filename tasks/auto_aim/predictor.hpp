@@ -12,6 +12,8 @@
 #include "armor.hpp"
 #include "solver.hpp"
 
+#include "tools/marker_publisher.hpp"
+
 namespace auto_aim
 {
 
@@ -38,7 +40,10 @@ public:
   Predictor(const std::string & config_path, Solver & solver);
   // 暴露给外部的接口
   PredictResult track(const Armor & armor, std::chrono::steady_clock::time_point t);
-  
+
+  // 可视化接口
+  void set_marker_publisher(tools::MarkerPublisher* marker_pub);
+  void visualize(int base_id = 0) const ;
 private:
   std::string state_, pre_state_;
   std::chrono::steady_clock::time_point last_timestamp_;
@@ -52,6 +57,13 @@ private:
   Eigen::Vector3d last_pos;
   Eigen::Vector3d pos_ewma;
   Eigen::Vector3d vel_ewma;
+
+  // 可视化信息
+  ArmorType last_armor_type = ArmorType::small;
+  ArmorName last_armor_name = ArmorName::not_armor;
+  double last_yaw = 0.0;
+  double last_pitch = 0.0;
+  tools::MarkerPublisher* marker_pub_ = nullptr;
   /*todo :使用球坐标建模装甲板位置估计    */
   
   void ingest(const Armor & armor, std::chrono::steady_clock::time_point t); //update target

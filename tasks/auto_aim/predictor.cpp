@@ -43,6 +43,12 @@ Predictor::PredictResult Predictor::track(const Armor & armor, std::chrono::stea
     tools::logger()->debug("[Predictor] Not ready: state={}, sample_count={}", state_, sample_count_);
     return {false, t, {}, {}, 0, 0, 0, ArmorType::small, ArmorName::not_armor, 0};
   }
+    
+    last_armor_type = armor_copy.type;
+    last_armor_name = armor_copy.name;
+    last_yaw = armor_copy.ypr_in_world[0];
+    last_pitch = armor_copy.ypr_in_world[1];  
+
     auto pos_pred = predict_pos(default_horizon_);
     return {
         .valid = true,
@@ -133,4 +139,41 @@ void Predictor::ingest(const Armor & armor, std::chrono::steady_clock::time_poin
     last_pos = curr_pos;
     last_timestamp_ = t;
 }
+void Predictor::set_marker_publisher(tools::MarkerPublisher* marker_pub)
+{
+    marker_pub_ = marker_pub;
+}
+void Predictor::visualize(int base_id) const
+{
+    // 可视化当前估计（绿色）
+    if (!marker_pub_ || !ready()) {
+        tools::logger()->warn("[Predictor] Marker publisher not set or isnot ready");
+        return;
+    }
+    Eigen::Quaternion q_current(
+        Eigen::AngleAxisd(last_yaw,Eigen::Vector3d::UnitZ())*
+        Eigen::AngleAxisd(last_pitch,Eigen::Vector3d::UnitY())
+    );
+    double width = (last_armor_type == ArmorType::small) ? 0.135 : 0.23;
+    double height = 0.1;
+    marker_pub_->publishArmorMarker(
+        "world", base_id+1, pos_ewma, q_current, width, height, 0, 255, 0
+    );
+    // 可视化速度向量
+    if (vel_ewma.norm() > 0.01) {  // 只在有明显速度时显示
+        Eigen::Vector3d arrow_end = pos_ewma + vel_ewma * 0.5;  // 缩放速度向量便于观察
+        marker_pub_->publishArrowMarker(
+            "world", base_id + 1,
+            pos_ewma, arrow_end,
+            0, 255, 255  // 青色
+        );
+    }
+    Eigen::Vector3d predicted_pos = predict_pos(default_horizon_);
+    Eigen::Quaternion q_predicted = q_current; // 假设姿态不变
+    marker_pub_->publishArmorMarker(
+        "world", base_id + 2, predicted_pos, q_predicted, width, height, 255, 255, 0.5
+    );
+
+}
+
 } // namespace auto_aim

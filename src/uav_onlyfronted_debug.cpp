@@ -43,7 +43,6 @@ int main(int argc, char * argv[])
   
   auto_aim::Detector detector(config_path);
   auto_aim::Solver solver(config_path);
-  auto_aim::YOLO yolo(config_path);
   auto_aim::Shooter shooter(config_path);
   auto_aim::Predictor predictor(config_path,solver);
   auto_aim::armor_aimer armor_aimer(config_path);
@@ -79,11 +78,11 @@ int main(int argc, char * argv[])
     Eigen::Vector3d ypr = tools::eulers(solver.R_gimbal2world(), 2, 1, 0);
     nlohmann::json data;
     auto armors = detector.detect(img);
-    for(auto & armor:armors){
+    
+    // 只处理第一个装甲板（如果存在）
+    if (!armors.empty()) {
+      auto & armor = armors.front();
       solver.solve(armor);
-      data["armor_pos_x"] = armor.xyz_in_world[0];
-      data["armor_pos_y"] = armor.xyz_in_world[1];
-      data["armor_pos_z"] = armor.xyz_in_world[2];
     }
     
     auto_aim::Predictor::PredictResult prediction;
@@ -94,7 +93,12 @@ int main(int argc, char * argv[])
         has_prediction = prediction.valid;
         tools::logger()->info("[Main] Frame: has_prediction={}, valid={}", has_prediction, prediction.valid);
     }
-    std::list<auto_aim::Predictor::PredictResult> predictions = {prediction};
+    
+    // 只有在有有效预测时才传递给 aimer
+    std::list<auto_aim::Predictor::PredictResult> predictions;
+    if (has_prediction && prediction.valid) {
+      predictions = {prediction};
+    }
     auto command = armor_aimer.aim(predictions, t, 10);
     
     // 重要调试：打印原始指令值（弧度）
@@ -186,9 +190,6 @@ int main(int argc, char * argv[])
 
     // ===== 重投影可视化 =====
     if (has_prediction && prediction.valid) {
-      // 测试：绘制一个固定的绿色矩形，确认绘制功能正常
-      cv::rectangle(img, {50, 50}, {150, 150}, {0, 255, 0}, 3);
-      
       // 调试输出
       tools::logger()->debug(
         "[Reproject] pred_pos=({:.2f},{:.2f},{:.2f}), yaw={:.2f}°, type={}, name={}",

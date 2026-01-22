@@ -240,8 +240,8 @@ std::vector<Eigen::Vector4d> Target::armor_xyza_list() const
 
 bool Target::diverged() const
 {
-  auto r_ok = ekf_.x[8] > 0 && ekf_.x[8] < 0.7;
-  auto l_ok = ekf_.x[8] + ekf_.x[9] > 0.07 && ekf_.x[8] + ekf_.x[9] < 0.9;
+  auto r_ok = ekf_.x[8] > -0.1 && ekf_.x[8] < 0.7;
+  auto l_ok = ekf_.x[8] + ekf_.x[9] > -0.07 && ekf_.x[8] + ekf_.x[9] < 0.9;
 
   if (r_ok && l_ok) return false;
 

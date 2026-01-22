@@ -5,6 +5,7 @@
 #include <atomic>
 #include <chrono>
 #include <cmath>
+#include <cstdint>
 #include <deque>
 #include <functional>
 #include <mutex>
@@ -37,6 +38,7 @@ public:
     std::chrono::steady_clock::time_point timestamp;  // 上位机接收时间戳
     uint32_t mcu_timestamp;  // 🆕 MCU发送时的时间戳（从0x160帧获取，单位：毫秒）
     uint16_t imu_count;      // 完整的IMU计数器：0-9999循环（从0x160帧获取）
+    uint16_t imu_count_short; //压缩IMU计数器：0-9
     uint8_t cycle_count;     // IMU周期计数：1-10循环
   };
 
@@ -92,6 +94,9 @@ public:
   IMUQueryResult get_imu_from_ring_buffer(uint16_t target_imu_count) const;
 
   void send(Command command);
+
+  // 🆕 启动相机触发信号（在程序完全初始化后调用）
+  void start_camera_trigger();
 
 #ifdef AMENT_CMAKE_FOUND
   // 🆕 设置ROS2节点用于实时发布TF（IMU数据到达时立即发布）

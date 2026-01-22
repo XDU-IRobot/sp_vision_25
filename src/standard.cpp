@@ -13,7 +13,7 @@
 #endif
 
 #include "io/camera.hpp"
-#include "io/cboard.hpp"
+#include "io/cboard_sp.hpp"
 #include "tasks/auto_aim/aimer.hpp"
 #include "tasks/auto_aim/multithread/commandgener.hpp"
 #include "tasks/auto_aim/shooter.hpp"
@@ -145,6 +145,11 @@ int main(int argc, char * argv[])
   tools::logger()->info("Static TF published: gimbal -> camera");
 #endif
 
+  // 🎯 所有模块初始化完成，启动相机触发
+  tools::logger()->info("=== All modules initialized ===");
+  //cboard.start_camera_trigger();
+  tools::logger()->info("=== Entering main loop ===");
+
   cv::Mat img;
   Eigen::Quaterniond q;
   std::chrono::steady_clock::time_point t;
@@ -186,15 +191,7 @@ int main(int argc, char * argv[])
     std::chrono::steady_clock::time_point synced_imu_timestamp;
 
     if (use_timestamp_sync) {
-      // ==================== 方案A：基于时间戳同步 ====================
-      // 使用相机时间戳 t 查找最接近的 IMU 数据（插值）
-      q = cboard.imu_at(t);
-      synced_imu_timestamp = t;  // 使用相机时间戳
 
-      current_imu_count = cboard.get_imu_count();
-      tools::logger()->info(
-        "[Sync-Timestamp] 📷 camera_t → 🧭 imu_at(t) | 📊 current_imu={} | q=({:.3f},{:.3f},{:.3f},{:.3f})",
-        current_imu_count, q.w(), q.x(), q.y(), q.z());
 
     } else {
       // ==================== 方案B：基于 count 硬同步（使用环形数组） ====================
@@ -203,106 +200,26 @@ int main(int argc, char * argv[])
       // MCU逻辑：当 imu_count % 10 == 0 时硬触发相机
       // 映射关系：camera frame_id N → trigger_imu_count = (N+1) × 10 + offset
       //
-      // 🔧 手动调试参数：
-      // - 启动程序，观察日志中的 diff 值（current_imu - trigger_imu）
-      // - 将 diff 的稳定值填入 frame_id_to_imu_offset
-      // - 例如：如果 diff 稳定在 +1095，则设置 offset = 1095
-      static const int64_t frame_id_to_imu_offset = 1090;  // 🔧 手动调试参数
+      static const int64_t frame_id_to_imu_offset = 0;  // 🔧 手动调试参数
 
       static bool first_frame = true;
 
       frame_id = camera.get_last_frame_id();  // 获取相机帧号
-      current_imu_count = cboard.get_imu_count();  // 获取当前IMU计数
+      // current_imu_count = cboard.get_imu_count();  // 获取当前IMU计数
 
       // 计算当前帧对应的触发点IMU计数（加上手动偏移量）
       trigger_imu_count = (((frame_id + 1) * 10) + frame_id_to_imu_offset) % 10000;
       if (trigger_imu_count < 0) trigger_imu_count += 10000;
 
       // 🆕 使用环形数组O(1)查询IMU数据
-      auto imu_result = cboard.get_imu_from_ring_buffer(trigger_imu_count);
-
-      if (imu_result.valid) {
-        // ✅ 环形数组查询成功
-        q = imu_result.q;  // 四元数
-
-        // 🔑 关键：使用转换后的 MCU 时间戳作为唯一时间基准
-        // MCU 时间戳已在 CBoard 端转换为 steady_clock::time_point
-        // 这样整个系统都基于统一的 MCU 硬件时间运行
-        synced_imu_timestamp = imu_result.mcu_synced_timestamp;  // 🔑 转换后的 MCU 时间戳
-        t = imu_result.mcu_synced_timestamp;  // 🔑 相机时间戳继承自 MCU
-
-        if (first_frame) {
-          tools::logger()->info(
-            "[Sync-RingBuffer Init] 🚀 Hardware sync enabled! frame_id={} → trigger_imu={}, current_imu={} | mcu_ts={}ms",
-            frame_id, trigger_imu_count, current_imu_count, imu_result.mcu_timestamp);
-          first_frame = false;
-        }
-
-        // 计算实际差值（用于监测同步状态）
-        int64_t diff = current_imu_count - trigger_imu_count;
-        if (diff < -5000) diff += 10000;
-        else if (diff > 5000) diff -= 10000;
-
-        tools::logger()->info(
-          "[Sync-RingBuffer] 📷 frame_id={} → 🎯 trigger_imu={} | 📊 current_imu={} diff={:+d} | ⏱️ mcu_ts={}ms | 🧭 q=({:.3f},{:.3f},{:.3f},{:.3f})",
-          frame_id, trigger_imu_count, current_imu_count, diff,
-          imu_result.mcu_timestamp, q.w(), q.x(), q.y(), q.z());
-
-      } else {
-        // ⚠️ 环形数组查询失败（数据尚未到达或已被覆盖）
-        tools::logger()->warn(
-          "[Sync-RingBuffer] ❌ IMU data not ready! frame_id={} → trigger_imu={} (valid=false), using fallback",
-          frame_id, trigger_imu_count);
-
-        // 降级方案：使用旧的队列查询方式
-        q = cboard.imu_by_count(trigger_imu_count);
-        synced_imu_timestamp = cboard.get_last_matched_imu_timestamp();
-        t = synced_imu_timestamp;  // 使用降级时间戳
+      auto imu_result = cboard.imu_by_count(trigger_imu_count);
+      q=imu_result;
+      synced_imu_timestamp = t;
       }
     }
 
     t_end = std::chrono::steady_clock::now();
     double t_imu = std::chrono::duration<double, std::milli>(t_end - t_start).count();
-
-    // 🔍 时间戳验证日志（每10帧输出一次，避免刷屏）
-    static int timestamp_validation_counter = 0;
-    if (++timestamp_validation_counter % 10 == 0 && !use_timestamp_sync) {
-      // 计算相机原始时间戳与IMU时间戳的差值（用于验证时间戳继承）
-      auto camera_original_t = std::chrono::steady_clock::now();  // 模拟原始相机时间
-      double time_diff_ms = std::chrono::duration<double, std::milli>(
-        t - synced_imu_timestamp).count();
-
-      tools::logger()->info(
-        "┌────────────────────────────────────────────────────────────────┐");
-      tools::logger()->info(
-        "│ 🔍 时间戳验证（Time Synchronization Validation）                │");
-      tools::logger()->info(
-        "├────────────────────────────────────────────────────────────────┤");
-      tools::logger()->info(
-        "│ 📷 Camera Frame:  frame_id={:<6} → trigger_imu={:<6}          │",
-        frame_id, trigger_imu_count);
-      tools::logger()->info(
-        "│ ⏱️  Time Source:   MCU Hardware Timestamp (converted)          │");
-      tools::logger()->info(
-        "│ 🎯 IMU Count:     target={:<6} current={:<6} diff={:+4d}     │",
-        trigger_imu_count, current_imu_count,
-        (int64_t)current_imu_count - (int64_t)trigger_imu_count);
-      tools::logger()->info(
-        "│ ✅ Time Inheritance (MCU-based):                               │");
-      tools::logger()->info(
-        "│    • camera_timestamp ← MCU mcu_synced_timestamp              │");
-      tools::logger()->info(
-        "│    • TF timestamp     ← MCU mcu_synced_timestamp              │");
-      tools::logger()->info(
-        "│    • Marker timestamp ← MCU mcu_synced_timestamp              │");
-      tools::logger()->info(
-        "│    • Predictor dt     ← MCU timestamp diff                   │");
-      tools::logger()->info(
-        "│ 🔗 Time Consistency: {:<40} │",
-        (std::abs(time_diff_ms) < 0.001) ? "✅ PERFECT" : "⚠️  CHECK NEEDED");
-      tools::logger()->info(
-        "└────────────────────────────────────────────────────────────────┘");
-    }
 
     mode = cboard.mode;
 
@@ -318,33 +235,7 @@ int main(int argc, char * argv[])
     t_end = std::chrono::steady_clock::now();
     double t_solver_setup = std::chrono::duration<double, std::milli>(t_end - t_start).count();
 
-    // 🔑 发布 TF：使用硬同步后的 IMU 数据（与 Marker 严格同步）
-#ifdef AMENT_CMAKE_FOUND
-    {
-      // 使用与 Marker 相同的时间戳
-      auto ros_time_ptr = cboard.convert_to_ros_time(synced_imu_timestamp);
-      auto ros_time = *std::static_pointer_cast<rclcpp::Time>(ros_time_ptr);
-
-      // 发布 world -> gimbal TF（重用已有的 broadcaster）
-      geometry_msgs::msg::TransformStamped tf;
-      tf.header.stamp = ros_time;
-      tf.header.frame_id = "world";
-      tf.child_frame_id = "gimbal";
-      tf.transform.translation.x = 0.0;
-      tf.transform.translation.y = 0.0;
-      tf.transform.translation.z = 0.0;
-
-      // 使用硬同步后的 IMU 姿态（与视觉处理完全相同的数据）
-      Eigen::Matrix3d R_gimbal2world = solver.R_gimbal2world();
-      Eigen::Quaterniond q_gimbal(R_gimbal2world);
-      tf.transform.rotation.x = q_gimbal.x();
-      tf.transform.rotation.y = q_gimbal.y();
-      tf.transform.rotation.z = q_gimbal.z();
-      tf.transform.rotation.w = q_gimbal.w();
-
-      dynamic_tf_broadcaster->sendTransform(tf);  // 重用 broadcaster
-    }
-#endif
+   
 
     Eigen::Vector3d ypr = tools::eulers(solver.R_gimbal2world(), 2, 1, 0);
 
@@ -355,18 +246,21 @@ int main(int argc, char * argv[])
 
     t_start = std::chrono::steady_clock::now();
     // 🔑 使用硬同步的 IMU 时间戳（与 TF/Marker 严格一致）
-    auto targets = tracker.track(armors, synced_imu_timestamp);
+    auto targets = tracker.track(armors, t);
     t_end = std::chrono::steady_clock::now();
     double t_track = std::chrono::duration<double, std::milli>(t_end - t_start).count();
 
     t_start = std::chrono::steady_clock::now();
     // 🔑 使用硬同步的 IMU 时间戳（与 TF/Marker 严格一致）
     // to_now=false：不补偿处理延迟，使用触发时刻的状态（与 TF 时间一致）
-    auto command = aimer.aim(targets, synced_imu_timestamp, cboard.bullet_speed, false);
+
+    auto command = aimer.aim(targets, t, cboard.bullet_speed, false);
     t_end = std::chrono::steady_clock::now();
     double t_aim = std::chrono::duration<double, std::milli>(t_end - t_start).count();
 
     t_start = std::chrono::steady_clock::now();
+     command.pitch -= 0.10;
+    command.yaw +=0;
     cboard.send(command);
     t_end = std::chrono::steady_clock::now();
     double t_send = std::chrono::duration<double, std::milli>(t_end - t_start).count();
@@ -427,7 +321,7 @@ int main(int argc, char * argv[])
     cv::resize(img, img_display, {}, 0.5, 0.5);
 
     // 计算总耗时
-    double t_total = t_camera + t_imu + t_solver_setup + t_detect + t_track + t_aim + t_send + t_visualize;
+    double t_total = t_imu + t_solver_setup + t_detect + t_track + t_aim + t_send + t_visualize;
 
     // 显示帧率和性能数据
     int y_offset = 30;
@@ -445,11 +339,6 @@ int main(int argc, char * argv[])
                 cv::Scalar(255, 255, 255), 2);
     y_offset += line_height;
 
-    // 各模块耗时
-    cv::putText(img_display, fmt::format("Camera: {:.1f}ms", t_camera),
-                cv::Point(10, y_offset), cv::FONT_HERSHEY_SIMPLEX, 0.5,
-                cv::Scalar(200, 200, 200), 1);
-    y_offset += 25;
 
     cv::putText(img_display, fmt::format("IMU: {:.1f}ms", t_imu),
                 cv::Point(10, y_offset), cv::FONT_HERSHEY_SIMPLEX, 0.5,
@@ -477,23 +366,20 @@ int main(int argc, char * argv[])
 
     // 终端输出性能数据（每30帧输出一次）
     if (frame_count % 30 == 0) {
-      tools::logger()->info(
-        "[Performance] FPS: {:.1f} | Total: {:.1f}ms | Camera: {:.1f}ms | IMU: {:.2f}ms | "
-        "Detect: {:.1f}ms | Track: {:.2f}ms | Aim: {:.2f}ms | Visual: {:.2f}ms | Send: {:.2f}ms",
-        current_fps, t_total, t_camera, t_imu, t_detect, t_track, t_aim, t_visualize, t_send);
+      // tools::logger()->info(
+      //   "[Performance] FPS: {:.1f} | Total: {:.1f}ms | Camera: {:.1f}ms | IMU: {:.2f}ms | "
+      //   "Detect: {:.1f}ms | Track: {:.2f}ms | Aim: {:.2f}ms | Visual: {:.2f}ms | Send: {:.2f}ms",
+      //   current_fps, t_total, t_camera, t_imu, t_detect, t_track, t_aim, t_visualize, t_send);
 
       // 🆕 显示frame匹配信息
-      tools::logger()->info(
-        "[Frame Match] current_imu_count={} trigger_imu={} q(w,x,y,z)=({:.4f},{:.4f},{:.4f},{:.4f})",
-        current_imu_count, trigger_imu_count,
-        q.w(), q.x(), q.y(), q.z());
+      // tools::logger()->info(
+      //   "[Frame Match] current_imu_count={} trigger_imu={} q(w,x,y,z)=({:.4f},{:.4f},{:.4f},{:.4f})",
+      //   current_imu_count, trigger_imu_count,
+      //   q.w(), q.x(), q.y(), q.z());
     }
 
     cv::imshow("reprojection", img_display);
     int key = cv::waitKey(1);
-    if (key == 'q') break;
-  }
-
   // 清理 ROS2
 #ifdef AMENT_CMAKE_FOUND
   rclcpp::shutdown();

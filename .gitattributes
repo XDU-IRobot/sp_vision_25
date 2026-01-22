@@ -1,0 +1,2 @@
+neo/*.ddeb filter=lfs diff=lfs merge=lfs -text
+neo/*.deb filter=lfs diff=lfs merge=lfs -text

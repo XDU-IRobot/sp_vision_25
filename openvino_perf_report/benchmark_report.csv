@@ -1,0 +1,32 @@
+Command line parameters
+-m;/home/anna/OPEN/SP_vision_USB/assets/best_openvino_model/best.xml
+-d;CPU
+-shape;x[1,3,640,640]
+-niter;20
+-pc;
+-report_type;average_counters
+-report_folder;openvino_perf_report
+
+Configuration setup
+topology;Model1
+target device;CPU
+API;async
+inference_only;True
+precision;UNSPECIFIED
+batch size;1
+number of iterations;24
+number of parallel infer requests;6
+duration (ms);0
+
+Execution results
+read model time (ms);18.22
+reshape model time (ms);8.40
+compile model time (ms);156.77
+first inference time (ms);20.99
+total execution time (ms);215.22
+total number of iterations;24
+latency (ms);41.93
+avg latency;47.44
+min latency;21.21
+max latency;79.11
+throughput;111.51

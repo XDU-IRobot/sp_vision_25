@@ -1,8 +1,13 @@
 #include "cboard.hpp"
 
+#include "tools/float16.hpp"
 #include "tools/math_tools.hpp"
 #include "tools/crc.hpp"
 #include "tools/yaml.hpp"
+#include <cstdint>
+#include <openvino/core/type/element_type.hpp>
+#include "openvino/core/visibility.hpp"
+
 
 // ROS2 TF2 支持头文件（需要在 namespace 之前包含）
 #ifdef AMENT_CMAKE_FOUND
@@ -53,15 +58,11 @@ CBoard::CBoard(const std::string &config_path)
         transport, std::bind(&CBoard::callback, this, std::placeholders::_1));
   }
 
-  // 新CAN协议：立即发送启动帧，不等待MCU数据，避免死锁
+  // 🆕 新CAN协议：不在构造函数中立即启动heartbeat
+  // 等待程序完全初始化后，由外部调用 start_camera_trigger() 启动
   if (use_new_can_protocol_ && !use_serial_) {
-    tools::logger()->info("[Cboard] Sending startup frame immediately...");
-    send_startup_frame();
-
-    // 🆕 启动心跳线程：在MCU上线前持续发送start=1
-    heartbeat_quit_ = false;
-    heartbeat_thread_ = std::thread(&CBoard::heartbeat_loop, this);
-    tools::logger()->info("[Cboard] Heartbeat thread started (interval={}ms)", heartbeat_interval_ms_);
+    tools::logger()->info("[Cboard] CAN protocol ready. Waiting for start_camera_trigger() call...");
+    // heartbeat将在start_camera_trigger()中启动
   }
 
   tools::logger()->info("[Cboard] Waiting for q...");
@@ -299,8 +300,8 @@ void CBoard::send(Command command) {
       // Yaw和Pitch: 角度×10000转换为int16，大端字节序
       double yaw_rel = static_cast<double>(command.yaw) + tx_yaw_bias_rad_;
       double pitch_rel = static_cast<double>(command.pitch) + tx_pitch_bias_rad_;
-      int16_t yaw_int = static_cast<int16_t>(yaw_rel * 10000);
-      int16_t pitch_int = static_cast<int16_t>(pitch_rel * 10000);
+      f16tools::f16 yaw_int=f16tools::f64_to_f16(yaw_rel);
+      f16tools::f16 pitch_int=f16tools::f64_to_f16(pitch_rel);
 
       frame.data[2] = (yaw_int >> 8) & 0xFF;    // Yaw高8位
       frame.data[3] = yaw_int & 0xFF;            // Yaw低8位
@@ -393,27 +394,46 @@ void CBoard::callback(const can_frame &frame) {
         tools::logger()->warn("[NewCAN] Quaternion frame length invalid: {}", frame.can_dlc);
         return;
       }
-
-      // 解析四元数：4个int16，大端字节序
-      int16_t q_raw[4];
-      for (int i = 0; i < 4; i++) {
-        q_raw[i] = (int16_t)(frame.data[i*2] << 8 | frame.data[i*2+1]);
+      int64_t packed=0;
+      for(int i=0;i<8;i++){
+        packed=(packed<<8)|frame.data[i];
       }
-
-      // 转换为浮点数（除以10000）
-      double qw = q_raw[0] / 10000.0;
-      double qx = q_raw[1] / 10000.0;
-      double qy = q_raw[2] / 10000.0;
-      double qz = q_raw[3] / 10000.0;
-
-      // 四元数有效性检查
-      double norm_sq = qw*qw + qx*qx + qy*qy + qz*qz;
-      if (std::abs(norm_sq - 1.0) > 0.1) {
-        tools::logger()->warn(
-          "[NewCAN] Invalid quaternion norm: {:.4f}, data: ({:.3f}, {:.3f}, {:.3f}, {:.3f})",
-          std::sqrt(norm_sq), qw, qx, qy, qz);
-        return;
+      uint16_t uw = (packed>>49)&0x7FFF;
+      uint16_t ux = (packed>>34)&0x7FFF;
+      uint16_t uy = (packed>>19)&0x7FFF;
+      uint16_t uz = (packed>>4)&0x7FFF;
+      uint16_t imu_count_low = packed&0x0F;
+    //将u15转换为i15
+    auto restore_i16=[](uint16_t bits15)->int16_t{
+      if(bits15&0x4000){
+          return bits15|0x8000;
+      }else{
+          return bits15&0x7FFF;
       }
+  };
+  int16_t iw16=restore_i16(uw);
+  int16_t ix16=restore_i16(ux);
+  int16_t iy16=restore_i16(uy);
+  int16_t iz16=restore_i16(uz);
+
+      double qw = float(iw16)/32767.0f;
+      double qx = float(ix16)/32767.0f;
+      double qy = float(iy16)/32767.0f;
+      double qz = float(iz16)/32767.0f;
+      
+
+
+      // f16tools::f16 q_raw[4];
+      // for (int i = 0; i < 4; i++) {
+      //   q_raw[i] = (int16_t)(frame.data[i*2] << 8 | frame.data[i*2+1]);
+      // }
+      // f16tools::f16 q_f16[4];
+      // double qw = f16tools::f16_to_f32(q_raw[0]);
+      // double qx = f16tools::f16_to_f32(q_raw[1]);
+      // double qy = f16tools::f16_to_f32(q_raw[2]);
+      // double qz = f16tools::f16_to_f32(q_raw[3]);
+
+
 
       // 归一化四元数
       Eigen::Quaterniond q(qw, qx, qy, qz);
@@ -1100,6 +1120,23 @@ Eigen::Quaterniond CBoard::get_last_imu_cycle_middle() {
   // 更精确的实现需要找到count=5或6的帧
 
   return data_behind_.q;
+}
+
+// 🆕 启动相机触发信号（在程序完全初始化后调用）
+void CBoard::start_camera_trigger() {
+  if (!use_new_can_protocol_ || use_serial_) {
+    tools::logger()->warn("[Cboard] start_camera_trigger() only works with new CAN protocol");
+    return;
+  }
+
+  // 发送启动帧
+  tools::logger()->info("[Cboard] 🚀 All modules initialized! Sending startup frame to MCU...");
+  send_startup_frame();
+
+  // 启动心跳线程
+  heartbeat_quit_ = false;
+  heartbeat_thread_ = std::thread(&CBoard::heartbeat_loop, this);
+  tools::logger()->info("[Cboard] ✅ Camera trigger enabled! Heartbeat started (interval={}ms)", heartbeat_interval_ms_);
 }
 
 // 🆕 心跳线程：在MCU上线前持续发送start=1心跳帧

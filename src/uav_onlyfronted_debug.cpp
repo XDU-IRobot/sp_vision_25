@@ -17,6 +17,8 @@
 #include "io/gimbal/gimbal.hpp"
 #include "tasks/auto_aim/armor_aimer.hpp"
 #include "tasks/auto_aim/predictor.hpp"  
+#include "tools/marker_publisher.hpp"
+#include "tools/tf_publisher.hpp"
 
 const std::string keys =
   "{help h usage ? |                  | 输出命令行参数说明}"

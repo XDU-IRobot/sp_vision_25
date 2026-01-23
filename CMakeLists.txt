@@ -16,9 +16,6 @@ find_package(yaml-cpp REQUIRED)
 find_package(nlohmann_json REQUIRED)
 set(OpenVINO_DIR "/opt/intel/openvino_2024.6.0/runtime/cmake/")
 find_package(OpenVINO REQUIRED)
-# find_package(tf2_ros REQUIRED)
-# find_package(tf2_geometry_msgs REQUIRED)
-# find_package(geometry_msgs REQUIRED )  // 已经在 tools 模块cmake中查找
 
 include_directories(${EIGEN3_INCLUDE_DIR})
 include_directories(${OpenCV_INCLUDE_DIRS})
@@ -54,6 +51,7 @@ target_link_libraries(auto_buff_debug_mpc ${OpenCV_LIBS} fmt::fmt yaml-cpp auto_
 target_link_libraries(uav ${OpenCV_LIBS} fmt::fmt yaml-cpp auto_aim auto_buff tools io)
 target_link_libraries(uav_debug ${OpenCV_LIBS} fmt::fmt yaml-cpp auto_aim tools io)
 target_link_libraries(uav_onlyfronted_debug ${OpenCV_LIBS} fmt::fmt yaml-cpp auto_aim tools io)
+target_link_libraries(uav_onlyfronted_debug rclcpp::rclcpp)
 
 ##################calibration################
 # add_executable(capture calibration/capture.cpp)
@@ -70,6 +68,7 @@ target_link_libraries(uav_onlyfronted_debug ${OpenCV_LIBS} fmt::fmt yaml-cpp aut
 
 ##################tests##################
 add_executable(auto_aim_test tests/auto_aim_test.cpp)
+add_executable(outpost_target_test tests/outpost_target_test.cpp)
 # add_executable(auto_buff_test tests/auto_buff_test.cpp)
 # add_executable(camera_detect_test tests/camera_detect_test.cpp)
 # add_executable(camera_pnp_test tests/camera_pnp_test.cpp)
@@ -87,6 +86,8 @@ add_executable(auto_aim_test tests/auto_aim_test.cpp)
 # add_executable(minimum_vision_system tests/minimum_vision_system.cpp)
 
 target_link_libraries(auto_aim_test ${OpenCV_LIBS} fmt::fmt yaml-cpp tools io auto_aim)
+target_link_libraries(outpost_target_test ${OpenCV_LIBS} fmt::fmt yaml-cpp tools io auto_aim)
+
 # target_link_libraries(auto_buff_test ${OpenCV_LIBS} fmt::fmt yaml-cpp auto_buff tools io)
 # target_link_libraries(camera_detect_test ${OpenCV_LIBS} fmt::fmt yaml-cpp tools auto_aim io)
 # target_link_libraries(camera_pnp_test ${OpenCV_LIBS} fmt::fmt yaml-cpp tools auto_aim io)
@@ -137,18 +138,25 @@ find_package(geometry_msgs QUIET)
 # 只编译 standard_ros2 (不编译 sentry 等其他 ROS2 程序)
 if(ament_cmake_FOUND AND rclcpp_FOUND AND std_msgs_FOUND AND visualization_msgs_FOUND AND tf2_ros_FOUND AND geometry_msgs_FOUND)
     message(STATUS "ROS2 environment found, compiling standard_ros2 with marker visualization")
+    set(ROS2_AVAILABLE TRUE)
 
     add_executable(standard_ros2 src/standard.cpp)
     target_link_libraries(standard_ros2 ${OpenCV_LIBS} fmt::fmt yaml-cpp auto_aim auto_buff tools io rclcpp::rclcpp)
     ament_target_dependencies(standard_ros2 rclcpp std_msgs visualization_msgs tf2_ros geometry_msgs)
     target_compile_definitions(standard_ros2 PRIVATE AMENT_CMAKE_FOUND)
-
+    
     # 同时编译 auto_aim_test_ros2
     add_executable(auto_aim_test_ros2 tests/auto_aim_test.cpp)
     target_link_libraries(auto_aim_test_ros2 ${OpenCV_LIBS} fmt::fmt yaml-cpp tools io auto_aim rclcpp::rclcpp)
     ament_target_dependencies(auto_aim_test_ros2 rclcpp std_msgs visualization_msgs tf2_ros geometry_msgs)
     target_compile_definitions(auto_aim_test_ros2 PRIVATE AMENT_CMAKE_FOUND)
+
+    # 为auto_aim添加宏定义和ros相关依赖
+    target_compile_definitions(auto_aim PRIVATE AMENT_CMAKE_FOUND)
+    ament_target_dependencies(auto_aim PUBLIC rclcpp visualization_msgs)
+
 else()
+    set(ROS2_AVAILABLE FALSE)
     message(STATUS "ROS2 environment not complete, skipping standard_ros2")
 endif()
 

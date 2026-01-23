@@ -5,7 +5,7 @@
 
 #include "tools/logger.hpp"
 #include "tools/math_tools.hpp"
-
+#include "tools/marker_publisher.hpp"
 namespace auto_aim
 {
 Predictor::Predictor(const std::string & config_path, Solver & solver)

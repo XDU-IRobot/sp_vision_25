@@ -12,7 +12,9 @@
 #include "armor.hpp"
 #include "solver.hpp"
 
-#include "tools/marker_publisher.hpp"
+namespace tools{
+  class MarkerPublisher;
+}
 
 namespace auto_aim
 {

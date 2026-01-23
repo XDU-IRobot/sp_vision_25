@@ -12,6 +12,7 @@
 
 #include "serial/serial.h"
 #include "tools/thread_safe_queue.hpp"
+#include "io/command.hpp"
 
 namespace io {
 struct __attribute__((packed)) GimbalToVision {
@@ -74,6 +75,8 @@ public:
             float pitch, float pitch_vel, float pitch_acc);
 
   void send(io::VisionToGimbal VisionToGimbal);
+
+  void send_command_scm(io::Command command);
 
 private:
   serial::Serial serial_;

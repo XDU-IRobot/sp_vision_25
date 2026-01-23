@@ -1,5 +1,5 @@
 #include "outpost_target.hpp"
-
+#include "tools/marker_publisher.hpp"
 namespace auto_aim
 {
 

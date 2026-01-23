@@ -11,7 +11,9 @@
 #include "armor.hpp"
 #include "tools/extended_kalman_filter.hpp"
 
-#include "tools/marker_publisher.hpp"
+namespace tools {
+class MarkerPublisher;
+}
 
 namespace auto_aim
 {

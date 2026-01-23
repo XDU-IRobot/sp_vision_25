@@ -28,7 +28,7 @@ private:
   std::string save_path_, debug_path_;
   bool debug_, use_roi_;
 
-  const int class_num_ = 38;
+  const int class_num_ = 16;
   const float nms_threshold_ = 0.3;
   const float score_threshold_ = 0.7;
   double min_confidence_, binary_threshold_;
@@ -47,7 +47,7 @@ private:
 
   cv::Point2f get_center_norm(const cv::Mat & bgr_img, const cv::Point2f & center) const;
 
-  std::list<Armor> parse(double scale, cv::Mat & output, const cv::Mat & bgr_img, int frame_count);
+  std::list<Armor> parse(float scale, int pad_x, int pad_y, cv::Mat & output, const cv::Mat & bgr_img, int frame_count);
 
   void save(const Armor & armor) const;
   void draw_detections(const cv::Mat & img, const std::list<Armor> & armors, int frame_count) const;

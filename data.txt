@@ -1,0 +1,367 @@
+[2025-12-20 14:06:24.774] [info] ROS2 initialized for armor visualization with TF broadcasting
+[2025-12-20 14:06:24.775] [info] [CBoard] Using NEW CAN protocol
+[2025-12-20 14:06:24.775] [info] [CBoard] New CAN IDs: quat=0x150, status=0x160, cmd=0x170
+[2025-12-20 14:06:24.775] [info] [Cboard] TX bias (deg): yaw=0.000, pitch=0.000
+[2025-12-20 14:06:24.775] [info] [Cboard] Debug switches: RX=false, TX=false, FrameMatch=false
+[2025-12-20 14:06:24.776] [info] SocketCAN opened.
+[2025-12-20 14:06:24.776] [info] [Cboard] Sending startup frame immediately...
+[2025-12-20 14:06:24.776] [info] [NewCAN] Startup heartbeat sent! start=1, all data=0, waiting for MCU response...
+[2025-12-20 14:06:24.776] [info] [Cboard] Heartbeat thread started (interval=2ms)
+[2025-12-20 14:06:24.776] [info] [Cboard] Waiting for q...
+[2025-12-20 14:06:24.776] [info] [Cboard][Heartbeat] Thread started, sending start=1 at 500Hz
+[2025-12-20 14:06:24.777] [info] [CBoard] 🔑 Time base initialized: mcu_base=1066504ms, host_base=system_clock
+[2025-12-20 14:06:24.779] [info] [Cboard] Opened.
+[2025-12-20 14:06:24.780] [info] Camera constructor: config_path=configs/complete_template.yaml, camera_name=daheng
+[2025-12-20 14:06:24.780] [info] Creating Daheng camera with config: configs/complete_template.yaml
+[2025-12-20 14:06:24.780] [info] Daheng::try_open() called
+[2025-12-20 14:06:24.780] [info] Daheng::open() called - initializing Daheng library
+[2025-12-20 14:06:24.783] [info] [NewCAN] ✅ MCU online! imu_count=1, switching to normal data transmission
+[2025-12-20 14:06:24.783] [info] [Cboard] Heartbeat thread continues until main loop sends first command
+[2025-12-20 14:06:24.786] [info] Daheng library initialized successfully
+[2025-12-20 14:06:25.796] [info] Found 1 Daheng camera(s)
+[2025-12-20 14:06:26.889] [info] Setting Daheng camera parameters:
+[2025-12-20 14:06:26.889] [info]   Size: 1920x1200
+[2025-12-20 14:06:26.889] [info]   Exposure: 2000
+[2025-12-20 14:06:26.889] [info]   Gain: 24
+[2025-12-20 14:06:26.889] [info]   FPS: 168
+[2025-12-20 14:06:26.951] [info] Daheng external trigger enabled: source=2 (Line2), activation=0 (RisingEdge)
+[2025-12-20 14:06:26.954] [info] Pixel format set to BAYER_RG8
+[2025-12-20 14:06:26.954] [info] Daheng camera parameters configured successfully
+[2025-12-20 14:06:26.970] [info] Daheng camera opened successfully
+[2025-12-20 14:06:26.970] [info] Daheng capture thread started
+[2025-12-20 14:06:26.970] [info] Daheng camera constructor completed with VID:PID = 2ba2:4d55
+[2025-12-20 14:06:26.970] [info] Daheng daemon thread started
+[2025-12-20 14:06:26.970] [info] Camera constructor completed
+[2025-12-20 14:06:27.453] [info] [Tracker] ROS2 marker publisher initialized on topic: armor_markers
+[2025-12-20 14:06:27.453] [info] [CBoard] ROS2 TF publisher initialized - will publish TF on every IMU update
+[2025-12-20 14:06:27.454] [info] [CBoard] TF publisher configured - TF will be sent on every IMU update
+[2025-12-20 14:06:27.454] [info] Static TF published: map -> world
+[2025-12-20 14:06:27.454] [info] Static TF published: gimbal -> camera
+[2025-12-20 14:06:27.454] [info] [Sync-RingBuffer Init] 🚀 Hardware sync enabled! frame_id=0 → trigger_imu=1105, current_imu=1336 | mcu_ts=1068718ms
+[2025-12-20 14:06:27.454] [info] [Sync-RingBuffer] 📷 frame_id=0 → 🎯 trigger_imu=1105 | 📊 current_imu=1336 diff=+231 | ⏱️ mcu_ts=1068718ms | 🧭 q=(-0.187,-0.022,-0.002,0.982)
+[2025-12-20 14:06:27.472] [info] [Cboard][Heartbeat] Thread exiting (quit=true)
+[2025-12-20 14:06:27.472] [info] [Cboard] Heartbeat thread stopped (main loop started)
+[2025-12-20 14:06:27.518] [info] [Sync-RingBuffer] 📷 frame_id=24 → 🎯 trigger_imu=1345 | 📊 current_imu=1368 diff=+23 | ⏱️ mcu_ts=1069198ms | 🧭 q=(-0.188,-0.022,-0.002,0.982)
+[2025-12-20 14:06:27.527] [warning] [Tracker] Large dt: 0.480s
+[2025-12-20 14:06:27.532] [info] [Sync-RingBuffer] 📷 frame_id=27 → 🎯 trigger_imu=1375 | 📊 current_imu=1375 diff=+0 | ⏱️ mcu_ts=1069258ms | 🧭 q=(-0.188,-0.022,-0.002,0.982)
+[2025-12-20 14:06:27.551] [info] [Sync-RingBuffer] 📷 frame_id=28 → 🎯 trigger_imu=1385 | 📊 current_imu=1385 diff=+0 | ⏱️ mcu_ts=1069278ms | 🧭 q=(-0.188,-0.022,-0.002,0.982)
+[2025-12-20 14:06:27.572] [info] [Sync-RingBuffer] 📷 frame_id=29 → 🎯 trigger_imu=1395 | 📊 current_imu=1395 diff=+0 | ⏱️ mcu_ts=1069298ms | 🧭 q=(-0.188,-0.022,-0.002,0.982)
+[2025-12-20 14:06:27.592] [info] [Sync-RingBuffer] 📷 frame_id=30 → 🎯 trigger_imu=1405 | 📊 current_imu=1405 diff=+0 | ⏱️ mcu_ts=1069318ms | 🧭 q=(-0.188,-0.022,-0.002,0.982)
+[2025-12-20 14:06:27.611] [warning] [Sync-RingBuffer] ❌ IMU data not ready! frame_id=31 → trigger_imu=1415 (valid=false), using fallback
+[2025-12-20 14:06:27.631] [info] [Sync-RingBuffer] 📷 frame_id=32 → 🎯 trigger_imu=1425 | 📊 current_imu=1425 diff=+0 | ⏱️ mcu_ts=1069358ms | 🧭 q=(-0.188,-0.022,-0.002,0.982)
+[2025-12-20 14:06:27.652] [info] [Sync-RingBuffer] 📷 frame_id=33 → 🎯 trigger_imu=1435 | 📊 current_imu=1435 diff=+0 | ⏱️ mcu_ts=1069378ms | 🧭 q=(-0.188,-0.022,-0.002,0.982)
+[2025-12-20 14:06:27.672] [info] [Sync-RingBuffer] 📷 frame_id=34 → 🎯 trigger_imu=1445 | 📊 current_imu=1445 diff=+0 | ⏱️ mcu_ts=1069398ms | 🧭 q=(-0.188,-0.022,-0.002,0.982)
+[2025-12-20 14:06:27.672] [info] ┌────────────────────────────────────────────────────────────────┐
+[2025-12-20 14:06:27.672] [info] │ 🔍 时间戳验证（Time Synchronization Validation）                │
+[2025-12-20 14:06:27.672] [info] ├────────────────────────────────────────────────────────────────┤
+[2025-12-20 14:06:27.672] [info] │ 📷 Camera Frame:  frame_id=34     → trigger_imu=1445            │
+[2025-12-20 14:06:27.672] [info] │ ⏱️  Time Source:   MCU Hardware Timestamp (converted)          │
+[2025-12-20 14:06:27.672] [info] │ 🎯 IMU Count:     target=1445   current=1445   diff=  +0     │
+[2025-12-20 14:06:27.672] [info] │ ✅ Time Inheritance (MCU-based):                               │
+[2025-12-20 14:06:27.672] [info] │    • camera_timestamp ← MCU mcu_synced_timestamp              │
+[2025-12-20 14:06:27.672] [info] │    • TF timestamp     ← MCU mcu_synced_timestamp              │
+[2025-12-20 14:06:27.672] [info] │    • Marker timestamp ← MCU mcu_synced_timestamp              │
+[2025-12-20 14:06:27.672] [info] │    • Predictor dt     ← MCU timestamp diff                   │
+[2025-12-20 14:06:27.672] [info] │ 🔗 Time Consistency: ✅ PERFECT                                │
+[2025-12-20 14:06:27.672] [info] └────────────────────────────────────────────────────────────────┘
+[2025-12-20 14:06:27.692] [info] [Sync-RingBuffer] 📷 frame_id=35 → 🎯 trigger_imu=1455 | 📊 current_imu=1455 diff=+0 | ⏱️ mcu_ts=1069418ms | 🧭 q=(-0.188,-0.022,-0.002,0.982)
+[2025-12-20 14:06:27.713] [info] [Sync-RingBuffer] 📷 frame_id=36 → 🎯 trigger_imu=1465 | 📊 current_imu=1465 diff=+0 | ⏱️ mcu_ts=1069438ms | 🧭 q=(-0.188,-0.022,-0.002,0.982)
+[2025-12-20 14:06:27.731] [info] [Sync-RingBuffer] 📷 frame_id=37 → 🎯 trigger_imu=1475 | 📊 current_imu=1475 diff=+0 | ⏱️ mcu_ts=1069458ms | 🧭 q=(-0.188,-0.022,-0.002,0.982)
+[2025-12-20 14:06:27.753] [info] [Sync-RingBuffer] 📷 frame_id=38 → 🎯 trigger_imu=1485 | 📊 current_imu=1485 diff=+0 | ⏱️ mcu_ts=1069478ms | 🧭 q=(-0.188,-0.022,-0.002,0.982)
+[2025-12-20 14:06:27.772] [info] [Sync-RingBuffer] 📷 frame_id=39 → 🎯 trigger_imu=1495 | 📊 current_imu=1495 diff=+0 | ⏱️ mcu_ts=1069498ms | 🧭 q=(-0.188,-0.022,-0.002,0.982)
+[2025-12-20 14:06:27.792] [info] [Sync-RingBuffer] 📷 frame_id=40 → 🎯 trigger_imu=1505 | 📊 current_imu=1505 diff=+0 | ⏱️ mcu_ts=1069518ms | 🧭 q=(-0.188,-0.022,-0.002,0.982)
+[2025-12-20 14:06:27.812] [info] [Sync-RingBuffer] 📷 frame_id=41 → 🎯 trigger_imu=1515 | 📊 current_imu=1515 diff=+0 | ⏱️ mcu_ts=1069538ms | 🧭 q=(-0.188,-0.022,-0.002,0.982)
+[2025-12-20 14:06:27.832] [info] [Sync-RingBuffer] 📷 frame_id=42 → 🎯 trigger_imu=1525 | 📊 current_imu=1525 diff=+0 | ⏱️ mcu_ts=1069558ms | 🧭 q=(-0.188,-0.022,-0.002,0.982)
+[2025-12-20 14:06:27.852] [info] [Sync-RingBuffer] 📷 frame_id=43 → 🎯 trigger_imu=1535 | 📊 current_imu=1535 diff=+0 | ⏱️ mcu_ts=1069578ms | 🧭 q=(-0.188,-0.022,-0.002,0.982)
+[2025-12-20 14:06:27.872] [info] [Sync-RingBuffer] 📷 frame_id=44 → 🎯 trigger_imu=1545 | 📊 current_imu=1545 diff=+0 | ⏱️ mcu_ts=1069598ms | 🧭 q=(-0.188,-0.022,-0.002,0.982)
+[2025-12-20 14:06:27.872] [info] ┌────────────────────────────────────────────────────────────────┐
+[2025-12-20 14:06:27.872] [info] │ 🔍 时间戳验证（Time Synchronization Validation）                │
+[2025-12-20 14:06:27.872] [info] ├────────────────────────────────────────────────────────────────┤
+[2025-12-20 14:06:27.872] [info] │ 📷 Camera Frame:  frame_id=44     → trigger_imu=1545            │
+[2025-12-20 14:06:27.872] [info] │ ⏱️  Time Source:   MCU Hardware Timestamp (converted)          │
+[2025-12-20 14:06:27.872] [info] │ 🎯 IMU Count:     target=1545   current=1545   diff=  +0     │
+[2025-12-20 14:06:27.872] [info] │ ✅ Time Inheritance (MCU-based):                               │
+[2025-12-20 14:06:27.872] [info] │    • camera_timestamp ← MCU mcu_synced_timestamp              │
+[2025-12-20 14:06:27.872] [info] │    • TF timestamp     ← MCU mcu_synced_timestamp              │
+[2025-12-20 14:06:27.872] [info] │    • Marker timestamp ← MCU mcu_synced_timestamp              │
+[2025-12-20 14:06:27.872] [info] │    • Predictor dt     ← MCU timestamp diff                   │
+[2025-12-20 14:06:27.872] [info] │ 🔗 Time Consistency: ✅ PERFECT                                │
+[2025-12-20 14:06:27.872] [info] └────────────────────────────────────────────────────────────────┘
+[2025-12-20 14:06:27.891] [info] [Sync-RingBuffer] 📷 frame_id=45 → 🎯 trigger_imu=1555 | 📊 current_imu=1555 diff=+0 | ⏱️ mcu_ts=1069618ms | 🧭 q=(-0.188,-0.022,-0.002,0.982)
+[2025-12-20 14:06:27.912] [info] [Sync-RingBuffer] 📷 frame_id=46 → 🎯 trigger_imu=1565 | 📊 current_imu=1565 diff=+0 | ⏱️ mcu_ts=1069638ms | 🧭 q=(-0.188,-0.022,-0.002,0.982)
+[2025-12-20 14:06:27.931] [info] [Sync-RingBuffer] 📷 frame_id=47 → 🎯 trigger_imu=1575 | 📊 current_imu=1575 diff=+0 | ⏱️ mcu_ts=1069658ms | 🧭 q=(-0.188,-0.022,-0.002,0.982)
+[2025-12-20 14:06:27.953] [info] [Sync-RingBuffer] 📷 frame_id=48 → 🎯 trigger_imu=1585 | 📊 current_imu=1585 diff=+0 | ⏱️ mcu_ts=1069678ms | 🧭 q=(-0.188,-0.022,-0.002,0.982)
+[2025-12-20 14:06:27.973] [info] [Sync-RingBuffer] 📷 frame_id=49 → 🎯 trigger_imu=1595 | 📊 current_imu=1595 diff=+0 | ⏱️ mcu_ts=1069698ms | 🧭 q=(-0.188,-0.022,-0.002,0.982)
+[2025-12-20 14:06:27.991] [info] [Sync-RingBuffer] 📷 frame_id=50 → 🎯 trigger_imu=1605 | 📊 current_imu=1605 diff=+0 | ⏱️ mcu_ts=1069718ms | 🧭 q=(-0.188,-0.022,-0.002,0.982)
+[2025-12-20 14:06:28.012] [info] [Sync-RingBuffer] 📷 frame_id=51 → 🎯 trigger_imu=1615 | 📊 current_imu=1615 diff=+0 | ⏱️ mcu_ts=1069738ms | 🧭 q=(-0.188,-0.022,-0.002,0.982)
+[2025-12-20 14:06:28.031] [info] [Sync-RingBuffer] 📷 frame_id=52 → 🎯 trigger_imu=1625 | 📊 current_imu=1625 diff=+0 | ⏱️ mcu_ts=1069758ms | 🧭 q=(-0.188,-0.022,-0.002,0.982)
+[2025-12-20 14:06:28.052] [info] [Sync-RingBuffer] 📷 frame_id=53 → 🎯 trigger_imu=1635 | 📊 current_imu=1635 diff=+0 | ⏱️ mcu_ts=1069778ms | 🧭 q=(-0.189,-0.022,-0.002,0.982)
+[2025-12-20 14:06:28.071] [info] [Sync-RingBuffer] 📷 frame_id=54 → 🎯 trigger_imu=1645 | 📊 current_imu=1645 diff=+0 | ⏱️ mcu_ts=1069798ms | 🧭 q=(-0.189,-0.022,-0.002,0.982)
+[2025-12-20 14:06:28.071] [info] ┌────────────────────────────────────────────────────────────────┐
+[2025-12-20 14:06:28.071] [info] │ 🔍 时间戳验证（Time Synchronization Validation）                │
+[2025-12-20 14:06:28.071] [info] ├────────────────────────────────────────────────────────────────┤
+[2025-12-20 14:06:28.072] [info] │ 📷 Camera Frame:  frame_id=54     → trigger_imu=1645            │
+[2025-12-20 14:06:28.072] [info] │ ⏱️  Time Source:   MCU Hardware Timestamp (converted)          │
+[2025-12-20 14:06:28.072] [info] │ 🎯 IMU Count:     target=1645   current=1645   diff=  +0     │
+[2025-12-20 14:06:28.072] [info] │ ✅ Time Inheritance (MCU-based):                               │
+[2025-12-20 14:06:28.072] [info] │    • camera_timestamp ← MCU mcu_synced_timestamp              │
+[2025-12-20 14:06:28.072] [info] │    • TF timestamp     ← MCU mcu_synced_timestamp              │
+[2025-12-20 14:06:28.072] [info] │    • Marker timestamp ← MCU mcu_synced_timestamp              │
+[2025-12-20 14:06:28.072] [info] │    • Predictor dt     ← MCU timestamp diff                   │
+[2025-12-20 14:06:28.072] [info] │ 🔗 Time Consistency: ✅ PERFECT                                │
+[2025-12-20 14:06:28.072] [info] └────────────────────────────────────────────────────────────────┘
+[2025-12-20 14:06:28.083] [info] [Performance] FPS: 0.0 | Total: 19.5ms | Camera: 8.7ms | IMU: 0.03ms | Detect: 10.3ms | Track: 0.29ms | Aim: 0.02ms | Visual: 0.10ms | Send: 0.02ms
+[2025-12-20 14:06:28.083] [info] [Frame Match] current_imu_count=1645 trigger_imu=1645 q(w,x,y,z)=(-0.1885,-0.0218,-0.0016,0.9818)
+[2025-12-20 14:06:28.093] [info] [Sync-RingBuffer] 📷 frame_id=55 → 🎯 trigger_imu=1655 | 📊 current_imu=1655 diff=+0 | ⏱️ mcu_ts=1069818ms | 🧭 q=(-0.189,-0.022,-0.002,0.982)
+[2025-12-20 14:06:28.111] [info] [Sync-RingBuffer] 📷 frame_id=56 → 🎯 trigger_imu=1665 | 📊 current_imu=1665 diff=+0 | ⏱️ mcu_ts=1069838ms | 🧭 q=(-0.189,-0.022,-0.002,0.982)
+[2025-12-20 14:06:28.132] [info] [Sync-RingBuffer] 📷 frame_id=57 → 🎯 trigger_imu=1675 | 📊 current_imu=1675 diff=+0 | ⏱️ mcu_ts=1069858ms | 🧭 q=(-0.189,-0.022,-0.002,0.982)
+[2025-12-20 14:06:28.154] [info] [Sync-RingBuffer] 📷 frame_id=58 → 🎯 trigger_imu=1685 | 📊 current_imu=1686 diff=+1 | ⏱️ mcu_ts=1069878ms | 🧭 q=(-0.189,-0.022,-0.002,0.982)
+[2025-12-20 14:06:28.173] [info] [Sync-RingBuffer] 📷 frame_id=59 → 🎯 trigger_imu=1695 | 📊 current_imu=1695 diff=+0 | ⏱️ mcu_ts=1069898ms | 🧭 q=(-0.189,-0.022,-0.002,0.982)
+[2025-12-20 14:06:28.193] [info] [Sync-RingBuffer] 📷 frame_id=60 → 🎯 trigger_imu=1705 | 📊 current_imu=1705 diff=+0 | ⏱️ mcu_ts=1069918ms | 🧭 q=(-0.189,-0.022,-0.002,0.982)
+[2025-12-20 14:06:28.212] [info] [Sync-RingBuffer] 📷 frame_id=61 → 🎯 trigger_imu=1715 | 📊 current_imu=1715 diff=+0 | ⏱️ mcu_ts=1069938ms | 🧭 q=(-0.189,-0.022,-0.002,0.982)
+[2025-12-20 14:06:28.232] [info] [Sync-RingBuffer] 📷 frame_id=62 → 🎯 trigger_imu=1725 | 📊 current_imu=1725 diff=+0 | ⏱️ mcu_ts=1069958ms | 🧭 q=(-0.189,-0.022,-0.002,0.982)
+[2025-12-20 14:06:28.251] [info] [Sync-RingBuffer] 📷 frame_id=63 → 🎯 trigger_imu=1735 | 📊 current_imu=1735 diff=+0 | ⏱️ mcu_ts=1069978ms | 🧭 q=(-0.189,-0.022,-0.002,0.982)
+[2025-12-20 14:06:28.272] [info] [Sync-RingBuffer] 📷 frame_id=64 → 🎯 trigger_imu=1745 | 📊 current_imu=1745 diff=+0 | ⏱️ mcu_ts=1069998ms | 🧭 q=(-0.189,-0.022,-0.002,0.982)
+[2025-12-20 14:06:28.272] [info] ┌────────────────────────────────────────────────────────────────┐
+[2025-12-20 14:06:28.272] [info] │ 🔍 时间戳验证（Time Synchronization Validation）                │
+[2025-12-20 14:06:28.272] [info] ├────────────────────────────────────────────────────────────────┤
+[2025-12-20 14:06:28.272] [info] │ 📷 Camera Frame:  frame_id=64     → trigger_imu=1745            │
+[2025-12-20 14:06:28.272] [info] │ ⏱️  Time Source:   MCU Hardware Timestamp (converted)          │
+[2025-12-20 14:06:28.272] [info] │ 🎯 IMU Count:     target=1745   current=1745   diff=  +0     │
+[2025-12-20 14:06:28.272] [info] │ ✅ Time Inheritance (MCU-based):                               │
+[2025-12-20 14:06:28.272] [info] │    • camera_timestamp ← MCU mcu_synced_timestamp              │
+[2025-12-20 14:06:28.272] [info] │    • TF timestamp     ← MCU mcu_synced_timestamp              │
+[2025-12-20 14:06:28.272] [info] │    • Marker timestamp ← MCU mcu_synced_timestamp              │
+[2025-12-20 14:06:28.272] [info] │    • Predictor dt     ← MCU timestamp diff                   │
+[2025-12-20 14:06:28.272] [info] │ 🔗 Time Consistency: ✅ PERFECT                                │
+[2025-12-20 14:06:28.272] [info] └────────────────────────────────────────────────────────────────┘
+[2025-12-20 14:06:28.292] [info] [Sync-RingBuffer] 📷 frame_id=65 → 🎯 trigger_imu=1755 | 📊 current_imu=1755 diff=+0 | ⏱️ mcu_ts=1070018ms | 🧭 q=(-0.189,-0.022,-0.002,0.982)
+[2025-12-20 14:06:28.312] [info] [Sync-RingBuffer] 📷 frame_id=66 → 🎯 trigger_imu=1765 | 📊 current_imu=1765 diff=+0 | ⏱️ mcu_ts=1070038ms | 🧭 q=(-0.189,-0.022,-0.002,0.982)
+[2025-12-20 14:06:28.333] [info] [Sync-RingBuffer] 📷 frame_id=67 → 🎯 trigger_imu=1775 | 📊 current_imu=1775 diff=+0 | ⏱️ mcu_ts=1070058ms | 🧭 q=(-0.189,-0.022,-0.002,0.982)
+[2025-12-20 14:06:28.352] [info] [Sync-RingBuffer] 📷 frame_id=68 → 🎯 trigger_imu=1785 | 📊 current_imu=1785 diff=+0 | ⏱️ mcu_ts=1070078ms | 🧭 q=(-0.189,-0.022,-0.002,0.982)
+[2025-12-20 14:06:28.371] [info] [Sync-RingBuffer] 📷 frame_id=69 → 🎯 trigger_imu=1795 | 📊 current_imu=1795 diff=+0 | ⏱️ mcu_ts=1070098ms | 🧭 q=(-0.189,-0.022,-0.002,0.982)
+[2025-12-20 14:06:28.392] [info] [Sync-RingBuffer] 📷 frame_id=70 → 🎯 trigger_imu=1805 | 📊 current_imu=1805 diff=+0 | ⏱️ mcu_ts=1070118ms | 🧭 q=(-0.189,-0.022,-0.002,0.982)
+[2025-12-20 14:06:28.411] [info] [Sync-RingBuffer] 📷 frame_id=71 → 🎯 trigger_imu=1815 | 📊 current_imu=1815 diff=+0 | ⏱️ mcu_ts=1070138ms | 🧭 q=(-0.189,-0.022,-0.002,0.982)
+[2025-12-20 14:06:28.432] [info] [Sync-RingBuffer] 📷 frame_id=72 → 🎯 trigger_imu=1825 | 📊 current_imu=1825 diff=+0 | ⏱️ mcu_ts=1070158ms | 🧭 q=(-0.189,-0.022,-0.002,0.982)
+[2025-12-20 14:06:28.451] [info] [Sync-RingBuffer] 📷 frame_id=73 → 🎯 trigger_imu=1835 | 📊 current_imu=1835 diff=+0 | ⏱️ mcu_ts=1070178ms | 🧭 q=(-0.189,-0.022,-0.002,0.982)
+[2025-12-20 14:06:28.459] [info] [Performance] FPS: 48.7 | Total: 16.1ms | Camera: 8.5ms | IMU: 0.03ms | Detect: 7.2ms | Track: 0.30ms | Aim: 0.02ms | Visual: 0.08ms | Send: 0.02ms
+[2025-12-20 14:06:28.459] [info] [Frame Match] current_imu_count=1835 trigger_imu=1835 q(w,x,y,z)=(-0.1891,-0.0217,-0.0016,0.9817)
+[2025-12-20 14:06:28.472] [info] [Sync-RingBuffer] 📷 frame_id=74 → 🎯 trigger_imu=1845 | 📊 current_imu=1845 diff=+0 | ⏱️ mcu_ts=1070198ms | 🧭 q=(-0.189,-0.022,-0.002,0.982)
+[2025-12-20 14:06:28.472] [info] ┌────────────────────────────────────────────────────────────────┐
+[2025-12-20 14:06:28.472] [info] │ 🔍 时间戳验证（Time Synchronization Validation）                │
+[2025-12-20 14:06:28.472] [info] ├────────────────────────────────────────────────────────────────┤
+[2025-12-20 14:06:28.472] [info] │ 📷 Camera Frame:  frame_id=74     → trigger_imu=1845            │
+[2025-12-20 14:06:28.472] [info] │ ⏱️  Time Source:   MCU Hardware Timestamp (converted)          │
+[2025-12-20 14:06:28.472] [info] │ 🎯 IMU Count:     target=1845   current=1845   diff=  +0     │
+[2025-12-20 14:06:28.472] [info] │ ✅ Time Inheritance (MCU-based):                               │
+[2025-12-20 14:06:28.472] [info] │    • camera_timestamp ← MCU mcu_synced_timestamp              │
+[2025-12-20 14:06:28.472] [info] │    • TF timestamp     ← MCU mcu_synced_timestamp              │
+[2025-12-20 14:06:28.472] [info] │    • Marker timestamp ← MCU mcu_synced_timestamp              │
+[2025-12-20 14:06:28.472] [info] │    • Predictor dt     ← MCU timestamp diff                   │
+[2025-12-20 14:06:28.472] [info] │ 🔗 Time Consistency: ✅ PERFECT                                │
+[2025-12-20 14:06:28.472] [info] └────────────────────────────────────────────────────────────────┘
+[2025-12-20 14:06:28.492] [info] [Sync-RingBuffer] 📷 frame_id=75 → 🎯 trigger_imu=1855 | 📊 current_imu=1855 diff=+0 | ⏱️ mcu_ts=1070218ms | 🧭 q=(-0.189,-0.022,-0.002,0.982)
+[2025-12-20 14:06:28.512] [info] [Sync-RingBuffer] 📷 frame_id=76 → 🎯 trigger_imu=1865 | 📊 current_imu=1865 diff=+0 | ⏱️ mcu_ts=1070238ms | 🧭 q=(-0.189,-0.022,-0.002,0.982)
+[2025-12-20 14:06:28.531] [info] [Sync-RingBuffer] 📷 frame_id=77 → 🎯 trigger_imu=1875 | 📊 current_imu=1875 diff=+0 | ⏱️ mcu_ts=1070258ms | 🧭 q=(-0.189,-0.022,-0.002,0.982)
+[2025-12-20 14:06:28.552] [info] [Sync-RingBuffer] 📷 frame_id=78 → 🎯 trigger_imu=1885 | 📊 current_imu=1885 diff=+0 | ⏱️ mcu_ts=1070278ms | 🧭 q=(-0.189,-0.022,-0.002,0.982)
+[2025-12-20 14:06:28.572] [info] [Sync-RingBuffer] 📷 frame_id=79 → 🎯 trigger_imu=1895 | 📊 current_imu=1895 diff=+0 | ⏱️ mcu_ts=1070298ms | 🧭 q=(-0.189,-0.022,-0.002,0.982)
+[2025-12-20 14:06:28.592] [info] [Sync-RingBuffer] 📷 frame_id=80 → 🎯 trigger_imu=1905 | 📊 current_imu=1905 diff=+0 | ⏱️ mcu_ts=1070318ms | 🧭 q=(-0.189,-0.022,-0.002,0.982)
+[2025-12-20 14:06:28.611] [info] [Sync-RingBuffer] 📷 frame_id=81 → 🎯 trigger_imu=1915 | 📊 current_imu=1915 diff=+0 | ⏱️ mcu_ts=1070338ms | 🧭 q=(-0.189,-0.022,-0.002,0.982)
+[2025-12-20 14:06:28.633] [info] [Sync-RingBuffer] 📷 frame_id=82 → 🎯 trigger_imu=1925 | 📊 current_imu=1925 diff=+0 | ⏱️ mcu_ts=1070358ms | 🧭 q=(-0.190,-0.022,-0.002,0.982)
+[2025-12-20 14:06:28.652] [info] [Sync-RingBuffer] 📷 frame_id=83 → 🎯 trigger_imu=1935 | 📊 current_imu=1935 diff=+0 | ⏱️ mcu_ts=1070378ms | 🧭 q=(-0.190,-0.022,-0.002,0.982)
+[2025-12-20 14:06:28.671] [warning] [Sync-RingBuffer] ❌ IMU data not ready! frame_id=84 → trigger_imu=1945 (valid=false), using fallback
+[2025-12-20 14:06:28.671] [info] ┌────────────────────────────────────────────────────────────────┐
+[2025-12-20 14:06:28.671] [info] │ 🔍 时间戳验证（Time Synchronization Validation）                │
+[2025-12-20 14:06:28.671] [info] ├────────────────────────────────────────────────────────────────┤
+[2025-12-20 14:06:28.671] [info] │ 📷 Camera Frame:  frame_id=84     → trigger_imu=1945            │
+[2025-12-20 14:06:28.671] [info] │ ⏱️  Time Source:   MCU Hardware Timestamp (converted)          │
+[2025-12-20 14:06:28.671] [info] │ 🎯 IMU Count:     target=1945   current=1944   diff=  -1     │
+[2025-12-20 14:06:28.671] [info] │ ✅ Time Inheritance (MCU-based):                               │
+[2025-12-20 14:06:28.671] [info] │    • camera_timestamp ← MCU mcu_synced_timestamp              │
+[2025-12-20 14:06:28.671] [info] │    • TF timestamp     ← MCU mcu_synced_timestamp              │
+[2025-12-20 14:06:28.671] [info] │    • Marker timestamp ← MCU mcu_synced_timestamp              │
+[2025-12-20 14:06:28.671] [info] │    • Predictor dt     ← MCU timestamp diff                   │
+[2025-12-20 14:06:28.671] [info] │ 🔗 Time Consistency: ✅ PERFECT                                │
+[2025-12-20 14:06:28.671] [info] └────────────────────────────────────────────────────────────────┘
+[2025-12-20 14:06:28.691] [info] [Sync-RingBuffer] 📷 frame_id=85 → 🎯 trigger_imu=1955 | 📊 current_imu=1955 diff=+0 | ⏱️ mcu_ts=1070418ms | 🧭 q=(-0.190,-0.022,-0.002,0.982)
+[2025-12-20 14:06:28.712] [info] [Sync-RingBuffer] 📷 frame_id=86 → 🎯 trigger_imu=1965 | 📊 current_imu=1965 diff=+0 | ⏱️ mcu_ts=1070438ms | 🧭 q=(-0.190,-0.022,-0.002,0.982)
+[2025-12-20 14:06:28.731] [info] [Sync-RingBuffer] 📷 frame_id=87 → 🎯 trigger_imu=1975 | 📊 current_imu=1975 diff=+0 | ⏱️ mcu_ts=1070458ms | 🧭 q=(-0.190,-0.022,-0.002,0.982)
+[2025-12-20 14:06:28.752] [info] [Sync-RingBuffer] 📷 frame_id=88 → 🎯 trigger_imu=1985 | 📊 current_imu=1985 diff=+0 | ⏱️ mcu_ts=1070478ms | 🧭 q=(-0.190,-0.022,-0.002,0.982)
+[2025-12-20 14:06:28.771] [info] [Sync-RingBuffer] 📷 frame_id=89 → 🎯 trigger_imu=1995 | 📊 current_imu=1995 diff=+0 | ⏱️ mcu_ts=1070498ms | 🧭 q=(-0.190,-0.022,-0.002,0.982)
+[2025-12-20 14:06:28.791] [info] [Sync-RingBuffer] 📷 frame_id=90 → 🎯 trigger_imu=2005 | 📊 current_imu=2004 diff=-1 | ⏱️ mcu_ts=1066518ms | 🧭 q=(-0.183,-0.022,-0.001,0.983)
+[2025-12-20 14:06:28.812] [info] [Sync-RingBuffer] 📷 frame_id=91 → 🎯 trigger_imu=2015 | 📊 current_imu=2015 diff=+0 | ⏱️ mcu_ts=1070538ms | 🧭 q=(-0.190,-0.022,-0.002,0.982)
+[2025-12-20 14:06:28.819] [warning] [Tracker] Large dt: 4.020s
+[2025-12-20 14:06:28.832] [info] [Sync-RingBuffer] 📷 frame_id=92 → 🎯 trigger_imu=2025 | 📊 current_imu=2025 diff=+0 | ⏱️ mcu_ts=1070558ms | 🧭 q=(-0.190,-0.022,-0.002,0.982)
+[2025-12-20 14:06:28.852] [info] [Sync-RingBuffer] 📷 frame_id=93 → 🎯 trigger_imu=2035 | 📊 current_imu=2035 diff=+0 | ⏱️ mcu_ts=1070578ms | 🧭 q=(-0.190,-0.022,-0.002,0.982)
+[2025-12-20 14:06:28.872] [info] [Sync-RingBuffer] 📷 frame_id=94 → 🎯 trigger_imu=2045 | 📊 current_imu=2045 diff=+0 | ⏱️ mcu_ts=1070598ms | 🧭 q=(-0.190,-0.022,-0.002,0.982)
+[2025-12-20 14:06:28.872] [info] ┌────────────────────────────────────────────────────────────────┐
+[2025-12-20 14:06:28.872] [info] │ 🔍 时间戳验证（Time Synchronization Validation）                │
+[2025-12-20 14:06:28.872] [info] ├────────────────────────────────────────────────────────────────┤
+[2025-12-20 14:06:28.872] [info] │ 📷 Camera Frame:  frame_id=94     → trigger_imu=2045            │
+[2025-12-20 14:06:28.872] [info] │ ⏱️  Time Source:   MCU Hardware Timestamp (converted)          │
+[2025-12-20 14:06:28.872] [info] │ 🎯 IMU Count:     target=2045   current=2045   diff=  +0     │
+[2025-12-20 14:06:28.872] [info] │ ✅ Time Inheritance (MCU-based):                               │
+[2025-12-20 14:06:28.872] [info] │    • camera_timestamp ← MCU mcu_synced_timestamp              │
+[2025-12-20 14:06:28.872] [info] │    • TF timestamp     ← MCU mcu_synced_timestamp              │
+[2025-12-20 14:06:28.872] [info] │    • Marker timestamp ← MCU mcu_synced_timestamp              │
+[2025-12-20 14:06:28.872] [info] │    • Predictor dt     ← MCU timestamp diff                   │
+[2025-12-20 14:06:28.872] [info] │ 🔗 Time Consistency: ✅ PERFECT                                │
+[2025-12-20 14:06:28.872] [info] └────────────────────────────────────────────────────────────────┘
+[2025-12-20 14:06:28.892] [info] [Sync-RingBuffer] 📷 frame_id=95 → 🎯 trigger_imu=2055 | 📊 current_imu=2055 diff=+0 | ⏱️ mcu_ts=1070618ms | 🧭 q=(-0.190,-0.022,-0.002,0.982)
+[2025-12-20 14:06:28.913] [info] [Sync-RingBuffer] 📷 frame_id=96 → 🎯 trigger_imu=2065 | 📊 current_imu=2065 diff=+0 | ⏱️ mcu_ts=1070638ms | 🧭 q=(-0.190,-0.022,-0.002,0.982)
+[2025-12-20 14:06:28.932] [info] [Sync-RingBuffer] 📷 frame_id=97 → 🎯 trigger_imu=2075 | 📊 current_imu=2075 diff=+0 | ⏱️ mcu_ts=1070658ms | 🧭 q=(-0.190,-0.022,-0.002,0.982)
+[2025-12-20 14:06:28.951] [info] [Sync-RingBuffer] 📷 frame_id=98 → 🎯 trigger_imu=2085 | 📊 current_imu=2084 diff=-1 | ⏱️ mcu_ts=1066678ms | 🧭 q=(-0.183,-0.022,-0.001,0.983)
+[2025-12-20 14:06:28.972] [info] [Sync-RingBuffer] 📷 frame_id=99 → 🎯 trigger_imu=2095 | 📊 current_imu=2095 diff=+0 | ⏱️ mcu_ts=1070698ms | 🧭 q=(-0.190,-0.022,-0.002,0.982)
+[2025-12-20 14:06:28.980] [warning] [Tracker] Large dt: 4.020s
+[2025-12-20 14:06:28.991] [info] [Sync-RingBuffer] 📷 frame_id=100 → 🎯 trigger_imu=2105 | 📊 current_imu=2105 diff=+0 | ⏱️ mcu_ts=1070718ms | 🧭 q=(-0.190,-0.022,-0.002,0.982)
+[2025-12-20 14:06:29.013] [info] [Sync-RingBuffer] 📷 frame_id=101 → 🎯 trigger_imu=2115 | 📊 current_imu=2115 diff=+0 | ⏱️ mcu_ts=1070738ms | 🧭 q=(-0.190,-0.022,-0.002,0.982)
+[2025-12-20 14:06:29.032] [info] [Sync-RingBuffer] 📷 frame_id=102 → 🎯 trigger_imu=2125 | 📊 current_imu=2125 diff=+0 | ⏱️ mcu_ts=1070758ms | 🧭 q=(-0.190,-0.022,-0.002,0.982)
+[2025-12-20 14:06:29.053] [info] [Sync-RingBuffer] 📷 frame_id=103 → 🎯 trigger_imu=2135 | 📊 current_imu=2136 diff=+1 | ⏱️ mcu_ts=1070778ms | 🧭 q=(-0.190,-0.022,-0.002,0.982)
+[2025-12-20 14:06:29.062] [info] [Performance] FPS: 48.7 | Total: 19.9ms | Camera: 11.0ms | IMU: 0.04ms | Detect: 8.5ms | Track: 0.30ms | Aim: 0.02ms | Visual: 0.10ms | Send: 0.02ms
+[2025-12-20 14:06:29.062] [info] [Frame Match] current_imu_count=2136 trigger_imu=2135 q(w,x,y,z)=(-0.1901,-0.0217,-0.0016,0.9815)
+[2025-12-20 14:06:29.072] [info] [Sync-RingBuffer] 📷 frame_id=104 → 🎯 trigger_imu=2145 | 📊 current_imu=2145 diff=+0 | ⏱️ mcu_ts=1070798ms | 🧭 q=(-0.190,-0.022,-0.002,0.982)
+[2025-12-20 14:06:29.072] [info] ┌────────────────────────────────────────────────────────────────┐
+[2025-12-20 14:06:29.072] [info] │ 🔍 时间戳验证（Time Synchronization Validation）                │
+[2025-12-20 14:06:29.072] [info] ├────────────────────────────────────────────────────────────────┤
+[2025-12-20 14:06:29.072] [info] │ 📷 Camera Frame:  frame_id=104    → trigger_imu=2145            │
+[2025-12-20 14:06:29.072] [info] │ ⏱️  Time Source:   MCU Hardware Timestamp (converted)          │
+[2025-12-20 14:06:29.072] [info] │ 🎯 IMU Count:     target=2145   current=2145   diff=  +0     │
+[2025-12-20 14:06:29.072] [info] │ ✅ Time Inheritance (MCU-based):                               │
+[2025-12-20 14:06:29.072] [info] │    • camera_timestamp ← MCU mcu_synced_timestamp              │
+[2025-12-20 14:06:29.072] [info] │    • TF timestamp     ← MCU mcu_synced_timestamp              │
+[2025-12-20 14:06:29.072] [info] │    • Marker timestamp ← MCU mcu_synced_timestamp              │
+[2025-12-20 14:06:29.072] [info] │    • Predictor dt     ← MCU timestamp diff                   │
+[2025-12-20 14:06:29.072] [info] │ 🔗 Time Consistency: ✅ PERFECT                                │
+[2025-12-20 14:06:29.072] [info] └────────────────────────────────────────────────────────────────┘
+[2025-12-20 14:06:29.092] [info] [Sync-RingBuffer] 📷 frame_id=105 → 🎯 trigger_imu=2155 | 📊 current_imu=2155 diff=+0 | ⏱️ mcu_ts=1070818ms | 🧭 q=(-0.190,-0.022,-0.002,0.982)
+[2025-12-20 14:06:29.111] [info] [Sync-RingBuffer] 📷 frame_id=106 → 🎯 trigger_imu=2165 | 📊 current_imu=2165 diff=+0 | ⏱️ mcu_ts=1070838ms | 🧭 q=(-0.190,-0.022,-0.002,0.982)
+[2025-12-20 14:06:29.133] [info] [Sync-RingBuffer] 📷 frame_id=107 → 🎯 trigger_imu=2175 | 📊 current_imu=2175 diff=+0 | ⏱️ mcu_ts=1070858ms | 🧭 q=(-0.190,-0.022,-0.002,0.981)
+[2025-12-20 14:06:29.152] [info] [Sync-RingBuffer] 📷 frame_id=108 → 🎯 trigger_imu=2185 | 📊 current_imu=2185 diff=+0 | ⏱️ mcu_ts=1070878ms | 🧭 q=(-0.190,-0.022,-0.002,0.981)
+[2025-12-20 14:06:29.172] [info] [Sync-RingBuffer] 📷 frame_id=109 → 🎯 trigger_imu=2195 | 📊 current_imu=2195 diff=+0 | ⏱️ mcu_ts=1070898ms | 🧭 q=(-0.190,-0.022,-0.002,0.981)
+[2025-12-20 14:06:29.191] [info] [Sync-RingBuffer] 📷 frame_id=110 → 🎯 trigger_imu=2205 | 📊 current_imu=2205 diff=+0 | ⏱️ mcu_ts=1070918ms | 🧭 q=(-0.190,-0.022,-0.002,0.981)
+[2025-12-20 14:06:29.213] [info] [Sync-RingBuffer] 📷 frame_id=111 → 🎯 trigger_imu=2215 | 📊 current_imu=2215 diff=+0 | ⏱️ mcu_ts=1070938ms | 🧭 q=(-0.190,-0.022,-0.002,0.981)
+[2025-12-20 14:06:29.232] [info] [Sync-RingBuffer] 📷 frame_id=112 → 🎯 trigger_imu=2225 | 📊 current_imu=2225 diff=+0 | ⏱️ mcu_ts=1070958ms | 🧭 q=(-0.190,-0.022,-0.002,0.981)
+[2025-12-20 14:06:29.251] [info] [Sync-RingBuffer] 📷 frame_id=113 → 🎯 trigger_imu=2235 | 📊 current_imu=2234 diff=-1 | ⏱️ mcu_ts=1066978ms | 🧭 q=(-0.184,-0.022,-0.001,0.983)
+[2025-12-20 14:06:29.272] [info] [Sync-RingBuffer] 📷 frame_id=114 → 🎯 trigger_imu=2245 | 📊 current_imu=2245 diff=+0 | ⏱️ mcu_ts=1070998ms | 🧭 q=(-0.190,-0.022,-0.002,0.981)
+[2025-12-20 14:06:29.272] [info] ┌────────────────────────────────────────────────────────────────┐
+[2025-12-20 14:06:29.272] [info] │ 🔍 时间戳验证（Time Synchronization Validation）                │
+[2025-12-20 14:06:29.272] [info] ├────────────────────────────────────────────────────────────────┤
+[2025-12-20 14:06:29.272] [info] │ 📷 Camera Frame:  frame_id=114    → trigger_imu=2245            │
+[2025-12-20 14:06:29.272] [info] │ ⏱️  Time Source:   MCU Hardware Timestamp (converted)          │
+[2025-12-20 14:06:29.272] [info] │ 🎯 IMU Count:     target=2245   current=2245   diff=  +0     │
+[2025-12-20 14:06:29.272] [info] │ ✅ Time Inheritance (MCU-based):                               │
+[2025-12-20 14:06:29.272] [info] │    • camera_timestamp ← MCU mcu_synced_timestamp              │
+[2025-12-20 14:06:29.272] [info] │    • TF timestamp     ← MCU mcu_synced_timestamp              │
+[2025-12-20 14:06:29.272] [info] │    • Marker timestamp ← MCU mcu_synced_timestamp              │
+[2025-12-20 14:06:29.272] [info] │    • Predictor dt     ← MCU timestamp diff                   │
+[2025-12-20 14:06:29.272] [info] │ 🔗 Time Consistency: ✅ PERFECT                                │
+[2025-12-20 14:06:29.272] [info] └────────────────────────────────────────────────────────────────┘
+[2025-12-20 14:06:29.280] [warning] [Tracker] Large dt: 4.020s
+[2025-12-20 14:06:29.292] [info] [Sync-RingBuffer] 📷 frame_id=115 → 🎯 trigger_imu=2255 | 📊 current_imu=2255 diff=+0 | ⏱️ mcu_ts=1071018ms | 🧭 q=(-0.191,-0.022,-0.002,0.981)
+[2025-12-20 14:06:29.313] [info] [Sync-RingBuffer] 📷 frame_id=116 → 🎯 trigger_imu=2265 | 📊 current_imu=2265 diff=+0 | ⏱️ mcu_ts=1071038ms | 🧭 q=(-0.191,-0.022,-0.002,0.981)
+[2025-12-20 14:06:29.331] [info] [Sync-RingBuffer] 📷 frame_id=117 → 🎯 trigger_imu=2275 | 📊 current_imu=2275 diff=+0 | ⏱️ mcu_ts=1071058ms | 🧭 q=(-0.191,-0.022,-0.002,0.981)
+[2025-12-20 14:06:29.353] [info] [Sync-RingBuffer] 📷 frame_id=118 → 🎯 trigger_imu=2285 | 📊 current_imu=2285 diff=+0 | ⏱️ mcu_ts=1071078ms | 🧭 q=(-0.191,-0.022,-0.002,0.981)
+[2025-12-20 14:06:29.372] [info] [Sync-RingBuffer] 📷 frame_id=119 → 🎯 trigger_imu=2295 | 📊 current_imu=2295 diff=+0 | ⏱️ mcu_ts=1071098ms | 🧭 q=(-0.191,-0.022,-0.002,0.981)
+[2025-12-20 14:06:29.392] [info] [Sync-RingBuffer] 📷 frame_id=120 → 🎯 trigger_imu=2305 | 📊 current_imu=2305 diff=+0 | ⏱️ mcu_ts=1071118ms | 🧭 q=(-0.191,-0.022,-0.002,0.981)
+[2025-12-20 14:06:29.412] [info] [Sync-RingBuffer] 📷 frame_id=121 → 🎯 trigger_imu=2315 | 📊 current_imu=2315 diff=+0 | ⏱️ mcu_ts=1071138ms | 🧭 q=(-0.191,-0.022,-0.002,0.981)
+[2025-12-20 14:06:29.432] [info] [Sync-RingBuffer] 📷 frame_id=122 → 🎯 trigger_imu=2325 | 📊 current_imu=2325 diff=+0 | ⏱️ mcu_ts=1071158ms | 🧭 q=(-0.191,-0.022,-0.002,0.981)
+[2025-12-20 14:06:29.452] [info] [Sync-RingBuffer] 📷 frame_id=123 → 🎯 trigger_imu=2335 | 📊 current_imu=2335 diff=+0 | ⏱️ mcu_ts=1071178ms | 🧭 q=(-0.191,-0.022,-0.002,0.981)
+[2025-12-20 14:06:29.462] [info] [Performance] FPS: 49.9 | Total: 20.3ms | Camera: 10.9ms | IMU: 0.08ms | Detect: 8.9ms | Track: 0.29ms | Aim: 0.02ms | Visual: 0.09ms | Send: 0.02ms
+[2025-12-20 14:06:29.462] [info] [Frame Match] current_imu_count=2335 trigger_imu=2335 q(w,x,y,z)=(-0.1907,-0.0217,-0.0015,0.9814)
+[2025-12-20 14:06:29.472] [info] [Sync-RingBuffer] 📷 frame_id=124 → 🎯 trigger_imu=2345 | 📊 current_imu=2345 diff=+0 | ⏱️ mcu_ts=1071198ms | 🧭 q=(-0.191,-0.022,-0.002,0.981)
+[2025-12-20 14:06:29.472] [info] ┌────────────────────────────────────────────────────────────────┐
+[2025-12-20 14:06:29.472] [info] │ 🔍 时间戳验证（Time Synchronization Validation）                │
+[2025-12-20 14:06:29.472] [info] ├────────────────────────────────────────────────────────────────┤
+[2025-12-20 14:06:29.472] [info] │ 📷 Camera Frame:  frame_id=124    → trigger_imu=2345            │
+[2025-12-20 14:06:29.472] [info] │ ⏱️  Time Source:   MCU Hardware Timestamp (converted)          │
+[2025-12-20 14:06:29.472] [info] │ 🎯 IMU Count:     target=2345   current=2345   diff=  +0     │
+[2025-12-20 14:06:29.472] [info] │ ✅ Time Inheritance (MCU-based):                               │
+[2025-12-20 14:06:29.472] [info] │    • camera_timestamp ← MCU mcu_synced_timestamp              │
+[2025-12-20 14:06:29.472] [info] │    • TF timestamp     ← MCU mcu_synced_timestamp              │
+[2025-12-20 14:06:29.472] [info] │    • Marker timestamp ← MCU mcu_synced_timestamp              │
+[2025-12-20 14:06:29.472] [info] │    • Predictor dt     ← MCU timestamp diff                   │
+[2025-12-20 14:06:29.472] [info] │ 🔗 Time Consistency: ✅ PERFECT                                │
+[2025-12-20 14:06:29.472] [info] └────────────────────────────────────────────────────────────────┘
+[2025-12-20 14:06:29.492] [info] [Sync-RingBuffer] 📷 frame_id=125 → 🎯 trigger_imu=2355 | 📊 current_imu=2355 diff=+0 | ⏱️ mcu_ts=1071218ms | 🧭 q=(-0.191,-0.022,-0.002,0.981)
+[2025-12-20 14:06:29.512] [info] [Sync-RingBuffer] 📷 frame_id=126 → 🎯 trigger_imu=2365 | 📊 current_imu=2365 diff=+0 | ⏱️ mcu_ts=1071238ms | 🧭 q=(-0.191,-0.022,-0.002,0.981)
+[2025-12-20 14:06:29.531] [info] [Sync-RingBuffer] 📷 frame_id=127 → 🎯 trigger_imu=2375 | 📊 current_imu=2375 diff=+0 | ⏱️ mcu_ts=1071258ms | 🧭 q=(-0.191,-0.022,-0.002,0.981)
+[2025-12-20 14:06:29.552] [info] [Sync-RingBuffer] 📷 frame_id=128 → 🎯 trigger_imu=2385 | 📊 current_imu=2385 diff=+0 | ⏱️ mcu_ts=1071278ms | 🧭 q=(-0.191,-0.022,-0.002,0.981)
+[2025-12-20 14:06:29.571] [info] [Sync-RingBuffer] 📷 frame_id=129 → 🎯 trigger_imu=2395 | 📊 current_imu=2395 diff=+0 | ⏱️ mcu_ts=1071298ms | 🧭 q=(-0.191,-0.022,-0.002,0.981)
+[2025-12-20 14:06:29.592] [info] [Sync-RingBuffer] 📷 frame_id=130 → 🎯 trigger_imu=2405 | 📊 current_imu=2405 diff=+0 | ⏱️ mcu_ts=1071318ms | 🧭 q=(-0.191,-0.022,-0.002,0.981)
+[2025-12-20 14:06:29.611] [info] [Sync-RingBuffer] 📷 frame_id=131 → 🎯 trigger_imu=2415 | 📊 current_imu=2414 diff=-1 | ⏱️ mcu_ts=1067338ms | 🧭 q=(-0.184,-0.022,-0.002,0.983)
+[2025-12-20 14:06:29.632] [info] [Sync-RingBuffer] 📷 frame_id=132 → 🎯 trigger_imu=2425 | 📊 current_imu=2425 diff=+0 | ⏱️ mcu_ts=1071358ms | 🧭 q=(-0.191,-0.022,-0.002,0.981)
+[2025-12-20 14:06:29.640] [warning] [Tracker] Large dt: 4.020s
+[2025-12-20 14:06:29.651] [info] [Sync-RingBuffer] 📷 frame_id=133 → 🎯 trigger_imu=2435 | 📊 current_imu=2434 diff=-1 | ⏱️ mcu_ts=1067378ms | 🧭 q=(-0.184,-0.022,-0.002,0.983)
+[2025-12-20 14:06:29.671] [info] [Sync-RingBuffer] 📷 frame_id=134 → 🎯 trigger_imu=2445 | 📊 current_imu=2445 diff=+0 | ⏱️ mcu_ts=1071398ms | 🧭 q=(-0.191,-0.022,-0.002,0.981)
+[2025-12-20 14:06:29.671] [info] ┌────────────────────────────────────────────────────────────────┐
+[2025-12-20 14:06:29.671] [info] │ 🔍 时间戳验证（Time Synchronization Validation）                │
+[2025-12-20 14:06:29.671] [info] ├────────────────────────────────────────────────────────────────┤
+[2025-12-20 14:06:29.671] [info] │ 📷 Camera Frame:  frame_id=134    → trigger_imu=2445            │
+[2025-12-20 14:06:29.671] [info] │ ⏱️  Time Source:   MCU Hardware Timestamp (converted)          │
+[2025-12-20 14:06:29.671] [info] │ 🎯 IMU Count:     target=2445   current=2445   diff=  +0     │
+[2025-12-20 14:06:29.671] [info] │ ✅ Time Inheritance (MCU-based):                               │
+[2025-12-20 14:06:29.671] [info] │    • camera_timestamp ← MCU mcu_synced_timestamp              │
+[2025-12-20 14:06:29.671] [info] │    • TF timestamp     ← MCU mcu_synced_timestamp              │
+[2025-12-20 14:06:29.671] [info] │    • Marker timestamp ← MCU mcu_synced_timestamp              │
+[2025-12-20 14:06:29.671] [info] │    • Predictor dt     ← MCU timestamp diff                   │
+[2025-12-20 14:06:29.671] [info] │ 🔗 Time Consistency: ✅ PERFECT                                │
+[2025-12-20 14:06:29.671] [info] └────────────────────────────────────────────────────────────────┘
+[2025-12-20 14:06:29.680] [warning] [Tracker] Large dt: 4.020s
+[2025-12-20 14:06:29.691] [info] [Sync-RingBuffer] 📷 frame_id=135 → 🎯 trigger_imu=2455 | 📊 current_imu=2455 diff=+0 | ⏱️ mcu_ts=1071418ms | 🧭 q=(-0.191,-0.022,-0.002,0.981)
+[2025-12-20 14:06:29.712] [info] [Sync-RingBuffer] 📷 frame_id=136 → 🎯 trigger_imu=2465 | 📊 current_imu=2465 diff=+0 | ⏱️ mcu_ts=1071438ms | 🧭 q=(-0.191,-0.022,-0.002,0.981)
+[2025-12-20 14:06:29.731] [info] [Sync-RingBuffer] 📷 frame_id=137 → 🎯 trigger_imu=2475 | 📊 current_imu=2475 diff=+0 | ⏱️ mcu_ts=1071458ms | 🧭 q=(-0.191,-0.022,-0.002,0.981)
+[2025-12-20 14:06:29.752] [info] [Sync-RingBuffer] 📷 frame_id=138 → 🎯 trigger_imu=2485 | 📊 current_imu=2485 diff=+0 | ⏱️ mcu_ts=1071478ms | 🧭 q=(-0.191,-0.022,-0.002,0.981)
+[2025-12-20 14:06:29.771] [info] [Sync-RingBuffer] 📷 frame_id=139 → 🎯 trigger_imu=2495 | 📊 current_imu=2495 diff=+0 | ⏱️ mcu_ts=1071498ms | 🧭 q=(-0.191,-0.022,-0.002,0.981)
+[2025-12-20 14:06:29.792] [info] [Sync-RingBuffer] 📷 frame_id=140 → 🎯 trigger_imu=2505 | 📊 current_imu=2505 diff=+0 | ⏱️ mcu_ts=1071518ms | 🧭 q=(-0.191,-0.022,-0.002,0.981)
+[2025-12-20 14:06:29.811] [info] [Sync-RingBuffer] 📷 frame_id=141 → 🎯 trigger_imu=2515 | 📊 current_imu=2515 diff=+0 | ⏱️ mcu_ts=1071538ms | 🧭 q=(-0.191,-0.022,-0.002,0.981)
+[2025-12-20 14:06:29.832] [info] [Sync-RingBuffer] 📷 frame_id=142 → 🎯 trigger_imu=2525 | 📊 current_imu=2525 diff=+0 | ⏱️ mcu_ts=1071558ms | 🧭 q=(-0.191,-0.022,-0.002,0.981)
+[2025-12-20 14:06:29.851] [info] [Sync-RingBuffer] 📷 frame_id=143 → 🎯 trigger_imu=2535 | 📊 current_imu=2535 diff=+0 | ⏱️ mcu_ts=1071578ms | 🧭 q=(-0.191,-0.022,-0.002,0.981)
+[2025-12-20 14:06:29.873] [info] [Sync-RingBuffer] 📷 frame_id=144 → 🎯 trigger_imu=2545 | 📊 current_imu=2545 diff=+0 | ⏱️ mcu_ts=1071598ms | 🧭 q=(-0.191,-0.022,-0.002,0.981)
+[2025-12-20 14:06:29.873] [info] ┌────────────────────────────────────────────────────────────────┐
+[2025-12-20 14:06:29.873] [info] │ 🔍 时间戳验证（Time Synchronization Validation）                │
+[2025-12-20 14:06:29.873] [info] ├────────────────────────────────────────────────────────────────┤
+[2025-12-20 14:06:29.873] [info] │ 📷 Camera Frame:  frame_id=144    → trigger_imu=2545            │
+[2025-12-20 14:06:29.873] [info] │ ⏱️  Time Source:   MCU Hardware Timestamp (converted)          │
+[2025-12-20 14:06:29.873] [info] │ 🎯 IMU Count:     target=2545   current=2545   diff=  +0     │
+[2025-12-20 14:06:29.873] [info] │ ✅ Time Inheritance (MCU-based):                               │
+[2025-12-20 14:06:29.873] [info] │    • camera_timestamp ← MCU mcu_synced_timestamp              │
+[2025-12-20 14:06:29.873] [info] │    • TF timestamp     ← MCU mcu_synced_timestamp              │
+[2025-12-20 14:06:29.873] [info] │    • Marker timestamp ← MCU mcu_synced_timestamp              │
+[2025-12-20 14:06:29.873] [info] │    • Predictor dt     ← MCU timestamp diff                   │
+[2025-12-20 14:06:29.873] [info] │ 🔗 Time Consistency: ✅ PERFECT                                │
+[2025-12-20 14:06:29.873] [info] └────────────────────────────────────────────────────────────────┘
+[2025-12-20 14:06:29.892] [info] [Sync-RingBuffer] 📷 frame_id=145 → 🎯 trigger_imu=2555 | 📊 current_imu=2555 diff=+0 | ⏱️ mcu_ts=1071618ms | 🧭 q=(-0.191,-0.022,-0.002,0.981)
+[2025-12-20 14:06:29.912] [info] [Sync-RingBuffer] 📷 frame_id=146 → 🎯 trigger_imu=2565 | 📊 current_imu=2565 diff=+0 | ⏱️ mcu_ts=1071638ms | 🧭 q=(-0.191,-0.022,-0.002,0.981)
+[2025-12-20 14:06:29.939] [info] [Sync-RingBuffer] 📷 frame_id=147 → 🎯 trigger_imu=2575 | 📊 current_imu=2579 diff=+4 | ⏱️ mcu_ts=1071658ms | 🧭 q=(-0.192,-0.022,-0.002,0.981)
+[2025-12-20 14:06:29.954] [info] [Sync-RingBuffer] 📷 frame_id=148 → 🎯 trigger_imu=2585 | 📊 current_imu=2586 diff=+1 | ⏱️ mcu_ts=1071678ms | 🧭 q=(-0.192,-0.022,-0.002,0.981)
+[2025-12-20 14:06:29.971] [info] [Sync-RingBuffer] 📷 frame_id=149 → 🎯 trigger_imu=2595 | 📊 current_imu=2595 diff=+0 | ⏱️ mcu_ts=1071698ms | 🧭 q=(-0.192,-0.022,-0.002,0.981)
+[2025-12-20 14:06:29.992] [info] [Sync-RingBuffer] 📷 frame_id=150 → 🎯 trigger_imu=2605 | 📊 current_imu=2605 diff=+0 | ⏱️ mcu_ts=1071718ms | 🧭 q=(-0.192,-0.022,-0.002,0.981)
+[2025-12-20 14:06:30.013] [info] [Sync-RingBuffer] 📷 frame_id=151 → 🎯 trigger_imu=2615 | 📊 current_imu=2615 diff=+0 | ⏱️ mcu_ts=1071738ms | 🧭 q=(-0.192,-0.022,-0.002,0.981)
+[2025-12-20 14:06:30.031] [info] [Sync-RingBuffer] 📷 frame_id=152 → 🎯 trigger_imu=2625 | 📊 current_imu=2625 diff=+0 | ⏱️ mcu_ts=1071758ms | 🧭 q=(-0.192,-0.022,-0.002,0.981)
+[2025-12-20 14:06:30.052] [info] [Sync-RingBuffer] 📷 frame_id=153 → 🎯 trigger_imu=2635 | 📊 current_imu=2635 diff=+0 | ⏱️ mcu_ts=1071778ms | 🧭 q=(-0.192,-0.022,-0.002,0.981)
+[2025-12-20 14:06:30.060] [info] [Performance] FPS: 49.9 | Total: 18.1ms | Camera: 10.8ms | IMU: 0.04ms | Detect: 6.9ms | Track: 0.30ms | Aim: 0.02ms | Visual: 0.10ms | Send: 0.02ms
+[2025-12-20 14:06:30.060] [info] [Frame Match] current_imu_count=2635 trigger_imu=2635 q(w,x,y,z)=(-0.1916,-0.0216,-0.0015,0.9812)
+[2025-12-20 14:06:30.072] [info] [Sync-RingBuffer] 📷 frame_id=154 → 🎯 trigger_imu=2645 | 📊 current_imu=2645 diff=+0 | ⏱️ mcu_ts=1071798ms | 🧭 q=(-0.192,-0.022,-0.002,0.981)
+[2025-12-20 14:06:30.072] [info] ┌────────────────────────────────────────────────────────────────┐
+[2025-12-20 14:06:30.072] [info] │ 🔍 时间戳验证（Time Synchronization Validation）                │
+[2025-12-20 14:06:30.072] [info] ├────────────────────────────────────────────────────────────────┤
+[2025-12-20 14:06:30.072] [info] │ 📷 Camera Frame:  frame_id=154    → trigger_imu=2645            │
+[2025-12-20 14:06:30.072] [info] │ ⏱️  Time Source:   MCU Hardware Timestamp (converted)          │
+[2025-12-20 14:06:30.072] [info] │ 🎯 IMU Count:     target=2645   current=2645   diff=  +0     │
+[2025-12-20 14:06:30.072] [info] │ ✅ Time Inheritance (MCU-based):                               │
+[2025-12-20 14:06:30.072] [info] │    • camera_timestamp ← MCU mcu_synced_timestamp              │
+[2025-12-20 14:06:30.072] [info] │    • TF timestamp     ← MCU mcu_synced_timestamp              │
+[2025-12-20 14:06:30.072] [info] │    • Marker timestamp ← MCU mcu_synced_timestamp              │
+[2025-12-20 14:06:30.072] [info] │    • Predictor dt     ← MCU timestamp diff                   │
+[2025-12-20 14:06:30.072] [info] │ 🔗 Time Consistency: ✅ PERFECT                                │
+[2025-12-20 14:06:30.072] [info] └────────────────────────────────────────────────────────────────┘
+[2025-12-20 14:06:30.092] [info] [Sync-RingBuffer] 📷 frame_id=155 → 🎯 trigger_imu=2655 | 📊 current_imu=2655 diff=+0 | ⏱️ mcu_ts=1071818ms | 🧭 q=(-0.192,-0.022,-0.002,0.981)
+[2025-12-20 14:06:30.112] [info] [Sync-RingBuffer] 📷 frame_id=156 → 🎯 trigger_imu=2665 | 📊 current_imu=2665 diff=+0 | ⏱️ mcu_ts=1071838ms | 🧭 q=(-0.192,-0.022,-0.002,0.981)
+[2025-12-20 14:06:30.133] [info] [Sync-RingBuffer] 📷 frame_id=157 → 🎯 trigger_imu=2675 | 📊 current_imu=2675 diff=+0 | ⏱️ mcu_ts=1071858ms | 🧭 q=(-0.192,-0.022,-0.002,0.981)
+[2025-12-20 14:06:30.152] [info] [Sync-RingBuffer] 📷 frame_id=158 → 🎯 trigger_imu=2685 | 📊 current_imu=2685 diff=+0 | ⏱️ mcu_ts=1071878ms | 🧭 q=(-0.192,-0.022,-0.002,0.981)
+[2025-12-20 14:06:30.174] [info] [Sync-RingBuffer] 📷 frame_id=159 → 🎯 trigger_imu=2695 | 📊 current_imu=2696 diff=+1 | ⏱️ mcu_ts=1071898ms | 🧭 q=(-0.192,-0.022,-0.002,0.981)
+[2025-12-20 14:06:30.193] [info] Daheng capture thread stopped
+[2025-12-20 14:06:30.273] [info] Daheng daemon thread stopped
+[2025-12-20 14:06:30.380] [info] Daheng camera closed
+[2025-12-20 14:06:30.382] [info] Daheng camera destructed
+[2025-12-20 14:06:30.480] [info] SocketCAN destructed.

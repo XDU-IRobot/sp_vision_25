@@ -37,10 +37,22 @@ Solver::Solver(const std::string & config_path) : R_gimbal2world_(Eigen::Matrix3
 
   auto camera_matrix_data = yaml["camera_matrix"].as<std::vector<double>>();
   auto distort_coeffs_data = yaml["distort_coeffs"].as<std::vector<double>>();
-  Eigen::Matrix<double, 3, 3, Eigen::RowMajor> camera_matrix(camera_matrix_data.data());
-  Eigen::Matrix<double, 1, 5> distort_coeffs(distort_coeffs_data.data());
-  cv::eigen2cv(camera_matrix, camera_matrix_);
-  cv::eigen2cv(distort_coeffs, distort_coeffs_);
+
+  // 验证数据大小
+  if (camera_matrix_data.size() != 9) {
+    throw std::runtime_error("camera_matrix must have exactly 9 elements");
+  }
+  if (distort_coeffs_data.size() != 5) {
+    throw std::runtime_error("distort_coeffs must have exactly 5 elements");
+  }
+
+  // 将数据复制到成员数组中（确保数据生命周期）
+  std::copy(camera_matrix_data.begin(), camera_matrix_data.end(), camera_matrix_data_.begin());
+  std::copy(distort_coeffs_data.begin(), distort_coeffs_data.end(), distort_coeffs_data_.begin());
+
+  // 创建 cv::Mat 包装器，指向成员数组数据
+  camera_matrix_ = cv::Mat(3, 3, CV_64F, camera_matrix_data_.data());
+  distort_coeffs_ = cv::Mat(1, 5, CV_64F, distort_coeffs_data_.data());
 }
 
 Eigen::Matrix3d Solver::R_gimbal2world() const { return R_gimbal2world_; }
@@ -268,9 +280,11 @@ std::vector<cv::Point2f> Solver::world2pixel(const std::vector<cv::Point3f> & wo
   Eigen::Matrix3d R_world2camera = R_camera2gimbal_.transpose() * R_gimbal2world_.transpose();
   Eigen::Vector3d t_world2camera = -R_camera2gimbal_.transpose() * t_camera2gimbal_;
 
+  cv::Mat R_world2camera_cv;
   cv::Mat rvec;
   cv::Mat tvec;
-  cv::eigen2cv(R_world2camera, rvec);
+  cv::eigen2cv(R_world2camera, R_world2camera_cv);
+  cv::Rodrigues(R_world2camera_cv, rvec);
   cv::eigen2cv(t_world2camera, tvec);
 
   std::vector<cv::Point3f> valid_world_points;

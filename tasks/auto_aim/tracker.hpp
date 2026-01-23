@@ -4,6 +4,7 @@
 #include <Eigen/Dense>
 #include <chrono>
 #include <list>
+#include <memory>
 #include <string>
 
 #include "armor.hpp"
@@ -11,6 +12,14 @@
 #include "target.hpp"
 #include "tasks/omniperception/perceptron.hpp"
 #include "tools/thread_safe_queue.hpp"
+
+// ROS2 前向声明（避免强制依赖）
+#ifdef AMENT_CMAKE_FOUND
+namespace rclcpp {
+class Node;
+class Time;
+}
+#endif
 
 namespace auto_aim
 {
@@ -29,6 +38,19 @@ public:
     const std::vector<omniperception::DetectionResult> & detection_queue, std::list<Armor> & armors,
     std::chrono::steady_clock::time_point t, bool use_enemy_color = true);
 
+#ifdef AMENT_CMAKE_FOUND
+  // 设置 ROS2 节点用于发布 marker（可选）
+  void set_ros2_node(std::shared_ptr<rclcpp::Node> node);
+
+  // 发布当前跟踪目标的 marker 到 rviz2
+  // timestamp: 可选的时间戳，如果不提供则使用ros_node_->now()
+  void publish_markers(
+    const std::list<Target> & targets,
+    const rclcpp::Time & timestamp,
+    const Eigen::Vector4d & aim_xyza = Eigen::Vector4d::Zero(),
+    bool has_aim_point = false);
+#endif
+
 private:
   Solver & solver_;
   Color enemy_color_;
@@ -42,6 +64,11 @@ private:
   Target target_;
   std::chrono::steady_clock::time_point last_timestamp_;
   ArmorPriority omni_target_priority_;
+
+#ifdef AMENT_CMAKE_FOUND
+  std::shared_ptr<rclcpp::Node> ros_node_;
+  std::shared_ptr<void> marker_pub_;  // 使用 void* 类型擦除，避免暴露 ROS2 具体类型
+#endif
 
   void state_machine(bool found);
 

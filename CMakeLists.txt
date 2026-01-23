@@ -38,6 +38,7 @@ add_executable(auto_buff_debug src/auto_buff_debug.cpp)
 add_executable(auto_buff_debug_mpc src/auto_buff_debug_mpc.cpp)
 add_executable(uav src/uav.cpp)
 add_executable(uav_debug src/uav_debug.cpp)
+add_executable(yolo_detect_single src/yolo_detect_single.cpp)
 
 target_link_libraries(standard ${OpenCV_LIBS} fmt::fmt yaml-cpp auto_aim auto_buff tools io)
 target_link_libraries(mt_standard ${OpenCV_LIBS} fmt::fmt yaml-cpp auto_aim auto_buff tools io)
@@ -49,6 +50,7 @@ target_link_libraries(auto_buff_debug ${OpenCV_LIBS} fmt::fmt yaml-cpp auto_buff
 target_link_libraries(auto_buff_debug_mpc ${OpenCV_LIBS} fmt::fmt yaml-cpp auto_buff tools io ${CERES_LIBRARIES})
 target_link_libraries(uav ${OpenCV_LIBS} fmt::fmt yaml-cpp auto_aim auto_buff tools io)
 target_link_libraries(uav_debug ${OpenCV_LIBS} fmt::fmt yaml-cpp auto_aim tools io)
+target_link_libraries(yolo_detect_single ${OpenCV_LIBS} fmt::fmt yaml-cpp auto_aim tools)
 
 ##################calibration################
 add_executable(capture calibration/capture.cpp)
@@ -119,30 +121,53 @@ target_link_libraries(camera_planner_realtime ${OpenCV_LIBS} fmt::fmt yaml-cpp a
 add_executable(trigger_test tests/trigger_test.cpp)
 target_link_libraries(trigger_test ${OpenCV_LIBS} fmt::fmt yaml-cpp tools io)
 
-# 检查 ROS 环境
+# 检查 ROS 环境（只检查 standard_ros2 需要的包）
 find_package(ament_cmake QUIET)
 find_package(rclcpp QUIET)
 find_package(std_msgs QUIET)
-find_package(rosidl_typesupport_cpp QUIET)
-find_package(sp_msgs QUIET)
-# 只有在找到 ROS 环境时才会添加 sentry 和 publish_test
-if(ament_cmake_FOUND AND rclcpp_FOUND AND std_msgs_FOUND AND rosidl_typesupport_cpp_FOUND AND sp_msgs_FOUND)
-    # 编译 sentry 和 publish_test
-    add_executable(sentry src/sentry.cpp)
-    add_executable(sentry_bp src/sentry_bp.cpp)
-    add_executable(sentry_debug src/sentry_debug.cpp)
-    add_executable(sentry_multithread src/sentry_multithread.cpp)
-    add_executable(publish_test tests/publish_test.cpp)
-    add_executable(subscribe_test tests/subscribe_test.cpp)
-    add_executable(topic_loop_test tests/topic_loop_test.cpp)
+find_package(visualization_msgs QUIET)
+find_package(tf2_ros QUIET)
+find_package(geometry_msgs QUIET)
+# find_package(rosidl_typesupport_cpp QUIET)  # 暂不需要
+# find_package(sp_msgs QUIET)  # 暂不需要
 
-    target_link_libraries(sentry ${OpenCV_LIBS} fmt::fmt yaml-cpp auto_aim omniperception tools io)
-    target_link_libraries(sentry_bp ${OpenCV_LIBS} fmt::fmt yaml-cpp auto_aim omniperception tools io)
-    target_link_libraries(sentry_debug ${OpenCV_LIBS} fmt::fmt yaml-cpp auto_aim omniperception tools io)
-    target_link_libraries(sentry_multithread ${OpenCV_LIBS} fmt::fmt yaml-cpp auto_aim omniperception tools io)
-    target_link_libraries(publish_test ${OpenCV_LIBS} fmt::fmt tools io auto_aim)
-    target_link_libraries(subscribe_test ${OpenCV_LIBS} fmt::fmt tools io)
-    target_link_libraries(topic_loop_test ${OpenCV_LIBS} fmt::fmt tools io)
+# 只编译 standard_ros2 (不编译 sentry 等其他 ROS2 程序)
+if(ament_cmake_FOUND AND rclcpp_FOUND AND std_msgs_FOUND AND visualization_msgs_FOUND AND tf2_ros_FOUND AND geometry_msgs_FOUND)
+    message(STATUS "ROS2 environment found, compiling standard_ros2 with marker visualization")
+
+    add_executable(standard_ros2 src/standard.cpp)
+    target_link_libraries(standard_ros2 ${OpenCV_LIBS} fmt::fmt yaml-cpp auto_aim auto_buff tools io rclcpp::rclcpp)
+    ament_target_dependencies(standard_ros2 rclcpp std_msgs visualization_msgs tf2_ros geometry_msgs)
+    target_compile_definitions(standard_ros2 PRIVATE AMENT_CMAKE_FOUND)
+
+    # 同时编译 auto_aim_test_ros2
+    add_executable(auto_aim_test_ros2 tests/auto_aim_test.cpp)
+    target_link_libraries(auto_aim_test_ros2 ${OpenCV_LIBS} fmt::fmt yaml-cpp tools io auto_aim rclcpp::rclcpp)
+    ament_target_dependencies(auto_aim_test_ros2 rclcpp std_msgs visualization_msgs tf2_ros geometry_msgs)
+    target_compile_definitions(auto_aim_test_ros2 PRIVATE AMENT_CMAKE_FOUND)
 else()
-    message(STATUS "ROS2 environment not found, skipping ROS2-related code.")
+    message(STATUS "ROS2 environment not complete, skipping standard_ros2")
 endif()
+
+# 原有的 sentry 等程序编译（已注释）
+# 只有在找到 ROS 环境时才会添加 sentry 和 publish_test
+# if(ament_cmake_FOUND AND rclcpp_FOUND AND std_msgs_FOUND AND visualization_msgs_FOUND AND rosidl_typesupport_cpp_FOUND AND sp_msgs_FOUND)
+#     # 编译 sentry 和 publish_test
+#     add_executable(sentry src/sentry.cpp)
+#     add_executable(sentry_bp src/sentry_bp.cpp)
+#     add_executable(sentry_debug src/sentry_debug.cpp)
+#     add_executable(sentry_multithread src/sentry_multithread.cpp)
+#     add_executable(publish_test tests/publish_test.cpp)
+#     add_executable(subscribe_test tests/subscribe_test.cpp)
+#     add_executable(topic_loop_test tests/topic_loop_test.cpp)
+#
+#     target_link_libraries(sentry ${OpenCV_LIBS} fmt::fmt yaml-cpp auto_aim omniperception tools io)
+#     target_link_libraries(sentry_bp ${OpenCV_LIBS} fmt::fmt yaml-cpp auto_aim omniperception tools io)
+#     target_link_libraries(sentry_debug ${OpenCV_LIBS} fmt::fmt yaml-cpp auto_aim omniperception tools io)
+#     target_link_libraries(sentry_multithread ${OpenCV_LIBS} fmt::fmt yaml-cpp auto_aim omniperception tools io)
+#     target_link_libraries(publish_test ${OpenCV_LIBS} fmt::fmt tools io auto_aim)
+#     target_link_libraries(subscribe_test ${OpenCV_LIBS} fmt::fmt tools io)
+#     target_link_libraries(topic_loop_test ${OpenCV_LIBS} fmt::fmt tools io)
+# else()
+#     message(STATUS "ROS2 environment not found, skipping ROS2-related code.")
+# endif()

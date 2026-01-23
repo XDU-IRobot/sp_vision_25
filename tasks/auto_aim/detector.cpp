@@ -162,7 +162,7 @@ bool Detector::detect(Armor & armor, const cv::Mat & bgr_img)
   // 进行二值化
   cv::Mat binary_img;
   cv::threshold(gray_img, binary_img, threshold_, 255, cv::THRESH_BINARY);
-  // cv::imshow("binary_img", binary_img);
+  cv::imshow("binary_img", binary_img);
   // 获取轮廓点
   std::vector<std::vector<cv::Point>> contours;
   cv::findContours(binary_img, contours, cv::RETR_EXTERNAL, cv::CHAIN_APPROX_NONE);
@@ -208,13 +208,13 @@ bool Detector::detect(Armor & armor, const cv::Mat & bgr_img)
     }
   }
 
-  // tools::logger()->debug(
-  // "min_distance_br_tr + min_distance_tl_bl is {}", min_distance_br_tr + min_distance_tl_bl);
-  // std::vector<cv::Point2f> points2f{
-  //   closest_left_lightbar->top, closest_left_lightbar->bottom, closest_right_lightbar->bottom,
-  //   closest_right_lightbar->top};
-  // tools::draw_points(armor_roi, points2f, {0, 0, 255}, 2);
-  // cv::imshow("armor_roi", armor_roi);
+  tools::logger()->debug(
+  "min_distance_br_tr + min_distance_tl_bl is {}", min_distance_br_tr + min_distance_tl_bl);
+  std::vector<cv::Point2f> points2f{
+    closest_left_lightbar->top, closest_left_lightbar->bottom, closest_right_lightbar->bottom,
+    closest_right_lightbar->top};
+  tools::draw_points(armor_roi, points2f, {0, 0, 255}, 2);
+  cv::imshow("armor_roi", armor_roi);
 
   if (
     closest_left_lightbar && closest_right_lightbar &&

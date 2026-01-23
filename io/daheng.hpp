@@ -19,11 +19,16 @@ public:
   ~Daheng() override;
   void read(cv::Mat & img, std::chrono::steady_clock::time_point & timestamp) override;
 
+  // 🆕 获取最后读取的相机帧ID
+  uint64_t get_last_frame_id() const { return last_frame_id_; }
+
 private:
   struct CameraData
   {
     cv::Mat img;
-    std::chrono::steady_clock::time_point timestamp;
+    std::chrono::steady_clock::time_point timestamp;  // 转换后的系统时间戳
+    uint64_t frame_id;        // 🆕 相机SDK的帧ID
+    uint64_t hw_timestamp;    // 🆕 相机硬件时间戳 (nTimestamp)
   };
 
   double exposure_, gain_;
@@ -46,6 +51,7 @@ private:
   std::thread capture_thread_;
   std::thread daemon_thread_;
   tools::ThreadSafeQueue<CameraData> queue_;
+  uint64_t last_frame_id_;  // 🆕 最后读取的帧ID
 
   void open();
   void try_open();

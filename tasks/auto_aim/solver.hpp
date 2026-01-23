@@ -1,6 +1,7 @@
 #ifndef AUTO_AIM__SOLVER_HPP
 #define AUTO_AIM__SOLVER_HPP
 
+#include <array>
 #include <Eigen/Dense>  // 必须在opencv2/core/eigen.hpp上面
 #include <Eigen/Geometry>
 #include <opencv2/core/eigen.hpp>
@@ -14,7 +15,15 @@ class Solver
 public:
   explicit Solver(const std::string & config_path);
 
+  // 禁止拷贝和移动，确保 Solver 对象不会被意外复制
+  Solver(const Solver &) = delete;
+  Solver(Solver &&) = delete;
+  Solver & operator=(const Solver &) = delete;
+  Solver & operator=(Solver &&) = delete;
+
   Eigen::Matrix3d R_gimbal2world() const;
+
+  Eigen::Matrix3d R_gimbal2imubody() const { return R_gimbal2imubody_; }
 
   void set_R_gimbal2world(const Eigen::Quaterniond & q);
 
@@ -28,6 +37,9 @@ public:
   std::vector<cv::Point2f> world2pixel(const std::vector<cv::Point3f> & worldPoints);
 
 private:
+  // 直接存储校准数据，避免 cv::Mat 的引用计数问题
+  std::array<double, 9> camera_matrix_data_;
+  std::array<double, 5> distort_coeffs_data_;
   cv::Mat camera_matrix_;
   cv::Mat distort_coeffs_;
   Eigen::Matrix3d R_gimbal2imubody_;

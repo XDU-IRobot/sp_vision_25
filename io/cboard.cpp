@@ -129,16 +129,16 @@ void CBoard::callback(const can_frame & frame)
       double qw = f16tools::f16_to_f32(q_w16);
       double qx = f16tools::f16_to_f32(q_x16);
       double qy = f16tools::f16_to_f32(q_y16);
-      //  根据归一化约束和符号位恢复 z
-      double qz_abs = std::sqrt(std::max(0.0, 1.0 - qw * qw - qx * qx - qy * qy));
-      double qz = (z_sign == 1) ? qz_abs : -qz_abs;
+
       //  解析 byte6 的打包字段
       uint8_t packed = frame.data[6];
       uint8_t z_sign = (packed >> 7) & 0x1;
       uint8_t id_bit = (packed >> 6) & 0x1;
       uint8_t mode_bits = (packed >> 4) & 0x3;
       uint8_t imu_bits = packed & 0xF;
-
+      //  根据归一化约束和符号位恢复 z
+      double qz_abs = std::sqrt(std::max(0.0, 1.0 - qw * qw - qx * qx - qy * qy));
+      double qz = (z_sign == 1) ? qz_abs : -qz_abs;
       // 恢复 robot_id
       robot_id_ = id_bit ? (100 + mode_bits) : mode_bits;
 
@@ -150,11 +150,11 @@ void CBoard::callback(const can_frame & frame)
 
       //  解析 byte7 的子弹速度
       bullet_speed = static_cast<double>(frame.data[7]) * 32.0 / 255.0;
-
-      imu_ring_buffer_[index].q = q;
-      imu_ring_buffer_[index].timestamp = timestamp;
-      imu_ring_buffer_[index].imu_count = imu_count_low;
-      imu_ring_buffer_[index].valid.store(true, std::memory_order_release);
+      Eigen::Quaterniond q(qw,qx,qy,qz);
+      imu_ring_buffer_[imu_count_low].q = q;
+      imu_ring_buffer_[imu_count_low].timestamp = timestamp;
+      imu_ring_buffer_[imu_count_low].imu_count = imu_count_low;
+      imu_ring_buffer_[imu_count_low].valid.store(true, std::memory_order_release);
 
       // 推入队列（兼容旧接口）
       IMUData imu_data;

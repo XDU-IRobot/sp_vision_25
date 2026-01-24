@@ -39,7 +39,7 @@ else()
   message(FATAL_ERROR "Unsupported architecture: ${CMAKE_HOST_SYSTEM_PROCESSOR}!")
 endif()
 
-target_link_libraries(io PUBLIC rm MvCameraControl MVSDK usb-1.0 yaml-cpp serial gxiapi)
+target_link_libraries(io  rm MvCameraControl MVSDK usb-1.0 yaml-cpp serial gxiapi)
 
 ################## 检查 ROS 环境 ##################
 find_package(ament_cmake QUIET)

@@ -54,8 +54,16 @@ YOLOV8::YOLOV8(const std::string & config_path, bool debug)
 
   // TODO: ov::hint::performance_mode(ov::hint::PerformanceMode::LATENCY)
   model = ppp.build();
-  compiled_model_ = core_.compile_model(
-    model, device_, ov::hint::performance_mode(ov::hint::PerformanceMode::LATENCY));
+  // compiled_model_ = core_.compile_model(
+  //   model, device_, ov::hint::performance_mode(ov::hint::PerformanceMode::LATENCY));
+  compiled_model_ = core_.compile_model(model, device_);
+  // compiled_model_ = core_.compile_model(
+  //     model, device_,
+  //     ov::hint::performance_mode(ov::hint::PerformanceMode::LATENCY),
+  //     ov::streams::num(1),
+  //     ov::hint::num_requests(1),
+  //     ov::inference_num_threads(4)
+  //   );
 }
 
 std::list<Armor> YOLOV8::detect(const cv::Mat & raw_img, int frame_count)

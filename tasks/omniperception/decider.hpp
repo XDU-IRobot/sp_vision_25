@@ -47,6 +47,12 @@ public:
   void get_auto_aim_target(
     std::list<auto_aim::Armor> & armors, const std::vector<int8_t> & auto_aim_target);
 
+  // 🆕 动态设置敌方颜色（用于根据robot_id实时切换）
+  void set_enemy_color(auto_aim::Color color) { enemy_color_ = color; }
+
+  // 🆕 获取当前敌方颜色
+  auto_aim::Color get_enemy_color() const { return enemy_color_; }
+
 private:
   int img_width_;
   int img_height_;

@@ -83,12 +83,8 @@ private:
   IMUData data_ahead_;
   IMUData data_behind_;
 
-  int quaternion_canid_, bullet_speed_canid_, send_canid_;
-
-  // ===== 新CAN协议配置 =====
-  bool use_new_can_protocol_ = false;
-  int new_can_quat_id_ = 0x150;
-  int new_can_cmd_id_ = 0x170;
+  int new_can_quat_id_;
+  int new_can_cmd_id_;
   uint8_t robot_id_ = 0;
   uint16_t imu_count_ = 0;
   uint16_t last_imu_count_ = 0;

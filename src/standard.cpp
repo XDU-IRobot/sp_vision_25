@@ -35,7 +35,9 @@ const std::string keys =
 
 int main(int argc, char * argv[])
 {
-  
+    tools::Exiter exiter;
+  tools::Plotter plotter;
+  tools::Recorder recorder;
   cv::CommandLineParser cli(argc, argv, keys);
 
   auto config_path = cli.get<std::string>(0);
@@ -44,9 +46,7 @@ int main(int argc, char * argv[])
     return 0;
   }
 
-  tools::Exiter exiter;
-  tools::Plotter plotter;
-  tools::Recorder recorder;
+
 
   io::CBoard cboard(config_path);
   io::Camera camera(config_path);
@@ -56,6 +56,7 @@ int main(int argc, char * argv[])
   auto_aim::Tracker tracker(config_path, solver);
   auto_aim::Aimer aimer(config_path);
   auto_aim::Shooter shooter(config_path);
+  auto_aim::multithread::CommandGener commandgener(shooter, aimer, cboard, plotter, false);
   // 🎯 所有模块初始化完成，启动相机触发
   tools::logger()->info("=== All modules initialized ===");
   tools::logger()->info("=== Entering main loop ===");
@@ -86,7 +87,6 @@ int main(int argc, char * argv[])
 
   // 🔧 同步方式选择：true = 基于时间戳 | false = 基于 count 硬同步
   bool use_timestamp_sync = false;  // 🆕 启用硬同步方案（使用环形数组）
-
   while (!exiter.exit()) {
     t_start = std::chrono::steady_clock::now();
 
@@ -100,9 +100,7 @@ int main(int argc, char * argv[])
     Eigen::Quaterniond q;
     std::chrono::steady_clock::time_point synced_imu_timestamp;
 
-    if (use_timestamp_sync) {
-    } else {
-      // ==================== 方案B：基于 count 硬同步（使用环形数组） ====================
+      // ==================== 基于 count 硬同步（使用环形数组） ====================
       // 核心思想：相机由MCU硬触发，IMU时间戳 = 相机时间戳
       //
       // MCU逻辑：当 imu_count % 10 == 0 时硬触发相机
@@ -116,7 +114,6 @@ int main(int argc, char * argv[])
       // 计算当前帧对应的触发点IMU计数（加上手动偏移量）
       trigger_imu_count = (((frame_id + 1) * 10) + frame_id_to_imu_offset) % 10000;
       if (trigger_imu_count < 0) trigger_imu_count += 10000;
-
       // 🆕 使用环形数组O(1)查询IMU数据
       auto imu_result = cboard.get_imu_from_ring_buffer(trigger_imu_count);
 
@@ -129,11 +126,6 @@ int main(int argc, char * argv[])
 
       } else {
       }
-    }
-
-    t_end = std::chrono::steady_clock::now();
-    double t_imu = std::chrono::duration<double, std::milli>(t_end - t_start).count();
-
     mode = cboard.mode;
 
     if (last_mode != mode) {
@@ -142,78 +134,12 @@ int main(int argc, char * argv[])
     }
 
     // recorder.record(img, q, t);
-
-    t_start = std::chrono::steady_clock::now();
     solver.set_R_gimbal2world(q);
-    t_end = std::chrono::steady_clock::now();
-    double t_solver_setup = std::chrono::duration<double, std::milli>(t_end - t_start).count();
-
-
-    Eigen::Vector3d ypr = tools::eulers(solver.R_gimbal2world(), 2, 1, 0);
-
-    t_start = std::chrono::steady_clock::now();
     auto armors = detector.detect(img);
-    t_end = std::chrono::steady_clock::now();
-    double t_detect = std::chrono::duration<double, std::milli>(t_end - t_start).count();
-
-    t_start = std::chrono::steady_clock::now();
-    // 🔑 使用硬同步的 IMU 时间戳（与 TF/Marker 严格一致）
     auto targets = tracker.track(armors, synced_imu_timestamp);
-    t_end = std::chrono::steady_clock::now();
-    double t_track = std::chrono::duration<double, std::milli>(t_end - t_start).count();
-
-    t_start = std::chrono::steady_clock::now();
-    // 🔑 使用硬同步的 IMU 时间戳（与 TF/Marker 严格一致）
-    // to_now=false：不补偿处理延迟，使用触发时刻的状态（与 TF 时间一致）
-
     auto command = aimer.aim(targets, synced_imu_timestamp, cboard.bullet_speed, false);
-    t_end = std::chrono::steady_clock::now();
-    double t_aim = std::chrono::duration<double, std::milli>(t_end - t_start).count();
-
-    t_start = std::chrono::steady_clock::now();
-     command.pitch -= 0.10;
-    command.yaw +=0;
     cboard.send(command);
-    t_end = std::chrono::steady_clock::now();
-    double t_send = std::chrono::duration<double, std::milli>(t_end - t_start).count();
-
-    // 帧率计算
-    frame_count++;
-    debug_frame_count++;  // 🆕 独立计数器
-    auto fps_current_time = std::chrono::steady_clock::now();
-    auto fps_elapsed = std::chrono::duration<double>(fps_current_time - fps_start_time).count();
-
-    if (fps_elapsed >= 1.0) {  // 每秒更新一次帧率
-      current_fps = frame_count / fps_elapsed;
-      frame_count = 0;
-      fps_start_time = fps_current_time;
-    }
-
-    /// 重投影可视化 (类似auto_aim_debug_mpc)
-    t_start = std::chrono::steady_clock::now();
-    if (!targets.empty()) {
-      auto target = targets.front();
-
-      // 绘制所有装甲板（绿色）
-      std::vector<Eigen::Vector4d> armor_xyza_list = target.armor_xyza_list();
-      for (const Eigen::Vector4d & xyza : armor_xyza_list) {
-        auto image_points =
-          solver.reproject_armor(xyza.head(3), xyza[3], target.armor_type, target.name);
-        tools::draw_points(img, image_points, {0, 255, 0});
-      }
-
-      // 绘制瞄准点（红色）
-      if (command.control && aimer.debug_aim_point.valid) {
-        Eigen::Vector4d aim_xyza = aimer.debug_aim_point.xyza;
-        auto image_points =
-          solver.reproject_armor(aim_xyza.head(3), aim_xyza[3], target.armor_type, target.name);
-        tools::draw_points(img, image_points, {0, 0, 255});
-      }
-    }
-    
-
   }
-
   // 清理 ROS2
 #ifdef AMENT_CMAKE_FOUND
   rclcpp::shutdown();

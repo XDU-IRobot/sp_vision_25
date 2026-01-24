@@ -27,14 +27,9 @@ CBoard::CBoard(const std::string & config_path)
 {
   auto transport = read_yaml(config_path);
 
-  if (transport == "serial") {
-  }
 
-  else {
-    // 默认使用 CAN——此处为同济实现的 SocketCAN，选择了保留这种接口
     can_ = std::make_unique<SocketCAN>(
-      transport, std::bind(&CBoard::callback, this, std::placeholders::_1));
-  }
+    transport, std::bind(&CBoard::callback, this, std::placeholders::_1));
 
   tools::logger()->info("[Cboard] Waiting for q...");
   queue_.pop(data_ahead_);
@@ -69,7 +64,7 @@ Eigen::Quaterniond CBoard::imu_at(std::chrono::steady_clock::time_point timestam
 
 void CBoard::send(Command command)
 {
-  if (use_new_can_protocol_) {
+ new_can_cmd_id_=0x170;
     can_frame frame;
     frame.can_id = new_can_cmd_id_;
     frame.can_dlc = 7;
@@ -99,8 +94,8 @@ void CBoard::send(Command command)
       }
     } catch (const std::exception & e) {
       tools::logger()->warn("[NewCAN] write failed: {}", e.what());
-    }
   }
+  return;
 }
 
 CBoard::~CBoard() {}
@@ -108,9 +103,7 @@ CBoard::~CBoard() {}
 void CBoard::callback(const can_frame & frame)
 {
   auto timestamp = std::chrono::steady_clock::now();
-
-  if (use_new_can_protocol_) {
-    // 🆕 处理四元数帧 (0x150)
+    // 下位机(0x150)
     if (frame.can_id == new_can_quat_id_) {
       if (frame.can_dlc < 8) {
         tools::logger()->warn("[NewCAN] Quaternion frame length invalid: {}", frame.can_dlc);
@@ -175,7 +168,6 @@ void CBoard::callback(const can_frame & frame)
       }
       return;
     }
-  }
 }
 
 // 实现方式有待改进
@@ -184,15 +176,7 @@ std::string CBoard::read_yaml(const std::string & config_path)
   auto yaml = tools::load(config_path);
   // 传输后端选择
   std::string transport = "can";
-  // CAN 模式：读取 CAN 相关配置
-  quaternion_canid_ = tools::read<int>(yaml, "quaternion_canid");
-  bullet_speed_canid_ = tools::read<int>(yaml, "bullet_speed_canid");
-  send_canid_ = tools::read<int>(yaml, "send_canid");
-
   // 读取新CAN协议配置
-  if (yaml["use_new_can_protocol"]) {
-    use_new_can_protocol_ = yaml["use_new_can_protocol"].as<bool>();
-    if (use_new_can_protocol_) {
       tools::logger()->info("[CBoard] Using NEW CAN protocol");
 
       // 读取新协议的CAN ID配置（提供默认值）
@@ -205,8 +189,7 @@ std::string CBoard::read_yaml(const std::string & config_path)
 
       tools::logger()->info(
         "[CBoard] New CAN IDs: quat=0x{:03X}, cmd=0x{:03X}", new_can_quat_id_, new_can_cmd_id_);
-    }
-  }
+  
 
   // 读取调试开关配置（CAN模式）
   if (yaml["debug_rx"]) {
@@ -218,8 +201,6 @@ std::string CBoard::read_yaml(const std::string & config_path)
   tools::logger()->info("[Cboard] Debug switches: RX={}, TX={}", debug_rx_, debug_tx_);
   return yaml["can_interface"].as<std::string>();
 }
-
-static inline float rad2deg(float r) { return r * 57.29577951308232f; }
 
 // 🆕 环形数组直接查询接口
 CBoard::IMUQueryResult CBoard::get_imu_from_ring_buffer(uint16_t target_imu_count) const

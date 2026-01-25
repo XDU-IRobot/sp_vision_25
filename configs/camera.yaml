@@ -20,7 +20,7 @@ use_traditional: true
 #####-----功能开关-----#####
 # 是否启用“打符”模块（true 会加载下方 buff_detector 的 model）
 enable_buff: false
-# 强制进入自瞄模式（无需等待 MCU 切档）。需要按下位机安全策略谨慎使用。
+
 force_auto_aim: false
 #####-----ROI参数-----#####
 roi:                                     # 开启 use_roi 时生效

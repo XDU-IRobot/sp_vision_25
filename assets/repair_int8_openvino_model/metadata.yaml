@@ -1,0 +1,62 @@
+description: Ultralytics YOLO26n-pose model trained on dataset_4points.yaml
+author: Ultralytics
+date: '2026-01-24T14:11:20.967028'
+version: 8.4.3
+license: AGPL-3.0 License (https://ultralytics.com/license)
+docs: https://docs.ultralytics.com
+stride: 32
+task: pose
+batch: 1
+imgsz:
+- 640
+- 640
+names:
+  0: red_1
+  1: red_2
+  2: red_3
+  3: red_4
+  4: red_5
+  5: red_6
+  6: red_7
+  7: red_8
+  8: blue_1
+  9: blue_2
+  10: blue_3
+  11: blue_4
+  12: blue_5
+  13: blue_6
+  14: blue_7
+  15: blue_8
+args:
+  batch: 1
+  fraction: 1.0
+  half: false
+  int8: true
+  dynamic: false
+  nms: false
+channels: 3
+kpt_shape:
+- 4
+- 2
+kpt_names:
+  0: &id001
+  - '0'
+  - '1'
+  - '2'
+  - '3'
+  1: *id001
+  2: *id001
+  3: *id001
+  4: *id001
+  5: *id001
+  6: *id001
+  7: *id001
+  8: *id001
+  9: *id001
+  10: *id001
+  11: *id001
+  12: *id001
+  13: *id001
+  14: *id001
+  15: *id001
+end2end: true

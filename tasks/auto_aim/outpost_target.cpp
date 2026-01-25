@@ -30,8 +30,8 @@ OutpostTarget::OutpostTarget(
   // 扩展协方差矩阵到13x13
   Eigen::MatrixXd P_13d = Eigen::MatrixXd::Zero(13, 13);
   P_13d.topLeftCorner(11, 11) = ekf_.P;
-  P_13d(11, 11) = 1e-2;  // h1的初始方差
-  P_13d(12, 12) = 1e-2;  // h2的初始方差
+  P_13d(11, 11) = 100;  // h1的初始方差（较大，允许快速学习）
+  P_13d(12, 12) = 100;  // h2的初始方差（较大，允许快速学习）
   
   // 重新初始化EKF以更新内部单位矩阵I的维度（从11x11到13x13）
   // 这一步至关重要，否则update时会出现维度不匹配
@@ -71,19 +71,19 @@ void OutpostTarget::predict(double dt)
   // 13维过程噪声协方差矩阵
   // clang-format off
   Eigen::MatrixXd Q(13, 13);
-  Q << a * v1, b * v1,      0,      0,      0,      0,      0,      0, 0, 0, 0, 0, 0,
-       b * v1, c * v1,      0,      0,      0,      0,      0,      0, 0, 0, 0, 0, 0,
-            0,      0, a * v1, b * v1,      0,      0,      0,      0, 0, 0, 0, 0, 0,
-            0,      0, b * v1, c * v1,      0,      0,      0,      0, 0, 0, 0, 0, 0,
-            0,      0,      0,      0, a * v1, b * v1,      0,      0, 0, 0, 0, 0, 0,
-            0,      0,      0,      0, b * v1, c * v1,      0,      0, 0, 0, 0, 0, 0,
-            0,      0,      0,      0,      0,      0, a * v2, b * v2, 0, 0, 0, 0, 0,
-            0,      0,      0,      0,      0,      0, b * v2, c * v2, 0, 0, 0, 0, 0,
-            0,      0,      0,      0,      0,      0,      0,      0, 0, 0, 0, 0, 0,
-            0,      0,      0,      0,      0,      0,      0,      0, 0, 0, 0, 0, 0,
-            0,      0,      0,      0,      0,      0,      0,      0, 0, 0, 0, 0, 0,
-            0,      0,      0,      0,      0,      0,      0,      0, 0, 0, 0, 0, 0,
-            0,      0,      0,      0,      0,      0,      0,      0, 0, 0, 0, 0, 0;
+  Q << a * v1, b * v1,      0,      0,      0,      0,      0,      0, 0, 0, 0,    0,    0,
+       b * v1, c * v1,      0,      0,      0,      0,      0,      0, 0, 0, 0,    0,    0,
+            0,      0, a * v1, b * v1,      0,      0,      0,      0, 0, 0, 0,    0,    0,
+            0,      0, b * v1, c * v1,      0,      0,      0,      0, 0, 0, 0,    0,    0,
+            0,      0,      0,      0, a * v1, b * v1,      0,      0, 0, 0, 0,    0,    0,
+            0,      0,      0,      0, b * v1, c * v1,      0,      0, 0, 0, 0,    0,    0,
+            0,      0,      0,      0,      0,      0, a * v2, b * v2, 0, 0, 0,    0,    0,
+            0,      0,      0,      0,      0,      0, b * v2, c * v2, 0, 0, 0,    0,    0,
+            0,      0,      0,      0,      0,      0,      0,      0, 0, 0, 0,    0,    0,
+            0,      0,      0,      0,      0,      0,      0,      0, 0, 0, 0,    0,    0,
+            0,      0,      0,      0,      0,      0,      0,      0, 0, 0, 0,    0,    0,
+            0,      0,      0,      0,      0,      0,      0,      0, 0, 0, 0, 1e-6,    0,  // h1微小噪声
+            0,      0,      0,      0,      0,      0,      0,      0, 0, 0, 0,    0, 1e-6;  // h2微小噪声
   // clang-format on
 
   // 状态转移函数（角度限制）
@@ -112,6 +112,13 @@ int OutpostTarget::match_armor_id(double z_obs) const
   double diff1 = std::abs(z_obs - z1);
   double diff2 = std::abs(z_obs - z2);
 
+  // 调试输出
+  // tools::logger()->trace(
+  //   "match_armor_id: z_obs={:.3f}, z0={:.3f}, z1={:.3f}, z2={:.3f}, "
+  //   "diff=[{:.3f}, {:.3f}, {:.3f}]",
+  //   z_obs, z0, z1, z2, diff0, diff1, diff2
+  // );
+
   // 找到最小差值对应的装甲板id
   if (diff0 <= diff1 && diff0 <= diff2) {
     return 0;
@@ -124,21 +131,78 @@ int OutpostTarget::match_armor_id(double z_obs) const
 
 void OutpostTarget::update(const Armor & armor)
 {
-  // 从armor中提取观测的z坐标
-  double z_obs = armor.xyz_in_world[2]; 
+  // ========================================
+  // Step 1: 使用高度信息粗匹配
+  // ========================================
+  double z_obs = armor.xyz_in_world[2];
+  int height_matched_id = match_armor_id(z_obs);
   
-  // 动态匹配装甲板 ID
-  int matched_id = match_armor_id(z_obs);
+  // ========================================
+  // Step 2: 在高度匹配的基础上，用角度精确匹配
+  // ========================================
+  // 由于前哨站是120°均布，我们只需要检查±1个ID
+  std::vector<Eigen::Vector4d> xyza_list = armor_xyza_list();
   
-  tools::logger()->debug("OutpostTarget: z_obs={:.3f} → id={}", z_obs, matched_id);
+  double min_angle_error = 1e10;
+  int final_id = height_matched_id;
+  
+  // 检查高度匹配ID及其相邻ID（循环队列）
+  for (int offset = -1; offset <= 1; offset++) {
+    int check_id = (height_matched_id + offset + armor_num_) % armor_num_;
+    
+    const auto & xyza = xyza_list[check_id];
+    Eigen::Vector3d ypd = tools::xyz2ypd(xyza.head(3));
+    
+    // 角度误差 = yaw误差 + pitch误差
+    double angle_error = std::abs(tools::limit_rad(armor.ypr_in_world[0] - xyza[3])) +
+                         std::abs(tools::limit_rad(armor.ypd_in_world[0] - ypd[0]));
+    
+    // 高度误差（加权，避免完全忽略高度）
+    double height_error = std::abs(z_obs - xyza[2]) * 2.0;  // 权重为2
+    
+    double total_error = angle_error + height_error;
+    
+    if (total_error < min_angle_error) {
+      min_angle_error = total_error;
+      final_id = check_id;
+    }
+  }
+  
+  // ========================================
+  // Step 3: 更新跳变检测
+  // ========================================
+  if (final_id != 0) jumped = true;
+  
+  if (final_id != last_id) {
+    is_switch_ = true;
+  } else {
+    is_switch_ = false;
+  }
+  
+  if (is_switch_) switch_count_++;
+  
+  last_id = final_id;
+  update_count_++;
+  
+  // ========================================
+  // Step 4: 调试日志
+  // ========================================
+  tools::logger()->debug(
+    "OutpostTarget: z_obs={:.3f}, height_id={}, angle_id={}, final_id={}, "
+    "z_pred=[{:.3f}, {:.3f}, {:.3f}], h1={:.4f}, h2={:.4f}",
+    z_obs, height_matched_id, final_id, final_id,
+    ekf_.x[4], ekf_.x[4] + ekf_.x[11], ekf_.x[4] + ekf_.x[12],
+    ekf_.x[11], ekf_.x[12]
+  );
   
   // 调用 update_ypda（继承自 Target）
-  update_ypda(armor, matched_id);
+  update_ypda(armor, final_id);
 }
 
 Eigen::Vector3d OutpostTarget::h_armor_xyz(const Eigen::VectorXd & x, int id) const
 {
-  auto angle = tools::limit_rad(x[6] + id * 2 * CV_PI / armor_num_);
+  // ✅ 不对角度求和结果做 limit_rad，避免周期性跳变
+  auto angle = x[6] + id * 2 * CV_PI / armor_num_;
   
   auto r = x[8];  // 前哨站所有装甲板使用相同半径
   auto armor_x = x[0] - r * std::cos(angle);
@@ -159,7 +223,8 @@ Eigen::Vector3d OutpostTarget::h_armor_xyz(const Eigen::VectorXd & x, int id) co
 
 Eigen::MatrixXd OutpostTarget::h_jacobian(const Eigen::VectorXd & x, int id) const
 {
-  auto angle = tools::limit_rad(x[6] + id * 2 * CV_PI / armor_num_);
+  // ✅ 不对角度求和结果做 limit_rad，避免周期性跳变
+  auto angle = x[6] + id * 2 * CV_PI / armor_num_;
   
   auto r = x[8];
   auto dx_da = r * std::sin(angle);

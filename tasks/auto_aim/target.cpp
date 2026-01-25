@@ -204,7 +204,8 @@ void Target::update_ypda(const Armor & armor, int id)
   auto h = [&](const Eigen::VectorXd & x) -> Eigen::Vector4d {
     Eigen::VectorXd xyz = h_armor_xyz(x, id);
     Eigen::VectorXd ypd = tools::xyz2ypd(xyz);
-    auto angle = tools::limit_rad(x[6] + id * 2 * CV_PI / armor_num_);
+    // ✅ 不对角度求和结果做 limit_rad，避免周期性跳变
+    auto angle = x[6] + id * 2 * CV_PI / armor_num_;
     return {ypd[0], ypd[1], ypd[2], angle};
   };
 
@@ -233,7 +234,12 @@ std::vector<Eigen::Vector4d> Target::armor_xyza_list() const
   std::vector<Eigen::Vector4d> _armor_xyza_list;
 
   for (int i = 0; i < armor_num_; i++) {
-    auto angle = tools::limit_rad(ekf_.x[6] + i * 2 * CV_PI / armor_num_);
+    // ❌ 不要对求和结果做 limit_rad，否则会导致相位跳变
+    // auto angle = tools::limit_rad(ekf_.x[6] + i * 2 * CV_PI / armor_num_);
+    
+    // ✅ 直接使用求和结果，让 reproject_armor 内部的三角函数自动处理周期性
+    auto angle = ekf_.x[6] + i * 2 * CV_PI / armor_num_;
+    
     Eigen::Vector3d xyz = h_armor_xyz(ekf_.x, i);
     _armor_xyza_list.push_back({xyz[0], xyz[1], xyz[2], angle});
   }
@@ -268,7 +274,8 @@ bool Target::convergened()
 // 计算出装甲板中心的坐标（考虑长短轴）
 Eigen::Vector3d Target::h_armor_xyz(const Eigen::VectorXd & x, int id) const
 {
-  auto angle = tools::limit_rad(x[6] + id * 2 * CV_PI / armor_num_);
+  // ✅ 不对角度求和结果做 limit_rad，避免周期性跳变
+  auto angle = x[6] + id * 2 * CV_PI / armor_num_;
   auto use_l_h = (armor_num_ == 4) && (id == 1 || id == 3);
 
   auto r = (use_l_h) ? x[8] + x[9] : x[8];
@@ -281,7 +288,8 @@ Eigen::Vector3d Target::h_armor_xyz(const Eigen::VectorXd & x, int id) const
 
 Eigen::MatrixXd Target::h_jacobian(const Eigen::VectorXd & x, int id) const
 {
-  auto angle = tools::limit_rad(x[6] + id * 2 * CV_PI / armor_num_);
+  // ✅ 不对角度求和结果做 limit_rad，避免周期性跳变
+  auto angle = x[6] + id * 2 * CV_PI / armor_num_;
   auto use_l_h = (armor_num_ == 4) && (id == 1 || id == 3);
 
   auto r = (use_l_h) ? x[8] + x[9] : x[8];

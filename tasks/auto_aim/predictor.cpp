@@ -171,7 +171,7 @@ void Predictor::visualize(int base_id) const
     Eigen::Vector3d predicted_pos = predict_pos(default_horizon_);
     Eigen::Quaternion q_predicted = q_current; // 假设姿态不变
     marker_pub_->publishArmorMarker(
-        "world", base_id + 2, predicted_pos, q_predicted, width, height, 255, 255, 0.5
+        "world", base_id + 2, predicted_pos, q_predicted, width, height, 255, 255, 0
     );
 
 }

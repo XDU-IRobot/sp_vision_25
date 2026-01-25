@@ -60,7 +60,11 @@ Eigen::Matrix3d Solver::R_gimbal2world() const { return R_gimbal2world_; }
 
 void Solver::set_R_gimbal2world(const Eigen::Quaterniond & q)
 {
-  Eigen::Matrix3d R_imubody2imuabs = q.toRotationMatrix();
+  // 左乘一个四元数 (w=0, x=1, y=0, z=0)，表示绕 X 轴旋转 180°
+  Eigen::Quaterniond q_correction(0, 1, 0, 0);  // (w, x, y, z)
+  Eigen::Quaterniond q_corrected = q_correction * q;
+  
+  Eigen::Matrix3d R_imubody2imuabs = q_corrected.toRotationMatrix();
   R_gimbal2world_ = R_gimbal2imubody_.transpose() * R_imubody2imuabs * R_gimbal2imubody_;
 }
 

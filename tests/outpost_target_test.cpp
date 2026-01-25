@@ -8,7 +8,7 @@
 #include "io/camera.hpp"
 #include "tasks/auto_aim/solver.hpp"
 #include "tasks/auto_aim/tracker.hpp"
-#include "tasks/auto_aim/yolo.hpp"
+#include "tasks/auto_aim/detector.hpp"
 #include "tasks/auto_aim/outpost_target.hpp"
 #include "tools/exiter.hpp"
 #include "tools/img_tools.hpp"
@@ -42,6 +42,7 @@ int main(int argc, char * argv[])
   }
   auto input_path = cli.get<std::string>(0);
   auto config_path = cli.get<std::string>("config-path");
+  
   auto use_camera = cli.get<bool>("use-camera");
   auto start_index = cli.get<int>("start-index");
   auto end_index = cli.get<int>("end-index");
@@ -56,7 +57,8 @@ int main(int argc, char * argv[])
   
   if (use_camera) {
     tools::logger()->info("使用真实相机输入");
-    camera = std::make_unique<io::Camera>(config_path);
+    // camera = std::make_unique<io::Camera>(config_path);
+    io::Camera camera(config_path);
   } else {
     tools::logger()->info("使用视频文件: {}", input_path);
     auto video_path = fmt::format("{}.avi", input_path);
@@ -78,7 +80,8 @@ int main(int argc, char * argv[])
   }
 
   // 初始化模块
-  auto_aim::YOLO yolo(config_path);
+  // auto_aim::YOLO yolo(config_path);
+  auto_aim::Detector detector(config_path);
   auto_aim::Solver solver(config_path);
   auto_aim::Tracker tracker(config_path, solver);
 
@@ -129,7 +132,7 @@ int main(int argc, char * argv[])
 
     // 检测装甲板
     auto yolo_start = std::chrono::steady_clock::now();
-    auto armors = yolo.detect(img, frame_count);
+    auto armors = detector.detect(img, frame_count);
 
     // 过滤：只保留前哨站装甲板
     std::list<auto_aim::Armor> outpost_armors;

@@ -56,7 +56,7 @@ int main(int argc, char * argv[])
   auto_aim::Tracker tracker(config_path, solver);
   auto_aim::Aimer aimer(config_path);
   auto_aim::Shooter shooter(config_path);
-  auto_aim::multithread::CommandGener commandgener(shooter, aimer, cboard, plotter, false);
+  auto_aim::multithread::CommandGener commandgener(shooter, aimer, cboard, plotter, true);
   // 🎯 所有模块初始化完成，启动相机触发
   tools::logger()->info("=== All modules initialized ===");
   tools::logger()->info("=== Entering main loop ===");
@@ -68,78 +68,54 @@ int main(int argc, char * argv[])
   auto mode = io::Mode::idle;
   auto last_mode = io::Mode::idle;
 
-  // 帧率统计
-  int frame_count = 0;
-  auto fps_start_time = std::chrono::steady_clock::now();
-  double current_fps = 0.0;
-
-  // 🆕 调试信息输出计数器（独立于FPS计数）
-  int debug_frame_count = 0;
-
   // 性能分析计时器
   std::chrono::steady_clock::time_point t_start, t_end;
-  std::map<std::string, double> timing_stats;  // 存储各步骤耗时统计
 
   // 🆕 同步匹配相关变量（需要在循环外声明，以便后续日志使用）
   uint64_t frame_id = 0;
-  uint16_t current_imu_count = 0;
+  uint64_t frame_id_last =0;
   int64_t trigger_imu_count = 0;
 
-  // 🔧 同步方式选择：true = 基于时间戳 | false = 基于 count 硬同步
-  bool use_timestamp_sync = false;  // 🆕 启用硬同步方案（使用环形数组）
   while (!exiter.exit()) {
-    t_start = std::chrono::steady_clock::now();
-
     camera.read(img, t);
-    t_end = std::chrono::steady_clock::now();
-    double t_camera = std::chrono::duration<double, std::milli>(t_end - t_start).count();
-
-    t_start = std::chrono::steady_clock::now();
 
     // 🔧 IMU 同步方式选择
     Eigen::Quaterniond q;
-    std::chrono::steady_clock::time_point synced_imu_timestamp;
 
       // ==================== 基于 count 硬同步（使用环形数组） ====================
-      // 核心思想：相机由MCU硬触发，IMU时间戳 = 相机时间戳
-      //
-      // MCU逻辑：当 imu_count % 10 == 0 时硬触发相机
-      // 映射关系：camera frame_id N → trigger_imu_count = (N+1) × 10 + offset
-      //
+      // 核心思想：相机由MCU硬触发,每来一帧图像，IMU计数器+10
       static const int64_t frame_id_to_imu_offset = 0;  // 🔧 手动调试参数
 
       static bool first_frame = true;
 
       frame_id = camera.get_last_frame_id();  // 获取相机帧号
-      // 计算当前帧对应的触发点IMU计数（加上手动偏移量）
-      trigger_imu_count = (((frame_id + 1) * 10) + frame_id_to_imu_offset) % 10000;
+     if(frame_id-frame_id_last!=0){
+      trigger_imu_count = 0;
       if (trigger_imu_count < 0) trigger_imu_count += 10000;
       // 🆕 使用环形数组O(1)查询IMU数据
-      auto imu_result = cboard.get_imu_from_ring_buffer(trigger_imu_count);
+      auto imu_result = cboard.get_imu_from_ring_buffer(0);
 
       if (imu_result.valid) {
         // ✅ 环形数组查询成功
         q = imu_result.q;  // 四元数
-
-
-        t = imu_result.timestamp;  // 🔑 相机时间戳继承自 MCU
-
+        t = imu_result.timestamp;  
+        
       } else {
       }
     mode = cboard.mode;
-
+    frame_id_last=frame_id;
+     }
     if (last_mode != mode) {
       tools::logger()->info("Switch to {}", io::MODES[mode]);
       last_mode = mode;
     }
-
-    // recorder.record(img, q, t);
+    recorder.record(img, q, t);
     solver.set_R_gimbal2world(q);
     auto armors = detector.detect(img);
-    auto targets = tracker.track(armors, synced_imu_timestamp);
-    auto command = aimer.aim(targets, synced_imu_timestamp, cboard.bullet_speed, false);
+    auto targets = tracker.track(armors, t);
+    auto command = aimer.aim(targets, t, cboard.bullet_speed);
     cboard.send(command);
-  }
+  } 
   // 清理 ROS2
 #ifdef AMENT_CMAKE_FOUND
   rclcpp::shutdown();

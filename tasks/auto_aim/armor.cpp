@@ -57,8 +57,7 @@ Armor::Armor(const Lightbar & left, const Lightbar & right)
 
 //神经网络构造函数
 Armor::Armor(
-  int class_id, float confidence, const cv::Rect & box, std::vector<cv::Point2f> armor_keypoints,
-  YOLOVersion version)
+  int class_id, float confidence, const cv::Rect & box, std::vector<cv::Point2f> armor_keypoints)
 : class_id(class_id), confidence(confidence), box(box), points(armor_keypoints)
 {
   center = (armor_keypoints[0] + armor_keypoints[1] + armor_keypoints[2] + armor_keypoints[3]) / 4;
@@ -83,26 +82,24 @@ Armor::Armor(
   rectangular_error = std::max(left_rectangular_error, right_rectangular_error);
 
   ratio = max_length / max_width;
+  // color = class_id == 0 ? Color::blue : Color::red;
 
-  // 根据 YOLO 版本选择映射表
-  const auto & properties = (version == YOLOVersion::YOLO26) ? yolo26_armor_properties : yolo11_armor_properties;
-
-  if (class_id >= 0 && class_id < properties.size()) {
-    auto [color, name, type] = properties[class_id];
+  if (class_id >= 0 && class_id < armor_properties.size()) {
+    auto [color, name, type] = armor_properties[class_id];
     this->color = color;
     this->name = name;
     this->type = type;
   } else {
-    this->color = blue;      
-    this->name = not_armor;  
-    this->type = small;      
+    this->color = blue;      // Default
+    this->name = not_armor;  // Default
+    this->type = small;      // Default
   }
 }
 
 //神经网络ROI构造函数
 Armor::Armor(
   int class_id, float confidence, const cv::Rect & box, std::vector<cv::Point2f> armor_keypoints,
-  cv::Point2f offset, YOLOVersion version)
+  cv::Point2f offset)
 : class_id(class_id), confidence(confidence), box(box), points(armor_keypoints)
 {
   std::transform(
@@ -133,12 +130,10 @@ Armor::Armor(
   rectangular_error = std::max(left_rectangular_error, right_rectangular_error);
 
   ratio = max_length / max_width;
+  // color = class_id == 0 ? Color::blue : Color::red;
 
-  // 根据 YOLO 版本选择映射表
-  const auto & properties = (version == YOLOVersion::YOLO26) ? yolo26_armor_properties : yolo11_armor_properties;
-
-  if (class_id >= 0 && class_id < properties.size()) {
-    auto [color, name, type] = properties[class_id];
+  if (class_id >= 0 && class_id < armor_properties.size()) {
+    auto [color, name, type] = armor_properties[class_id];
     this->color = color;
     this->name = name;
     this->type = type;

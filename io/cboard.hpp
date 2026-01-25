@@ -90,9 +90,9 @@ private:
   uint16_t last_imu_count_ = 0;
   std::atomic<bool> mcu_online_{false};
 
-  // 🆕 调试开关配置
-  bool debug_rx_ = false;
-  bool debug_tx_ = false;
+
+  bool debug_rx_=true;
+  bool debug_tx_;
 
   static constexpr uint8_t AIMBOT_BIT_HAS_TARGET = 0x01;
   static constexpr uint8_t AIMBOT_BIT_SUGGEST_FIRE = 0x02;

@@ -137,7 +137,7 @@ camera_settings:
 
 #####-----相机标定参数-----#####
 # 云台到IMU Body的旋转矩阵（3×3，行优先）
-R_gimbal2imubody: [1, 0, 0, 0, 1, 0, 0, 0, 1]
+R_gimbal2imubody: [1, 0,0,0, 1, 0, 0 , 0, 1]
 
 # 相机内参矩阵（3×3，行优先）
 # [fx, 0, cx, 0, fy, cy, 0, 0, 1]
@@ -158,7 +158,7 @@ new_can_quat_id: 0x150        # 四元数姿态帧ID
 new_can_cmd_id: 0x170         # 自瞄指令帧ID
 can_interface: "can0"
 debug_rx: false
-debug_tx: true
+debug_tx: false
 
 #####-----轨迹规划器（Planner）参数-----#####
 # 开火阈值（rad）

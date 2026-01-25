@@ -23,7 +23,7 @@ YOLO::YOLO(const std::string & config_path, bool debug)
   }
 
   else if (yolo_name == "yolo26") {
-    yolo_ = std::make_unique<YOLO26>(config_path, debug);
+    // yolo_ = std::make_unique<YOLO26>(config_path, debug);
   }
 
   else if (yolo_name == "yolov5") {

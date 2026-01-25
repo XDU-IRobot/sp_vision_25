@@ -90,7 +90,7 @@ void CBoard::send(Command command)
       if (debug_tx_) {
         tools::logger()->info(
           "[TX][NewCAN] id=0x{:03X} state=0x{:02X} target={} yaw={} pitch={}", frame.can_id,
-          frame.data[0], frame.data[1], yaw_int, pitch_int);
+          frame.data[0], frame.data[1], yaw_int ,pitch_int);
       }
     } catch (const std::exception & e) {
       tools::logger()->warn("[NewCAN] write failed: {}", e.what());
@@ -119,15 +119,15 @@ void CBoard::callback(const can_frame & frame)
       f16tools::f16 q_x16 = be_to_f16(&frame.data[2]);
       f16tools::f16 q_y16 = be_to_f16(&frame.data[4]);
 
-      double qw = f16tools::f16_to_f32(q_w16);
-      double qx = f16tools::f16_to_f32(q_x16);
-      double qy = f16tools::f16_to_f32(q_y16);
+      double qw = f16tools::f16_to_f64(q_w16);
+      double qx = f16tools::f16_to_f64(q_x16);
+      double qy = f16tools::f16_to_f64(q_y16);
 
       //  解析 byte6 的打包字段
       uint8_t packed = frame.data[6];
       uint8_t z_sign = (packed >> 7) & 0x1;
       uint8_t id_bit = (packed >> 6) & 0x1;
-      uint8_t mode_bits = (packed >> 4) & 0x3;
+      uint8_t mode_bits = 1;
       uint8_t imu_bits = packed & 0xF;
       //  根据归一化约束和符号位恢复 z
       double qz_abs = std::sqrt(std::max(0.0, 1.0 - qw * qw - qx * qx - qy * qy));
@@ -138,8 +138,8 @@ void CBoard::callback(const can_frame & frame)
       // 恢复 mode
       mode = static_cast<Mode>(mode_bits);
 
-      // 恢复 imu_count（低4位）
-      uint16_t imu_count_low = imu_bits;
+      // 恢复 imu_count（低4位）/*
+      uint16_t imu_count_low = imu_bits%10;
 
       //  解析 byte7 的子弹速度
       bullet_speed = static_cast<double>(frame.data[7]) * 32.0 / 255.0;
@@ -198,7 +198,6 @@ std::string CBoard::read_yaml(const std::string & config_path)
   if (yaml["debug_tx"]) {
     debug_tx_ = yaml["debug_tx"].as<bool>();
   }
-  tools::logger()->info("[Cboard] Debug switches: RX={}, TX={}", debug_rx_, debug_tx_);
   return yaml["can_interface"].as<std::string>();
 }
 

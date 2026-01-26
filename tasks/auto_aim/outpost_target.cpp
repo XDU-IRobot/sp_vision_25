@@ -1,5 +1,6 @@
 #include "outpost_target.hpp"
 #include "tools/marker_publisher.hpp"
+#include "tools/math_tools.hpp"
 namespace auto_aim
 {
 
@@ -23,19 +24,17 @@ OutpostTarget::OutpostTarget(
                          x_13d[4], x_13d[11], x_13d[12]);
   } else {
     // 默认初始化为0
-    x_13d[11] = 0.0;
-    x_13d[12] = 0.0;
+    x_13d[11] = 0.1;
+    x_13d[12] = -0.1;
   }
   
   // 扩展协方差矩阵到13x13
-  Eigen::MatrixXd P_13d = Eigen::MatrixXd::Zero(13, 13);
-  P_13d.topLeftCorner(11, 11) = ekf_.P;
-  P_13d(11, 11) = 100;  // h1的初始方差（较大，允许快速学习）
-  P_13d(12, 12) = 100;  // h2的初始方差（较大，允许快速学习）
-  
-  // 重新初始化EKF以更新内部单位矩阵I的维度（从11x11到13x13）
-  // 这一步至关重要，否则update时会出现维度不匹配
+  Eigen::MatrixXd P_13d = P0_dig.asDiagonal();
   ekf_ = tools::ExtendedKalmanFilter(x_13d, P_13d);
+  
+  // 初始化：记录第一块观测到的装甲板高度
+  observed_heights_.push_back(armor.xyz_in_world[2]);
+  tools::logger()->info("OutpostTarget: First armor height recorded: {:.3f}", armor.xyz_in_world[2]);
 }
 
 void OutpostTarget::predict(double dt)
@@ -131,78 +130,69 @@ int OutpostTarget::match_armor_id(double z_obs) const
 
 void OutpostTarget::update(const Armor & armor)
 {
-  // ========================================
-  // Step 1: 使用高度信息粗匹配
-  // ========================================
+  double h1_variance = ekf_.P(11, 11);
+  double h2_variance = ekf_.P(12, 12);
+  
+  bool h_converged = (h1_variance < 0.01) && (h2_variance < 0.01) && 
+                     (std::abs(ekf_.x[11]) > 0.03 || std::abs(ekf_.x[12]) > 0.03);
   double z_obs = armor.xyz_in_world[2];
-  int height_matched_id = match_armor_id(z_obs);
-  
-  // ========================================
-  // Step 2: 在高度匹配的基础上，用角度精确匹配
-  // ========================================
-  // 由于前哨站是120°均布，我们只需要检查±1个ID
+  int height_matched_id = match_armor_id(z_obs); 
+  // 在±1范围内综合评估
   std::vector<Eigen::Vector4d> xyza_list = armor_xyza_list();
-  
-  double min_angle_error = 1e10;
+  double min_error = 1e10;
   int final_id = height_matched_id;
   
-  // 检查高度匹配ID及其相邻ID（循环队列）
   for (int offset = -1; offset <= 1; offset++) {
     int check_id = (height_matched_id + offset + armor_num_) % armor_num_;
-    
     const auto & xyza = xyza_list[check_id];
-    Eigen::Vector3d ypd = tools::xyz2ypd(xyza.head(3));
     
-    // 角度误差 = yaw误差 + pitch误差
-    double angle_error = std::abs(tools::limit_rad(armor.ypr_in_world[0] - xyza[3])) +
-                         std::abs(tools::limit_rad(armor.ypd_in_world[0] - ypd[0]));
-    
-    // 高度误差（加权，避免完全忽略高度）
-    double height_error = std::abs(z_obs - xyza[2]) * 2.0;  // 权重为2
+    double angle_error = std::abs(tools::limit_rad(armor.ypr_in_world[0] - xyza[3]));
+    double height_error = std::abs(z_obs - xyza[2]) * (h_converged ? 2.0 : 0.5);
     
     double total_error = angle_error + height_error;
     
-    if (total_error < min_angle_error) {
-      min_angle_error = total_error;
+    if (total_error < min_error) {
+      min_error = total_error;
       final_id = check_id;
     }
   }
   
-  // ========================================
-  // Step 3: 更新跳变检测
-  // ========================================
+  // 跳变检测
   if (final_id != 0) jumped = true;
-  
-  if (final_id != last_id) {
-    is_switch_ = true;
-  } else {
-    is_switch_ = false;
-  }
-  
+  if (final_id != last_id) is_switch_ = true;
+  else is_switch_ = false;
   if (is_switch_) switch_count_++;
   
   last_id = final_id;
   update_count_++;
   
-  // ========================================
-  // Step 4: 调试日志
-  // ========================================
-  tools::logger()->debug(
-    "OutpostTarget: z_obs={:.3f}, height_id={}, angle_id={}, final_id={}, "
-    "z_pred=[{:.3f}, {:.3f}, {:.3f}], h1={:.4f}, h2={:.4f}",
-    z_obs, height_matched_id, final_id, final_id,
-    ekf_.x[4], ekf_.x[4] + ekf_.x[11], ekf_.x[4] + ekf_.x[12],
-    ekf_.x[11], ekf_.x[12]
-  );
-  
-  // 调用 update_ypda（继承自 Target）
+  // EKF 更新
   update_ypda(armor, final_id);
 }
 
-Eigen::Vector3d OutpostTarget::h_armor_xyz(const Eigen::VectorXd & x, int id) const
+std::vector<Eigen::Vector4d> OutpostTarget::armor_xyza_list() const
 {
-  // ✅ 不对角度求和结果做 limit_rad，避免周期性跳变
-  auto angle = x[6] + id * 2 * CV_PI / armor_num_;
+  std::vector<Eigen::Vector4d> armor_xyza_list;
+  for (int id = 0; id < armor_num_; id++) {
+    auto angle = tools::limit_rad(ekf_.x[6] + id * 2 * CV_PI / armor_num_);
+    auto r = ekf_.x[8];
+    auto armor_x = ekf_.x[0] - r * std::cos(angle);
+    auto armor_y = ekf_.x[2] - r * std::sin(angle);
+    double armor_z;
+    if (id == 0) {
+      armor_z = ekf_.x[4];
+    } else if (id == 1) {
+      armor_z = ekf_.x[4] + ekf_.x[11];
+    } else {  // id == 2
+      armor_z = ekf_.x[4] + ekf_.x[12];
+    }
+    armor_xyza_list.push_back({armor_x, armor_y, armor_z, angle});
+  }
+  return armor_xyza_list;
+}
+Eigen::Vector3d OutpostTarget::h_armor_xyz(const Eigen::VectorXd & x, int id) const
+{ 
+  auto angle = tools::limit_rad( x[6] + id * 2 * CV_PI / armor_num_);
   
   auto r = x[8];  // 前哨站所有装甲板使用相同半径
   auto armor_x = x[0] - r * std::cos(angle);
@@ -223,8 +213,7 @@ Eigen::Vector3d OutpostTarget::h_armor_xyz(const Eigen::VectorXd & x, int id) co
 
 Eigen::MatrixXd OutpostTarget::h_jacobian(const Eigen::VectorXd & x, int id) const
 {
-  // ✅ 不对角度求和结果做 limit_rad，避免周期性跳变
-  auto angle = x[6] + id * 2 * CV_PI / armor_num_;
+  auto angle = tools::limit_rad(x[6] + id * 2 * CV_PI / armor_num_);
   
   auto r = x[8];
   auto dx_da = r * std::sin(angle);

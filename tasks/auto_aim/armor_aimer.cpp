@@ -99,6 +99,13 @@ io::Command armor_aimer::aim(
     // 更新历史值
     last_yaw_ = yaw;
     first_command_ = false;
+
+    while (yaw<0) {
+        yaw += 2 * M_PI;
+    }
+    while (yaw>=2 * M_PI) {
+        yaw -= 2 * M_PI;
+    }
     
     // 调试日志
     tools::logger()->debug(

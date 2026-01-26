@@ -22,7 +22,7 @@ vid_pid: "2ba2:4d55"
 camera_settings:
   width: 1920
   height: 1200
-  exposure: 10000
+  exposure: 5000
   auto_exposure: false
   gain: 24
   fps: 168
@@ -44,7 +44,7 @@ scm_sof: 85               # SOF 字节（0x55 = 85）
 scm_eof: 255              # EOF 字节（0xFF = 255）
 scm_rx_id: 1              # 云台->上位机 帧ID (MCU->Host)
 scm_tx_id: 2              # 上位机->云台 帧ID (Host->MCU)
-scm_angles_in_deg: false  # 角度单位是否使用度（true: 度，false: 弧度）
+scm_angles_in_deg: true  # 角度单位是否使用度（true: 度，false: 弧度）
 yaw_kp: 0
 yaw_kd: 0
 pitch_kp: 0
@@ -101,7 +101,7 @@ min_confidence: 0.8
 #####-----predictor参数-----#####
 pos_alpha: 0.1
 vel_alpha: 0.1
-predict_time: 0.1
+predict_time: 0.0
 
 #####-----armor_aimer参数-----#####
 delay_time: 0.1
@@ -137,8 +137,8 @@ auto_fire: true # 是否由自瞄控制射击
 #    0.86931, -0.26264, -0.41872]
 
 R_gimbal2imubody:   [1, 0, 0,
-  0, 1, 0,
-  0, 0, 1]    
+  0, -1, 0,
+  0, 0, -1]    
 
 
 # 重投影误差: 0.1032px

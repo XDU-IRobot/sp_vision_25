@@ -1,12 +1,12 @@
 #include "tracker.hpp"
 
+#include <vector>
 #include <yaml-cpp/yaml.h>
 
 #include <tuple>
 
 #include "tools/logger.hpp"
 #include "tools/math_tools.hpp"
-#include "io/cboard.hpp"  // 🆕 引入CBoard头文件
 
 // ROS2 headers (仅在 ROS2 可用时编译)
 #ifdef AMENT_CMAKE_FOUND
@@ -46,20 +46,6 @@ std::list<Target> Tracker::track(
   if (state_ != "lost" && dt > 0.1) {
     tools::logger()->warn("[Tracker] Large dt: {:.3f}s", dt);
     state_ = "lost";
-  }
-
-  // 🆕 自动从CBoard获取robot_id并更新敌方颜色
-  if (cboard_ != nullptr) {
-    int enemy_color_int = cboard_->get_enemy_color();
-    Color new_enemy_color = static_cast<Color>(enemy_color_int);
-
-    // 仅在颜色变化时输出日志
-    if (new_enemy_color != enemy_color_) {
-      const char* color_name = (new_enemy_color == Color::red) ? "红色" : "蓝色";
-      tools::logger()->info("[Tracker] 🎯 根据robot_id={} 更新敌方颜色为: {}",
-                           cboard_->get_robot_id(), color_name);
-      enemy_color_ = new_enemy_color;
-    }
   }
 
   // 过滤掉非我方装甲板
@@ -116,7 +102,6 @@ std::list<Target> Tracker::track(
   if (state_ == "lost" || !target_) return {};
 
   std::list<Target> targets = {*target_};
-  return targets;
 }
 
 std::tuple<omniperception::DetectionResult, std::list<Target>> Tracker::track(
@@ -198,6 +183,7 @@ std::tuple<omniperception::DetectionResult, std::list<Target>> Tracker::track(
   if (state_ == "lost" || !target_) return {switch_target, {}};  // 返回switch_target和空的targets
 
   std::list<Target> targets = {*target_};
+  
   return {switch_target, targets};
 }
 
@@ -280,7 +266,7 @@ bool Tracker::set_target(std::list<Armor> & armors, std::chrono::steady_clock::t
 
   else if (armor.name == ArmorName::outpost) {
     //  创建 OutpostTarget（13维状态）
-    Eigen::VectorXd P0_dig{{1, 64, 1, 64, 1, 81, 0.4, 100, 1e-4, 0, 0, 1, 1}};  // 13维
+    Eigen::VectorXd P0_dig{{1, 64, 1, 64, 1, 81, 0.4, 100, 1e-4, 0, 0, 100, 100}};  // 13维
     std::vector<double> armor_heights = {0.0, 0.0, 0.0};  // 初始高度差，会由EKF自动估计
     target_ = std::make_shared<OutpostTarget>(armor, t, 0.2765, 3, P0_dig, armor_heights);
     tools::logger()->info("✅ Created OutpostTarget (13D state)");

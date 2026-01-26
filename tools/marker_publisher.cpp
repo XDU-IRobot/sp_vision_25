@@ -5,6 +5,9 @@ namespace tools
 MarkerPublisher::MarkerPublisher(rclcpp::Node::SharedPtr node)
   : node_(node)
 {
+  auto qos = rclcpp::QoS(rclcpp::KeepLast(10))
+      .reliable()                    // 可靠传输
+      .durability_volatile();        // 只给当前订阅者
   marker_pub_ = node_->create_publisher<visualization_msgs::msg::MarkerArray>(
     "armor_markers", 10);
 }
@@ -45,7 +48,7 @@ void MarkerPublisher::publishArmorMarker(
    marker.color.g = 0.0;
    marker.color.b = 0.0;
    marker.color.a = alpha;
-   marker.lifetime = rclcpp::Duration::from_seconds(0.2);
+   marker.lifetime = rclcpp::Duration::from_seconds(1);
    marker_array.markers.push_back(marker);
 
    // 边框

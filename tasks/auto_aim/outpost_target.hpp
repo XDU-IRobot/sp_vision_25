@@ -49,6 +49,7 @@ namespace auto_aim
     // 重写可视化方法
     void visualize(int base_id) const override;
   protected:
+    std::vector<Eigen::Vector4d> armor_xyza_list() const override;
     // 重写观测模型：装甲板xyz坐标计算（使用状态变量h1, h2）
     Eigen::Vector3d h_armor_xyz(const Eigen::VectorXd & x, int id) const override;
     
@@ -57,6 +58,11 @@ namespace auto_aim
 
     // // 获取前哨站专属过程噪声参数
     // virtual std::pair<double, double> get_process_noise() const override;
+    
+  private:
+    // 渐进式初始化：记录观测到的不同高度值
+    std::vector<double> observed_heights_;  // 存储观测到的不同高度
+    const double height_diff_threshold_ = 0.05;  // 高度差阈值(5cm),超过此值认为是新装甲板
   };
 }  // namespace auto_aim
 

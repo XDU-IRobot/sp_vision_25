@@ -45,14 +45,6 @@ public:
     const std::vector<omniperception::DetectionResult> & detection_queue, std::list<Armor> & armors,
     std::chrono::steady_clock::time_point t, bool use_enemy_color = true);
 
-  // 🆕 动态设置敌方颜色（用于根据robot_id实时切换）
-  void set_enemy_color(Color color) { enemy_color_ = color; }
-
-  // 🆕 获取当前敌方颜色
-  Color get_enemy_color() const { return enemy_color_; }
-
-  // 🆕 设置CBoard指针（用于自动从robot_id获取敌方颜色）
-  void set_cboard(io::CBoard* cboard) { cboard_ = cboard; }
 
 #ifdef AMENT_CMAKE_FOUND
   // 设置 ROS2 节点用于发布 marker（可选）
@@ -80,9 +72,6 @@ private:
   std::shared_ptr<Target> target_;  // 改为智能指针以支持多态
   std::chrono::steady_clock::time_point last_timestamp_;
   ArmorPriority omni_target_priority_;
-
-  // 🆕 CBoard指针（用于自动获取robot_id并更新敌方颜色）
-  io::CBoard* cboard_ = nullptr;
 
 #ifdef AMENT_CMAKE_FOUND
   std::shared_ptr<rclcpp::Node> ros_node_;

@@ -196,7 +196,7 @@ int main(int argc, char * argv[])
 
       // 重投影所有预测的装甲板（3个）
       std::vector<Eigen::Vector4d> armor_xyza_list = target.armor_xyza_list();
-      
+
       for (size_t i = 0; i < armor_xyza_list.size(); i++) {
         const Eigen::Vector4d & xyza = armor_xyza_list[i];
         

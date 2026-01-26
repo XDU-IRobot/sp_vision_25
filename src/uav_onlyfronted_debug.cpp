@@ -120,7 +120,8 @@ int main(int argc, char * argv[])
     
     // command.shoot = shooter.shoot(command, armor_aimer, predictions, ypr);
     /* 暂不引入shooter */
-    
+    command.yaw = command.yaw*57.3;
+    command.pitch = command.pitch*57.3;
     gimbal.send_command_scm(command);
     // cboard.send(command);
     
@@ -177,8 +178,8 @@ int main(int argc, char * argv[])
     
     // 指令数据
     if (command.control) {
-      data["cmd_yaw"] = command.yaw * 57.3;
-      data["cmd_pitch"] = command.pitch * 57.3;
+      data["cmd_yaw"] = command.yaw;
+      data["cmd_pitch"] = command.pitch;
       data["cmd_shoot"] = command.shoot;
 
       // 指令与云台的误差

@@ -1,5 +1,7 @@
 #include <chrono>
+#include <memory>
 #include <opencv2/opencv.hpp>
+#include <rclcpp/executors.hpp>
 #include <thread>
 #include <rclcpp/rclcpp.hpp>
 
@@ -18,6 +20,7 @@
 #include "tools/plotter.hpp"
 #include "tools/recorder.hpp"
 #include "tools/tf_publisher.hpp"
+#include "tools/marker_publisher.hpp"
 #include "io/gimbal/gimbal.hpp"
 
 const std::string keys =
@@ -58,6 +61,7 @@ int main(int argc, char * argv[])
   
   // 创建tf pulisher 并设置到solver中
   auto tf_publisher = std::make_shared<tools::TFPublisher>(node);
+  auto marker_publisher = std::make_shared<tools::MarkerPublisher>(node);
   solver.set_TFPublisher(tf_publisher.get());
 
   cv::Mat img;
@@ -72,6 +76,7 @@ int main(int argc, char * argv[])
   auto t0 = std::chrono::steady_clock::now();
 
   while (!exiter.exit() && rclcpp::ok()) {
+    rclcpp::spin_some(node);
     camera.read(img, t);
     // q = cboard.imu_at(t - 1ms);
     q = gimbal.q(t);
@@ -118,7 +123,10 @@ int main(int argc, char * argv[])
   if (wrapped < 0) wrapped += 2 * M_PI;
   return wrapped;
 };
-
+command.yaw = -command.yaw;
+command.pitch = -command.pitch;
+command.yaw += M_PI;
+command.pitch += M_PI;
 command.yaw = wrap_rad_2pi(command.yaw);
 command.pitch = wrap_rad_2pi(command.pitch);
     // cboard.send(command);
@@ -165,7 +173,6 @@ command.pitch = wrap_rad_2pi(command.pitch);
 
     if (!targets.empty()) {
       auto target = targets.front();
-
       // 当前帧target更新后
       std::vector<Eigen::Vector4d> armor_xyza_list = target.armor_xyza_list();
       for (const Eigen::Vector4d & xyza : armor_xyza_list) {
@@ -209,6 +216,14 @@ command.pitch = wrap_rad_2pi(command.pitch);
       data["nis_fail"] = target.ekf().data.at("nis_fail");
       data["nees_fail"] = target.ekf().data.at("nees_fail");
       data["recent_nis_failures"] = target.ekf().data.at("recent_nis_failures");
+      // data["aim_z"] = aimer.debug_aim_point.xyza[2];
+      data["xyza_list[0]_z"] = armor_xyza_list[0][2];
+      data["xyza_list[1]_z"] = armor_xyza_list[1][2];
+      data["xyza_list[2]_z"] = armor_xyza_list[2][2];
+      if (x.size() >= 13) {
+    data["h1"] = x[11];  // 装甲板1相对于装甲板0的高度差
+    data["h2"] = x[12];  // 装甲板2相对于装甲板0的高度差
+  }
     }
 
     // 云台响应情况

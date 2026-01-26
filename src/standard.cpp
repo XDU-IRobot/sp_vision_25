@@ -40,13 +40,12 @@ int main(int argc, char * argv[])
   tools::Recorder recorder;
   cv::CommandLineParser cli(argc, argv, keys);
 
+
   auto config_path = cli.get<std::string>(0);
   if (cli.has("help") || config_path.empty()) {
     cli.printMessage();
     return 0;
   }
-
-
 
   io::CBoard cboard(config_path);
   io::Camera camera(config_path);
@@ -79,9 +78,6 @@ int main(int argc, char * argv[])
   while (!exiter.exit()) {
     camera.read(img, t);
 
-    // 🔧 IMU 同步方式选择
-    Eigen::Quaterniond q;
-
       // ==================== 基于 count 硬同步（使用环形数组） ====================
       // 核心思想：相机由MCU硬触发,每来一帧图像，IMU计数器+10
       static const int64_t frame_id_to_imu_offset = 0;  // 🔧 手动调试参数
@@ -89,18 +85,19 @@ int main(int argc, char * argv[])
       static bool first_frame = true;
 
       frame_id = camera.get_last_frame_id();  // 获取相机帧号
-     if(frame_id-frame_id_last!=0){
+      if(frame_id-frame_id_last!=0){
       trigger_imu_count = 0;
       if (trigger_imu_count < 0) trigger_imu_count += 10000;
-      // 🆕 使用环形数组O(1)查询IMU数据
+      //使用环形数组O(1)查询IMU数据
       auto imu_result = cboard.get_imu_from_ring_buffer(0);
 
       if (imu_result.valid) {
-        // ✅ 环形数组查询成功
+        // 环形数组查询成功
         q = imu_result.q;  // 四元数
         t = imu_result.timestamp;  
-        
+        std::cout<<q<<std::endl;
       } else {
+        
       }
     mode = cboard.mode;
     frame_id_last=frame_id;
@@ -109,13 +106,26 @@ int main(int argc, char * argv[])
       tools::logger()->info("Switch to {}", io::MODES[mode]);
       last_mode = mode;
     }
-    recorder.record(img, q, t);
+    // recorder.record(img, q, t);
     solver.set_R_gimbal2world(q);
+    Eigen::Vector3d ypr = tools::eulers(solver.R_gimbal2world(), 2, 1, 0);
+
     auto armors = detector.detect(img);
     auto targets = tracker.track(armors, t);
-    auto command = aimer.aim(targets, t, cboard.bullet_speed);
+    auto command = aimer.aim(targets, t, cboard.bullet_speed,false);
+    command.shoot = shooter.shoot(command, aimer, targets, ypr);
+ 
+
     cboard.send(command);
-  } 
+    
+    cv::resize(img, img, {}, 0.5, 0.5);  // 显示时缩小图片尺寸
+    // 相机输出为 RGB 格式，imshow 需要 BGR 格式
+    cv::Mat img_bgr;
+    cv::cvtColor(img, img_bgr, cv::COLOR_RGB2BGR);
+    cv::imshow("reprojection", img_bgr);
+    auto key = cv::waitKey(1);  
+    if (key == 'q') break;
+  }
   // 清理 ROS2
 #ifdef AMENT_CMAKE_FOUND
   rclcpp::shutdown();

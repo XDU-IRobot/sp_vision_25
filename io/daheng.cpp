@@ -1,6 +1,7 @@
 #include "daheng.hpp"
 
 #include <stdexcept>
+#include <cstring>
 
 #include "tools/logger.hpp"
 #include "tools/yaml.hpp"
@@ -14,8 +15,7 @@ Daheng::Daheng(const std::string & config_path)
   payload_size_(0),
   quit_(false),
   ok_(false),
-  queue_(1),
-  last_frame_id_(0)
+  queue_(1)
 {
   // 从配置文件读取参数
   auto yaml = tools::load(config_path);
@@ -48,29 +48,6 @@ Daheng::Daheng(const std::string & config_path)
     auto_exp_change_ = settings["auto_exp_change"].as<bool>();
     max_exp_ = settings["max_exp"].as<int>();
     min_exp_ = settings["min_exp"].as<int>();
-
-    // Bayer模式配置（用于OpenCV转换）
-    // 选项: BayerRG8, BayerGR8, BayerGB8, BayerBG8
-    std::string bayer_pattern = settings["bayer_pattern"]
-      ? settings["bayer_pattern"].as<std::string>()
-      : "BayerBG8";
-
-    if (bayer_pattern == "BayerRG8") {
-      bayer_code_ = cv::COLOR_BayerRG2BGR;
-    } else if (bayer_pattern == "BayerGR8") {
-      bayer_code_ = cv::COLOR_BayerGR2BGR;
-    } else if (bayer_pattern == "BayerGB8") {
-      bayer_code_ = cv::COLOR_BayerGB2BGR;
-    } else if (bayer_pattern == "BayerBG8") {
-      bayer_code_ = cv::COLOR_BayerBG2BGR;
-    } else {
-      tools::logger()->warn("Unknown bayer_pattern: {}, using BayerBG8", bayer_pattern);
-      bayer_code_ = cv::COLOR_BayerBG2BGR;
-    }
-
-    if (debug_) {
-      tools::logger()->info("Bayer pattern set to: {} (code: {})", bayer_pattern, bayer_code_);
-    }
   } else {
     // 默认值
     width_ = 1920;
@@ -86,12 +63,11 @@ Daheng::Daheng(const std::string & config_path)
     auto_exp_change_ = false;
     max_exp_ = 3000;
     min_exp_ = 200;
-    bayer_code_ = cv::COLOR_BayerBG2BGR;  // 默认BayerBG
   }
 
   try_open();
 
-  // 守护线程：自动重连机制
+  // 守护线程
   daemon_thread_ = std::thread{[this] {
     tools::logger()->info("Daheng daemon thread started");
     while (!quit_) {
@@ -99,7 +75,6 @@ Daheng::Daheng(const std::string & config_path)
 
       if (ok_) continue;
 
-      // 采集失败时自动 close + reopen
       if (capture_thread_.joinable()) capture_thread_.join();
 
       close();
@@ -117,8 +92,8 @@ Daheng::~Daheng()
   if (daemon_thread_.joinable()) daemon_thread_.join();
   if (capture_thread_.joinable()) capture_thread_.join();
   close();
-
-  // 关闭 Daheng 库（与 GXInitLib 成对）
+  
+  // 关闭库
   GXCloseLib();
   tools::logger()->info("Daheng camera destructed");
 }
@@ -130,7 +105,7 @@ void Daheng::read(cv::Mat & img, std::chrono::steady_clock::time_point & timesta
 
   img = data.img;
   timestamp = data.timestamp;
-  last_frame_id_ = data.frame_id;  // 同步更新 last_frame_id_
+  last_frame_id_ = data.frame_id;  // 🆕 保存frame_id供外部查询
 }
 
 void Daheng::try_open()
@@ -149,8 +124,8 @@ void Daheng::try_open()
 void Daheng::open()
 {
   tools::logger()->info("Daheng::open() called - initializing Daheng library");
-
-  // 初始化 Daheng 库
+  
+  // 初始化库
   GX_STATUS status = GXInitLib();
   if (status != GX_STATUS_SUCCESS) {
     throw std::runtime_error("Failed to initialize Daheng library");
@@ -206,36 +181,67 @@ void Daheng::open()
     throw std::runtime_error("Failed to start stream");
   }
 
-  // 启动采集线程（使用主动拉帧方式）
+  // 启动采集线程
   capture_thread_ = std::thread{[this] {
     tools::logger()->info("Daheng capture thread started");
-
+    
     unsigned char * image_buffer = new unsigned char[payload_size_];
-
+    unsigned char * rgb_buffer = new unsigned char[width_ * height_ * 3];
+    
     while (!quit_ && ok_) {
       GX_FRAME_DATA frame_data;
       frame_data.pImgBuf = image_buffer;
-
-      // 主动拉帧（GXGetImage）
+      
       GX_STATUS status = GXGetImage(device_handle_, &frame_data, 100);
-
+      
       if (status == GX_STATUS_SUCCESS && frame_data.nStatus == GX_FRAME_STATUS_SUCCESS) {
-        // 直接从 Bayer 格式转换为 BGR（一步到位，性能优化）
-        cv::Mat img_bayer(height_, width_, CV_8UC1, frame_data.pImgBuf);
-        // 直接写入CameraData的img，避免多一次clone
+        // 转换为RGB格式
+        DX_BAYER_CONVERT_TYPE convert_type = RAW2RGB_NEIGHBOUR;
+        // 尝试匹配像素格式所对应的 Bayer 布局；默认 BAYERRG
+        DX_PIXEL_COLOR_FILTER color_filter = BAYERRG;
+        // 注意：无法直接从设备句柄读取我们设定的像素格式，这里按常见顺序匹配
+        // 若上面像素格式设置为 RG8/GR8/GB8/BG8，则这里分别使用 BAYERRG/BAYERGR/BAYERGB/BAYERBG
+        bool flip = false;
+        
+        if (debug_) {
+          static int frame_count = 0;
+          if (frame_count % 100 == 0) {  // 每100帧输出一次调试信息
+            const char *bayer_name = "BAYERRG";
+            if (color_filter == BAYERGR) bayer_name = "BAYERGR";
+            else if (color_filter == BAYERGB) bayer_name = "BAYERGB";
+            else if (color_filter == BAYERBG) bayer_name = "BAYERBG";
+            // std::cout<<frame_data.nFrameID<<std::endl;
+            // tools::logger()->info("Processing frame {}, using Bayer filter: {}", frame_count, bayer_name);
+          }
+          frame_count++;
+        }
+        
+        DxRaw8toRGB24Ex(
+          (unsigned char*)frame_data.pImgBuf,
+          rgb_buffer,
+          width_,
+          height_,
+          convert_type,
+          color_filter,
+          flip,
+          DX_ORDER_RGB
+        );
+
+        // 直接输出RGB格式，避免在采集线程做BGR转换
         CameraData data;
         data.img.create(height_, width_, CV_8UC3);
-        cv::cvtColor(img_bayer, data.img, bayer_code_);
+        std::memcpy(data.img.data, rgb_buffer, static_cast<size_t>(width_ * height_ * 3));
         data.timestamp = std::chrono::steady_clock::now();
-        data.frame_id = frame_data.nFrameID;  // 从 SDK 直接读取 FrameID（唯一可信的硬件帧号）
-
+        data.frame_id = frame_data.nFrameID;  //保存相机帧ID
+        // std::cout<<"frame ID: "<<frame_data.nFrameID<<std::endl;
         queue_.push(data);
       }
-
+      
       std::this_thread::sleep_for(1ms);
     }
-
+    
     delete[] image_buffer;
+    delete[] rgb_buffer;
     
     tools::logger()->info("Daheng capture thread stopped");
   }};
@@ -331,7 +337,7 @@ void Daheng::set_camera_params()
       tools::logger()->warn("Failed to set trigger mode OFF");
     }
 
-    // 设置为连续采集
+    // 连续采集
     status = GXSetEnum(device_handle_, GX_ENUM_ACQUISITION_MODE, GX_ACQ_MODE_CONTINUOUS);
     if (status != GX_STATUS_SUCCESS && debug_) {
       tools::logger()->warn("Failed to set acquisition mode CONTINUOUS");
@@ -341,7 +347,7 @@ void Daheng::set_camera_params()
       tools::logger()->info("Daheng camera configured in continuous mode (trigger disabled)");
     }
   } else {
-    // 外部硬触发模式
+    // 启用硬触发（外部线触发）
     status = GXSetEnum(device_handle_, GX_ENUM_TRIGGER_MODE, GX_TRIGGER_MODE_ON);
     if (status != GX_STATUS_SUCCESS) {
       tools::logger()->warn("Failed to enable trigger mode ON");
@@ -384,7 +390,7 @@ void Daheng::set_camera_params()
       tools::logger()->warn("Failed to set trigger selector FRAME_START");
     }
 
-    // 采集模式仍是 CONTINUOUS，曝光由外部触发信号驱动
+    // 采集模式设置为连续模式，由触发信号控制曝光
     status = GXSetEnum(device_handle_, GX_ENUM_ACQUISITION_MODE, GX_ACQ_MODE_CONTINUOUS);
     if (status != GX_STATUS_SUCCESS) {
       tools::logger()->warn("Failed to set acquisition mode CONTINUOUS under trigger");
@@ -428,14 +434,14 @@ void Daheng::set_camera_params()
     );
   }
   
-  // 设置像素格式为 Bayer8（尝试多种 Bayer 排列）
+  // 设置像素格式为 Bayer8；若失败则尝试其他排列
   GX_PIXEL_FORMAT_ENTRY try_formats[] = {
     GX_PIXEL_FORMAT_BAYER_RG8,
     GX_PIXEL_FORMAT_BAYER_GR8,
     GX_PIXEL_FORMAT_BAYER_GB8,
     GX_PIXEL_FORMAT_BAYER_BG8
   };
-
+  
   const char *fmt_names[] = {"BAYER_RG8", "BAYER_GR8", "BAYER_GB8", "BAYER_BG8"};
   int chosen = -1;
   for (int i = 0; i < 4; ++i) {
@@ -444,6 +450,7 @@ void Daheng::set_camera_params()
   }
   if (chosen == -1) {
     if (debug_) tools::logger()->warn("Failed to set any Bayer8 pixel format");
+    // keep default from camera
   } else if (debug_) {
     tools::logger()->info("Pixel format set to {}", fmt_names[chosen]);
   }
@@ -451,6 +458,13 @@ void Daheng::set_camera_params()
   if (debug_) {
     tools::logger()->info("Daheng camera parameters configured successfully");
   }
+}
+
+void GX_STDC Daheng::frame_callback(GX_FRAME_CALLBACK_PARAM * frame_data)
+{
+  // 这是回调函数的实现，目前使用主动获取图像的方式
+  // 如果需要使用回调方式，可以在这里实现
+  std::cout << "Frame callback received frame ID: " << frame_data->nFrameID << std::endl;
 }
 
 }  // namespace io

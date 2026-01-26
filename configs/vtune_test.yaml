@@ -26,10 +26,10 @@ yolo11_model_path: ../assets/best_openvino_model/best.xml        # 输入640×64
 yolov8_model_path: ../assets/yolov8.xml        # 输入416×416
 yolov5_model_path: ../assets/yolov5.xml      # 输入640×640
 # infer 层时间花费
-# yolo26_model_path: ../assets/repair_openvino_model/repair.xml                           # 5-6ms
+yolo26_model_path: ../assets/repair_int8_openvino_model/repair.xml                           # 5-6ms
 # yolo26_model_path: ../assets/small_yolo26best_int8_openvino_model/small_yolo26best.xml   # 2-3ms
 # yolo26_model_path: ../assets/little_yolo26_fp32/best.xml                                 # 10ms
-yolo26_model_path: ../assets/yolo26.xml                                                  # 6-7ms
+# yolo26_model_path: ../assets/yolo26.xml                                                  # 6-7ms
 
 # OpenVINO推理设备：CPU | GPU | AUTO
 # CPU: 使用CPU推理（兼容性最好）

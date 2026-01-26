@@ -22,6 +22,7 @@ enum ArmorType
   big,
   small
 };
+
 const std::vector<std::string> ARMOR_TYPES = {"big", "small"};
 
 enum ArmorName
@@ -63,6 +64,57 @@ const std::vector<std::tuple<Color, ArmorName, ArmorType>> armor_properties = {
   {blue, four, big},         {red, four, big},         {extinguish, four, big},  
   {blue, five, big},         {red, five, big},         {extinguish, five, big}};
 // clang-format on
+
+// YOLO11 模型的类别映射 (16类)
+// 0: blue_G, 1: blue_1, 2: blue_2, 3: blue_3, 4: blue_4, 5: blue_5, 6: blue_O, 7: blue_B
+// 8: red_G,  9: red_1,  10: red_2, 11: red_3, 12: red_4, 13: red_5, 14: red_O, 15: red_B
+const std::vector<std::tuple<Color, ArmorName, ArmorType>> yolo11_armor_properties = {
+  {blue, sentry, small},   // 0: blue_G
+  {blue, one, small},      // 1: blue_1
+  {blue, two, small},      // 2: blue_2
+  {blue, three, small},    // 3: blue_3
+  {blue, four, small},     // 4: blue_4
+  {blue, five, small},     // 5: blue_5
+  {blue, outpost, small},  // 6: blue_O
+  {blue, base, big},       // 7: blue_B
+  {red, sentry, small},    // 8: red_G
+  {red, one, small},       // 9: red_1
+  {red, two, small},       // 10: red_2
+  {red, three, small},     // 11: red_3
+  {red, four, small},      // 12: red_4
+  {red, five, small},      // 13: red_5
+  {red, outpost, small},   // 14: red_O
+  {red, base, big}         // 15: red_B
+};
+
+// YOLO26 模型的类别映射 (16类) 
+// 0: red_1, 1: red_2, 2: red_3, 3: red_4, 4: red_5, 5: red_G, 6: red_O, 7: red_B
+// 8: blue_1, 9: blue_2, 10: blue_3, 11: blue_4, 12: blue_5, 13: blue_G, 14: blue_O, 15: blue_B
+const std::vector<std::tuple<Color, ArmorName, ArmorType>> yolo26_armor_properties = {
+  {red, one, small},       // 0: red_1
+  {red, two, small},       // 1: red_2
+  {red, three, small},     // 2: red_3
+  {red, four, small},      // 3: red_4
+  {red, five, small},      // 4: red_5
+  {red, sentry, small},    // 5: red_6 (哨兵)
+  {red, outpost, small},   // 6: red_7 (前哨站)
+  {red, base, big},        // 7: red_8 (基地)
+  {blue, one, small},      // 8: blue_1
+  {blue, two, small},      // 9: blue_2
+  {blue, three, small},    // 10: blue_3
+  {blue, four, small},     // 11: blue_4
+  {blue, five, small},     // 12: blue_5
+  {blue, sentry, small},   // 13: blue_6 (哨兵)
+  {blue, outpost, small},  // 14: blue_7 (前哨站)
+  {blue, base, big}        // 15: blue_8 (基地)
+};
+
+// YOLO 版本枚举（用于选择类别映射表）
+enum class YOLOVersion
+{
+  YOLO11,
+  YOLO26
+};
 
 struct Lightbar
 {
@@ -107,14 +159,19 @@ struct Armor
   double yaw_raw;  // rad
 
   Armor(const Lightbar & left, const Lightbar & right);
-  Armor(
-    int class_id, float confidence, const cv::Rect & box, std::vector<cv::Point2f> armor_keypoints);
+  // YOLO11/YOLO26 构造函数（不带ROI）
   Armor(
     int class_id, float confidence, const cv::Rect & box, std::vector<cv::Point2f> armor_keypoints,
-    cv::Point2f offset);
+    YOLOVersion version = YOLOVersion::YOLO11);
+  // YOLO11/YOLO26 构造函数（带ROI）
+  Armor(
+    int class_id, float confidence, const cv::Rect & box, std::vector<cv::Point2f> armor_keypoints,
+    cv::Point2f offset, YOLOVersion version = YOLOVersion::YOLO11);
+  // YOLOV5 构造函数（不带ROI）
   Armor(
     int color_id, int num_id, float confidence, const cv::Rect & box,
     std::vector<cv::Point2f> armor_keypoints);
+  // YOLOV5 构造函数（带ROI）
   Armor(
     int color_id, int num_id, float confidence, const cv::Rect & box,
     std::vector<cv::Point2f> armor_keypoints, cv::Point2f offset);

@@ -142,13 +142,12 @@ YOLO26::YOLO26(const std::string & config_path, bool debug)
     .set_element_type(ov::element::u8)
     .set_shape({1, 640, 640, 3})
     .set_layout("NHWC")
-    .set_color_format(ov::preprocess::ColorFormat::BGR);
+    .set_color_format(ov::preprocess::ColorFormat::RGB);
 
   input.model().set_layout("NCHW");
 
   input.preprocess()
     .convert_element_type(ov::element::f32)
-    .convert_color(ov::preprocess::ColorFormat::RGB)
     .scale(255.0);
 
   // TODO: ov::hint::performance_mode(ov::hint::PerformanceMode::LATENCY)
@@ -478,13 +477,36 @@ std::list<Armor> YOLO26::parse(
   float min_conf = 999.0f;
 
   for (int r = 0; r < output.rows; r++) {
-    // 格式：[xyxy(4), confidence(1), class_id(1), keypoints(12)] = 18维
     float x1_raw = output.at<float>(r, 0);
     float y1_raw = output.at<float>(r, 1);
     float x2_raw = output.at<float>(r, 2);
     float y2_raw = output.at<float>(r, 3);
-    float conf = output.at<float>(r, 4);
-    int cls = static_cast<int>(output.at<float>(r, 5));
+    float conf = 0.0f;
+    int cls = -1;
+
+    // 输出格式适配：
+    // cols=14: [xyxy(4), conf(1), cls(1), kpts(8)]
+    // cols=18: [xyxy(4), conf(1), cls(1), kpts(12)]
+    const int cols = output.cols;
+    const int kpt_start = 6;
+    if (cols == 14 || cols == 18) {
+      conf = output.at<float>(r, 4);
+      cls = static_cast<int>(output.at<float>(r, 5));
+    } else {
+      // 兜底：按[xyxy + obj + class scores + kpts(8)]解析
+      float obj_conf = output.at<float>(r, 4);
+      const int cls_start = 5;
+      const int cls_count = class_num_;
+      float cls_score = 0.0f;
+      for (int c = 0; c < cls_count; ++c) {
+        float score = output.at<float>(r, cls_start + c);
+        if (score > cls_score) {
+          cls_score = score;
+          cls = c;
+        }
+      }
+      conf = obj_conf * cls_score;
+    }
 
     total_detections++;
 
@@ -537,9 +559,8 @@ std::list<Armor> YOLO26::parse(
     // ---------- 3. keypoints (4×3 格式：x, y, visibility) ----------
     std::vector<cv::Point2f> armor_key_points;
     for (int i = 0; i < 4; i++) {
-      float kx_raw = output.at<float>(r, 6 + i * 3 + 0);
-      float ky_raw = output.at<float>(r, 6 + i * 3 + 1);
-      // float visibility = output.at<float>(r, 6 + i * 3 + 2);  // 忽略
+      float kx_raw = output.at<float>(r, kpt_start + i * 2 + 0);
+      float ky_raw = output.at<float>(r, kpt_start + i * 2 + 1);
 
       float kx = (kx_raw - pad_x) / scale;
       float ky = (ky_raw - pad_y) / scale;

@@ -39,13 +39,12 @@ YOLOV5::YOLOV5(const std::string & config_path, bool debug)
     .set_element_type(ov::element::u8)
     .set_shape({1, 640, 640, 3})
     .set_layout("NHWC")
-    .set_color_format(ov::preprocess::ColorFormat::BGR);
+    .set_color_format(ov::preprocess::ColorFormat::RGB);
 
   input.model().set_layout("NCHW");
 
   input.preprocess()
     .convert_element_type(ov::element::f32)
-    .convert_color(ov::preprocess::ColorFormat::RGB)
     .scale(255.0);
 
   // TODO: ov::hint::performance_mode(ov::hint::PerformanceMode::LATENCY)
@@ -242,6 +241,8 @@ void YOLOV5::draw_detections(
     cv::rectangle(detection, roi_, green, 2);
   }
   cv::resize(detection, detection, {}, 0.5, 0.5);  // 显示时缩小图片尺寸
+  // 输入图像为 RGB 格式，imshow 需要 BGR 格式
+  cv::cvtColor(detection, detection, cv::COLOR_RGB2BGR);
   cv::imshow("detection", detection);
 }
 

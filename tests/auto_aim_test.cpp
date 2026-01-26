@@ -313,7 +313,11 @@ int main(int argc, char * argv[])
     plotter.plot(data);
 
     cv::resize(img, img, {}, 0.5, 0.5);  // 显示时缩小图片尺寸
-    cv::imshow("reprojection", img);
+    
+    // 相机输出为 RGB 格式，imshow 需要 BGR 格式，进行转换
+    cv::Mat img_bgr;
+    cv::cvtColor(img, img_bgr, cv::COLOR_RGB2BGR);
+    cv::imshow("reprojection", img_bgr);
     auto key = cv::waitKey(1);  
     if (key == 'q') break;
   }

@@ -16,7 +16,7 @@ enemy_color: "red"
 
 #####-----神经网络参数-----#####
 # 选择装甲板识别后端：yolov8 | yolo11 | yolov5
-yolo_name: yolo26
+yolo_name: yolov8
 
 # 数字/字迹分类器模型路径
 classify_model: ../assets/tiny_resnet.onnx

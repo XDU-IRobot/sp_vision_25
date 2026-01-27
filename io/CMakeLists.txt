@@ -1,6 +1,7 @@
 cmake_minimum_required(VERSION 3.16)
 
 find_package(yaml-cpp REQUIRED)
+find_package(OpenVINO REQUIRED COMPONENTS Runtime)  # <-- add this line
 
 add_subdirectory(serial)
 # 创建目标 io
@@ -39,7 +40,11 @@ else()
   message(FATAL_ERROR "Unsupported architecture: ${CMAKE_HOST_SYSTEM_PROCESSOR}!")
 endif()
 
-target_link_libraries(io  rm MvCameraControl MVSDK usb-1.0 yaml-cpp serial gxiapi)
+target_link_libraries(io  rm MvCameraControl MVSDK usb-1.0 yaml-cpp serial gxiapi openvino::runtime)
+
+# Ensure OpenVINO include dirs are visible to the io target (some CMake setups
+# don't propagate the INTERFACE include dirs automatically into subdirectories).
+target_include_directories(io PUBLIC $<TARGET_PROPERTY:openvino::runtime,INTERFACE_INCLUDE_DIRECTORIES>)
 
 ################## 检查 ROS 环境 ##################
 find_package(ament_cmake QUIET)

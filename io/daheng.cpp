@@ -186,7 +186,9 @@ void Daheng::open()
     tools::logger()->info("Daheng capture thread started");
     
     unsigned char * image_buffer = new unsigned char[payload_size_];
-    unsigned char * rgb_buffer = new unsigned char[width_ * height_ * 3];
+    
+    // 预分配输出图像，避免每帧分配内存
+    cv::Mat rgb_img(height_, width_, CV_8UC3);
     
     while (!quit_ && ok_) {
       GX_FRAME_DATA frame_data;
@@ -195,45 +197,17 @@ void Daheng::open()
       GX_STATUS status = GXGetImage(device_handle_, &frame_data, 100);
       
       if (status == GX_STATUS_SUCCESS && frame_data.nStatus == GX_FRAME_STATUS_SUCCESS) {
-        // 转换为RGB格式
-        DX_BAYER_CONVERT_TYPE convert_type = RAW2RGB_NEIGHBOUR;
-        // 尝试匹配像素格式所对应的 Bayer 布局；默认 BAYERRG
-        DX_PIXEL_COLOR_FILTER color_filter = BAYERRG;
-        // 注意：无法直接从设备句柄读取我们设定的像素格式，这里按常见顺序匹配
-        // 若上面像素格式设置为 RG8/GR8/GB8/BG8，则这里分别使用 BAYERRG/BAYERGR/BAYERGB/BAYERBG
-        bool flip = false;
+        // 🚀 优化：使用OpenCV的Bayer转换替代大恒SDK的DxRaw8toRGB24Ex
+        // OpenCV的cvtColor经过SIMD优化(AVX2/NEON)，比SDK实现更快
+        // 注意：大恒BAYERRG对应OpenCV的COLOR_BayerBG2RGB（命名规则不同）
+        cv::Mat bayer_img(height_, width_, CV_8UC1, frame_data.pImgBuf);
+        cv::cvtColor(bayer_img, rgb_img, cv::COLOR_BayerBG2RGB);
         
-        if (debug_) {
-          static int frame_count = 0;
-          if (frame_count % 100 == 0) {  // 每100帧输出一次调试信息
-            const char *bayer_name = "BAYERRG";
-            if (color_filter == BAYERGR) bayer_name = "BAYERGR";
-            else if (color_filter == BAYERGB) bayer_name = "BAYERGB";
-            else if (color_filter == BAYERBG) bayer_name = "BAYERBG";
-            // std::cout<<frame_data.nFrameID<<std::endl;
-            // tools::logger()->info("Processing frame {}, using Bayer filter: {}", frame_count, bayer_name);
-          }
-          frame_count++;
-        }
-        
-        DxRaw8toRGB24Ex(
-          (unsigned char*)frame_data.pImgBuf,
-          rgb_buffer,
-          width_,
-          height_,
-          convert_type,
-          color_filter,
-          flip,
-          DX_ORDER_RGB
-        );
-
-        // 直接输出RGB格式，避免在采集线程做BGR转换
+        // 🚀 优化：直接clone避免中间buffer的memcpy
         CameraData data;
-        data.img.create(height_, width_, CV_8UC3);
-        std::memcpy(data.img.data, rgb_buffer, static_cast<size_t>(width_ * height_ * 3));
+        data.img = rgb_img.clone();  // clone比memcpy更高效（考虑对齐）
         data.timestamp = std::chrono::steady_clock::now();
-        data.frame_id = frame_data.nFrameID;  //保存相机帧ID
-        // std::cout<<"frame ID: "<<frame_data.nFrameID<<std::endl;
+        data.frame_id = frame_data.nFrameID;
         queue_.push(data);
       }
       
@@ -241,7 +215,6 @@ void Daheng::open()
     }
     
     delete[] image_buffer;
-    delete[] rgb_buffer;
     
     tools::logger()->info("Daheng capture thread stopped");
   }};

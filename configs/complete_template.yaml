@@ -5,7 +5,7 @@ enemy_color: "blue"
 
 #####-----神经网络参数-----#####
 # 选择装甲板识别后端：yolov8 | yolo11 | yolov5
-yolo_name: yolov8
+yolo_name: yolo26
 
 # 数字/字迹分类器模型路径
 classify_model: assets/tiny_resnet.onnx
@@ -15,6 +15,7 @@ yolo11_model_path: assets/yolo11.xml      # 输入640×640
 yolov8_model_path: assets/yolov8.xml        # 输入416×416
 yolov5_model_path: assets/yolov5.xml        # 输入640×640
 
+yolo26_model_path: assets/repair_int8_openvino_model/repair.xml   
 # OpenVINO推理设备：CPU | GPU | AUTO
 # CPU: 使用CPU推理（兼容性最好）
 # GPU: 使用GPU推理（需要Intel核显驱动）
@@ -66,7 +67,7 @@ outpost_max_temp_lost_count: 75
 #####-----Aimer（瞄准器）参数-----#####
 # 瞄准角度偏置（用于快速校准）
 yaw_offset: -1        # 偏航角偏置（度）
-pitch_offset: -1.4    # 俯仰角偏置（度）
+pitch_offset: 0    # 俯仰角偏置（度）
 
 # 小陀螺目标瞄准参数
 comming_angle: 60     # 装甲板出现角度（度）
@@ -137,7 +138,7 @@ camera_settings:
 
 #####-----相机标定参数-----#####
 # 云台到IMU Body的旋转矩阵（3×3，行优先）
-R_gimbal2imubody: [1, 0,0,0, 1, 0, 0 , 0, 1]
+R_gimbal2imubody: [-1, 0,0,0, -1, 0, 0 , 0, 1]
 
 # 相机内参矩阵（3×3，行优先）
 # [fx, 0, cx, 0, fy, cy, 0, 0, 1]
@@ -158,7 +159,7 @@ new_can_quat_id: 0x150        # 四元数姿态帧ID
 new_can_cmd_id: 0x170         # 自瞄指令帧ID
 can_interface: "can0"
 debug_rx: false
-debug_tx: false
+debug_tx: true
 
 #####-----轨迹规划器（Planner）参数-----#####
 # 开火阈值（rad）

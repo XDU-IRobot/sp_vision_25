@@ -220,7 +220,8 @@ command.pitch = wrap_rad_2pi(command.pitch);
       data["xyza_list[0]_z"] = armor_xyza_list[0][2];
       data["xyza_list[1]_z"] = armor_xyza_list[1][2];
       data["xyza_list[2]_z"] = armor_xyza_list[2][2];
-      if (x.size() >= 13) {
+      // data["height_id"] = 
+      if (x.size() == 13) {
     data["h1"] = x[11];  // 装甲板1相对于装甲板0的高度差
     data["h2"] = x[12];  // 装甲板2相对于装甲板0的高度差
   }

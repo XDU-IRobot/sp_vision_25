@@ -30,13 +30,13 @@ public:
   Target() = default;
   Target(
     const Armor & armor, std::chrono::steady_clock::time_point t, double radius, int armor_num,
-    Eigen::VectorXd P0_dig);
+    Eigen::VectorXd P0_dig); // 前哨站13维状态量特判
   Target(double x, double vyaw, double radius, double h);
   virtual ~Target() = default;
 
-  virtual void predict(std::chrono::steady_clock::time_point t);
-  virtual void predict(double dt);
-  virtual void update(const Armor & armor);
+  void predict(std::chrono::steady_clock::time_point t);
+  void predict(double dt);
+  void update(const Armor & armor);
 
   Eigen::VectorXd ekf_x() const;
   const tools::ExtendedKalmanFilter & ekf() const;
@@ -64,10 +64,11 @@ protected:
   tools::ExtendedKalmanFilter ekf_;
   std::chrono::steady_clock::time_point t_;
 
-  virtual void update_ypda(const Armor & armor, int id);  // yaw pitch distance angle
-
-  virtual Eigen::Vector3d h_armor_xyz(const Eigen::VectorXd & x, int id) const;
-  virtual Eigen::MatrixXd h_jacobian(const Eigen::VectorXd & x, int id) const;
+  void update_ypda(const Armor & armor, int id);  // yaw pitch distance angle
+  int match_armor_id(double z_obs) const;  //给前哨站用的辅助匹配函数
+  
+  Eigen::Vector3d h_armor_xyz(const Eigen::VectorXd & x, int id) const;
+  Eigen::MatrixXd h_jacobian(const Eigen::VectorXd & x, int id) const;
 
   // virtual std::pair<double, double> get_process_noise() const=0;
 

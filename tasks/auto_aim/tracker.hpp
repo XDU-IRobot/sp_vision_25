@@ -10,7 +10,6 @@
 #include "armor.hpp"
 #include "solver.hpp"
 #include "target.hpp"
-#include "outpost_target.hpp"
 #include "tasks/omniperception/perceptron.hpp"
 #include "tools/thread_safe_queue.hpp"
 #include <memory>
@@ -69,7 +68,7 @@ private:
   int outpost_max_temp_lost_count_;
   int normal_temp_lost_count_;
   std::string state_, pre_state_;
-  std::shared_ptr<Target> target_;  // 改为智能指针以支持多态
+  Target target_;  // 弃用智能指针
   std::chrono::steady_clock::time_point last_timestamp_;
   ArmorPriority omni_target_priority_;
 

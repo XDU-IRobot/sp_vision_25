@@ -68,7 +68,6 @@ target_link_libraries(uav_onlyfronted_debug rclcpp::rclcpp)
 
 ##################tests##################
 add_executable(auto_aim_test tests/auto_aim_test.cpp)
-add_executable(outpost_target_test tests/outpost_target_test.cpp)
 # add_executable(auto_buff_test tests/auto_buff_test.cpp)
 # add_executable(camera_detect_test tests/camera_detect_test.cpp)
 # add_executable(camera_pnp_test tests/camera_pnp_test.cpp)
@@ -86,7 +85,6 @@ add_executable(outpost_target_test tests/outpost_target_test.cpp)
 # add_executable(minimum_vision_system tests/minimum_vision_system.cpp)
 
 target_link_libraries(auto_aim_test ${OpenCV_LIBS} fmt::fmt yaml-cpp tools io auto_aim)
-target_link_libraries(outpost_target_test ${OpenCV_LIBS} fmt::fmt yaml-cpp tools io auto_aim)
 
 # target_link_libraries(auto_buff_test ${OpenCV_LIBS} fmt::fmt yaml-cpp auto_buff tools io)
 # target_link_libraries(camera_detect_test ${OpenCV_LIBS} fmt::fmt yaml-cpp tools auto_aim io)

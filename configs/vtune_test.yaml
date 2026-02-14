@@ -1,3 +1,14 @@
+# ==========================================
+# SP_vision_USB 完整配置模板
+# 版本: v2.0
+# 更新日期: 2025-12-09
+# ==========================================
+# 说明：
+# - 本文件包含所有可配置项的完整说明
+# - 未注释的配置为推荐默认值
+# - 带 # 的配置为可选项或备选值
+# - 请根据实际硬件和需求修改相应配置
+# ==========================================
 
 #####-----基础配置-----#####
 # 敌方颜色：red | blue
@@ -5,36 +16,46 @@ enemy_color: "blue"
 
 #####-----神经网络参数-----#####
 # 选择装甲板识别后端：yolov8 | yolo11 | yolov5
-<<<<<<< HEAD
-yolo_name: yolov8
-=======
 yolo_name: yolo26
->>>>>>> main
 
 # 数字/字迹分类器模型路径
-classify_model: assets/tiny_resnet.onnx
+classify_model: ../assets/tiny_resnet.onnx
 
 # YOLO模型路径（根据yolo_name选择对应模型）
-yolo11_model_path: assets/yolo11.xml      # 输入640×640
-yolov8_model_path: assets/yolov8.xml        # 输入416×416
-yolov5_model_path: assets/yolov5.xml        # 输入640×640
+yolo11_model_path: ../assets/best_openvino_model/best.xml        # 输入640×640
+yolov8_model_path: ../assets/yolov8.xml        # 输入416×416
+yolov5_model_path: ../assets/yolov5.xml      # 输入640×640
+# infer 层时间花费
+yolo26_model_path: ../assets/repair_int8_openvino_model/repair.xml                           # 5-6ms
+# yolo26_model_path: ../assets/small_yolo26best_int8_openvino_model/small_yolo26best.xml   # 2-3ms
+# yolo26_model_path: ../assets/little_yolo26_fp32/best.xml                                 # 10ms
+# yolo26_model_path: ../assets/yolo26.xml                                                  # 6-7ms
 
-yolo26_model_path: assets/repair_int8_openvino_model/repair.xml   
 # OpenVINO推理设备：CPU | GPU | AUTO
-# CPU: 使用CPU推理（兼容性最好）
-# GPU: 使用GPU推理（需要Intel核显驱动）
-# AUTO: 自动选择最优设备
 device: CPU
 
-# 分类器最小置信度（0.0-1.0）
+# 是否使用异步推理
+
+use_async_inference: false
+
+
+# OpenVINO并行度调节（可选）
+infer_threads: 4   # 推理线程数（同步/异步都生效），提高可增加CPU占用
+ov_streams: 1      # OpenVINO streams 数量（同步默认1，异步默认2）
+
+
 min_confidence: 0.8
 
-# 是否启用传统角点微调（仅yolov5使用）
-use_traditional: true
+# 是否启用传统角点微调
+use_traditional: false
 
 #####-----功能开关-----#####
 # 是否启用打符模块
 enable_buff: false
+
+# 强制进入自瞄模式（无需等待MCU切档）
+# 注意：需要配合下位机安全策略使用
+force_auto_aim: false
 
 #####-----ROI（感兴趣区域）参数-----#####
 roi:
@@ -71,7 +92,7 @@ outpost_max_temp_lost_count: 75
 #####-----Aimer（瞄准器）参数-----#####
 # 瞄准角度偏置（用于快速校准）
 yaw_offset: -1        # 偏航角偏置（度）
-pitch_offset: 0    # 俯仰角偏置（度）
+pitch_offset: -1.4    # 俯仰角偏置（度）
 
 # 小陀螺目标瞄准参数
 comming_angle: 60     # 装甲板出现角度（度）
@@ -109,6 +130,7 @@ judge_distance: 2
 auto_fire: false
 
 #####-----相机配置-----#####
+# 相机类型：daheng | hikrobot | mindvision | usbcamera
 camera_name: "daheng"
 
 # 相机基础参数
@@ -138,13 +160,14 @@ camera_settings:
   max_exp: 3000                  # 最大曝光时间
   min_exp: 200                   # 最小曝光时间
   pixel_format: BayerRG8         # 像素格式
+  bayer_pattern: BayerBG8        # Bayer转换模式（BayerRG8/BayerGR8/BayerGB8/BayerBG8）
+                                 # 如果图像红蓝翻转，尝试其他模式
 
-<<<<<<< HEAD
 #####-----相机硬触发配置-----#####
 # 是否启用硬触发（外部GPIO信号触发相机曝光）
 # false: 连续采集模式（软件自由采集）
 # true:  硬触发模式（等待外部信号）
-trigger_enable: true
+trigger_enable: false
 
 # 触发源选择（仅在trigger_enable=true时生效）
 # 0 = Line0 (GPIO 1, 相机Pin 1)
@@ -156,37 +179,61 @@ trigger_source: 2
 # 0 = 上升沿触发 (低电平→高电平)
 # 1 = 下降沿触发 (高电平→低电平)
 trigger_activation: 0
-=======
->>>>>>> main
 
 #####-----相机标定参数-----#####
 # 云台到IMU Body的旋转矩阵（3×3，行优先）
-R_gimbal2imubody: [-1, 0,0,0, -1, 0, 0 , 0, 1]
+R_gimbal2imubody: [1, 0, 0, 0, 1, 0, 0, 0, 1]
 
 # 相机内参矩阵（3×3，行优先）
 # [fx, 0, cx, 0, fy, cy, 0, 0, 1]
-camera_matrix: [2807.679657, 0.000000, 954.251797, 0.000000, 2804.280283, 601.906719, 0.000000, 0.000000, 1.000000]
-
+# camera_matrix: [2807.679657, 0.000000, 954.251797, 0.000000, 2804.280283, 601.906719, 0.000000, 0.000000, 1.000000]
+camera_matrix: [1576.573009, 0.000000, 926.043671, 0.000000, 1576.654543 , 589.242106, 0.000000, 0.000000, 1.000000]
 # 相机畸变系数（5个参数）
 # [k1, k2, p1, p2, k3]
-distort_coeffs: [-0.250596, -0.395102, -0.001980, 0.001022, 0.000000]
-
+# distort_coeffs: [-0.250596, -0.395102, -0.001980, 0.001022, 0.000000]
+distort_coeffs: [-0.271500 , 0.213079 , -0.000170,  -0.000156 , 0.000000]
 # 相机到云台的旋转矩阵（3×3，行优先，需手眼标定）
-R_camera2gimbal: [0, 0, 1, 0, 1, 0, -1, 0, 0]
+R_camera2gimbal: [-0.027182119030230909, -0.12616154330853446, 0.99163723074269183, -0.99949106557517331, 0.019998323121329122, -0.024853106601381177, -0.016695575474690555, -0.99180811252093692, -0.12664093215554434]
 
 # 相机到云台的平移向量（3个参数，需手眼标定）
 t_camera2gimbal: [0.13160669975045827, 0.10377721766577375, 0.024908271912914642]
 
-#####-----CAN协议配置-----#####
-new_can_quat_id: 0x150        # 四元数姿态帧ID
-new_can_cmd_id: 0x170         # 自瞄指令帧ID
-<<<<<<< HEAD
+# ==========================================
+# CBoard通信配置
+# ==========================================
+# 说明：
+# 1. 通信方式选择：CAN总线 或 USB串口
+# 2. CAN协议选择：旧协议 或 新协议
+# 3. 所有配置项都有详细说明
+# ==========================================
 
-debug_rx: true
+#####-----通信方式选择-----#####
+# 选择通信后端：can | serial
+# - can:    使用SocketCAN（需要连接CAN总线）
+# - serial: 使用USB虚拟串口（推荐，更稳定）
+cboard_transport: "can"
+
+#####-----旧CAN协议配置-----#####
+# 注意：仅在cboard_transport="can"且use_new_can_protocol=false时使用
+quaternion_canid: 0x100       # 四元数接收ID（下位机→上位机）
+bullet_speed_canid: 0x101     # 状态信息接收ID（下位机→上位机）
+send_canid: 0xff              # 命令发送ID（上位机→下位机）
+
+#####-----新CAN协议配置-----#####
+# 是否使用新CAN协议
+# false: 使用旧CAN协议（兼容旧版下位机）
+# true:  使用新CAN协议（支持更多功能）
+use_new_can_protocol: true
+
+new_can_quat_id: 0x150        # 四元数姿态帧ID
+new_can_status_id: 0x160      # 状态信息帧ID
+new_can_cmd_id: 0x170         # 自瞄指令帧ID
+
+debug_rx: false
 debug_tx: false
-debug_frame_match: false
+debug_frame_match: true
 # CAN接口名称（仅在cboard_transport="can"时生效）
-can_interface: "can0"
+can_interface: "can2"
 
 #####-----串口通信配置-----#####
 # 注意：仅在cboard_transport="serial"时使用
@@ -272,12 +319,35 @@ cboard_serial_force_control: true               # 强制按"有目标"发送
 # yaw_sign: 1                           # Yaw符号（+1或-1）
 # pitch_sign: 1                         # Pitch符号（+1或-1）
 # normalize_abs_angles: true            # 是否归一化到(-π, π]
-=======
-can_interface: "can0"
-debug_rx: false
-debug_tx: true
->>>>>>> main
 
 #####-----轨迹规划器（Planner）参数-----#####
 # 开火阈值（rad）
 fire_thresh: 0.0035
+
+# Yaw轴MPC参数
+max_yaw_acc: 50                         # 最大加速度（rad/s²）
+Q_yaw: [9e6, 0]                         # 状态代价矩阵
+R_yaw: [1]                              # 控制代价矩阵
+
+# Pitch轴MPC参数
+max_pitch_acc: 100                      # 最大加速度（rad/s²）
+Q_pitch: [9e6, 0]                       # 状态代价矩阵
+R_pitch: [1]                            # 控制代价矩阵
+
+#####-----打符模块配置-----#####
+# 打符识别模型路径（仅在enable_buff=true时使用）
+# model: "assets/yolo11_buff_int8.xml"
+
+#####-----其他相机配置（备选）-----#####
+
+# camera_name: "mindvision"
+# exposure_ms: 2
+# gamma: 0.5
+# vid_pid: "f622:d13a"
+
+# camera_name: "hikrobot"
+# exposure_ms: 3
+# gain: 10.0
+# vid_pid: "2bdf:0001"
+
+

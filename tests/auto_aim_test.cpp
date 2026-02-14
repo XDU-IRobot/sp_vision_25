@@ -25,57 +25,16 @@
 #include "tools/plotter.hpp"
 
 const std::string keys =
-  "{help h usage ? |                     | 输出命令行参数说明 }"
-  "{config-path c  | configs/camera.yaml | yaml配置文件的路径}"
-  "{use-camera     | false               | 使用真实相机而非视频文件 }"
-  "{start-index s  | 0                   | 视频起始帧下标    }"
-  "{end-index e    | 0                   | 视频结束帧下标    }"
-  "{@input-path    | assets/demo/demo    | avi和txt文件的路径}";
+  "{help h usage ? |                              | 输出命令行参数说明 }"
+  "{config-path c  | ../configs/vtune_test.yaml   | yaml配置文件的路径（相对于build目录）}"
+  "{use-camera     | true                         | 使用真实相机而非视频文件（默认启用）}"
+  "{start-index s  | 0                            | 视频起始帧下标    }"
+  "{end-index e    | 0                            | 视频结束帧下标    }"
+  "{@input-path    | ../assets/demo/demo          | avi和txt文件的路径（相对于build目录）}";
 
 int main(int argc, char * argv[])
 {
-  // 初始化 ROS2 (仅在 ROS2 可用时)
-#ifdef AMENT_CMAKE_FOUND
-  rclcpp::init(argc, argv);
-  auto ros_node = std::make_shared<rclcpp::Node>("auto_aim_test_visualizer");
-
-  // 发布静态 TF：world 坐标系
-  auto tf_broadcaster = std::make_shared<tf2_ros::StaticTransformBroadcaster>(ros_node);
-
-  // 创建静态 TF 消息
-  geometry_msgs::msg::TransformStamped world_transform;
-  world_transform.header.frame_id = "map";  // 父坐标系
-  world_transform.child_frame_id = "world";  // 子坐标系
-  world_transform.transform.translation.x = 0.0;
-  world_transform.transform.translation.y = 0.0;
-  world_transform.transform.translation.z = 0.0;
-  world_transform.transform.rotation.x = 0.0;
-  world_transform.transform.rotation.y = 0.0;
-  world_transform.transform.rotation.z = 0.0;
-  world_transform.transform.rotation.w = 1.0;
-
-  // 创建定时器定期发布静态 TF (每秒发布一次)
-  auto tf_timer = ros_node->create_wall_timer(
-    std::chrono::seconds(1),
-    [&world_transform, tf_broadcaster, ros_node]() {
-      world_transform.header.stamp = ros_node->now();
-      tf_broadcaster->sendTransform(world_transform);
-    });
-
-  // 立即发送一次
-  world_transform.header.stamp = ros_node->now();
-  tf_broadcaster->sendTransform(world_transform);
-
-  // 在后台线程中运行 ROS2 spin
-  std::thread ros_spin_thread([ros_node]() {
-    rclcpp::spin(ros_node);
-  });
-  ros_spin_thread.detach();
-
-  tools::logger()->info("ROS2 initialized for auto_aim_test visualization");
-  tools::logger()->info("Static TF publisher started: map -> world");
-#endif
-
+  // cv::setNumThreads(0); 
   // 读取命令行参数
   cv::CommandLineParser cli(argc, argv, keys);
   if (cli.has("help")) {
@@ -211,6 +170,44 @@ int main(int argc, char * argv[])
 
     nlohmann::json data;
 
+    if (!armors.empty()) {
+      const auto & armor = armors.front();
+
+      // 1. 绘制检测框（白色，粗线）
+      tools::draw_points(img, armor.points, {255, 255, 255}, 2);
+      tools::draw_text(img, "Detection", armor.points[0] - cv::Point2f(0, 10), {255, 255, 255});
+
+      // 2. 绘制原始PnP重投影（橙色）
+      auto reproject_raw = solver.reproject_armor(
+        armor.xyz_in_world, armor.yaw_raw, armor.type, armor.name);
+      // tools::draw_points(img, reproject_raw, {0, 165, 255});  // 橙色
+      // tools::draw_text(img, "PnP Raw", reproject_raw[0] - cv::Point2f(0, 25), {0, 165, 255});
+
+      // 3. 绘制优化后重投影
+      auto reproject_opt = solver.reproject_armor(
+        armor.xyz_in_world, armor.ypr_in_world[0], armor.type, armor.name);
+      tools::draw_points(img, reproject_opt, {0, 255, 0});  
+      tools::draw_text(img, "PnP Optimized", reproject_opt[0] - cv::Point2f(0, 40), {0, 255, 0});
+
+      // 4. 绘制误差连线（检测点→重投影点）
+      for (int i = 0; i < 4; i++) {
+        // 检测→优化重投影
+        cv::line(img, armor.points[i], reproject_opt[i], {0, 0, 255}, 1, cv::LINE_AA);
+      }
+
+      // 5. 在图像上显示误差数值
+      double error_raw = 0.0, error_opt = 0.0;
+      for (int i = 0; i < 4; i++) {
+        error_raw += cv::norm(armor.points[i] - reproject_raw[i]);
+        error_opt += cv::norm(armor.points[i] - reproject_opt[i]);
+      }
+
+      tools::draw_text(
+        img,
+        fmt::format("Reproj Error: Raw={:.1f}px, Opt={:.1f}px", error_raw, error_opt),
+        {10, 120}, {255, 255, 0});
+    }
+
     // 装甲板原始观测数据
     data["armor_num"] = armors.size();
     if (!armors.empty()) {
@@ -219,6 +216,42 @@ int main(int argc, char * argv[])
       data["armor_y"] = armor.xyz_in_world[1];
       data["armor_yaw"] = armor.ypr_in_world[0] * 57.3;
       data["armor_yaw_raw"] = armor.yaw_raw * 57.3;
+
+      double yaw_diff_rad = armor.ypr_in_world[0] - armor.yaw_raw;
+      double yaw_diff_normalized = tools::limit_rad(yaw_diff_rad);  // 归一化到[-π, π]
+      double yaw_diff_abs = std::abs(yaw_diff_normalized);
+
+      data["yaw_diff"] = yaw_diff_rad * 57.3;  // 原始差值（度）
+      data["yaw_diff_normalized"] = yaw_diff_normalized * 57.3;  // 归一化差值（度）
+      data["yaw_diff_abs"] = yaw_diff_abs * 57.3;  // 绝对差值（度）
+
+      // 计算两个解的重投影误差进行对比
+      auto reproject_points_optimized = solver.reproject_armor(
+        armor.xyz_in_world, armor.ypr_in_world[0], armor.type, armor.name);
+      auto reproject_points_raw = solver.reproject_armor(
+        armor.xyz_in_world, armor.yaw_raw, armor.type, armor.name);
+
+      double error_optimized = 0.0;
+      double error_raw = 0.0;
+      for (int i = 0; i < 4; i++) {
+        error_optimized += cv::norm(armor.points[i] - reproject_points_optimized[i]);
+        error_raw += cv::norm(armor.points[i] - reproject_points_raw[i]);
+      }
+
+      data["reproj_error_optimized"] = error_optimized;
+      data["reproj_error_raw"] = error_raw;
+      data["reproj_error_diff"] = error_optimized - error_raw;
+
+      for (int i = 0; i < 4; i++) {
+        double corner_error = cv::norm(armor.points[i] - reproject_points_optimized[i]);
+        data["corner_" + std::to_string(i) + "_error"] = corner_error;
+      }
+      data["armor_type"] = armor.type;  // 0=big, 1=small
+      data["armor_name"] = static_cast<int>(armor.name);
+      data["armor_distance"] = armor.ypd_in_world[2];  // 距离
+      data["armor_pitch"] = armor.ypr_in_world[1] * 57.3;
+      data["armor_roll"] = armor.ypr_in_world[2] * 57.3;
+
       data["armor_center_x"] = armor.center_norm.x;
       data["armor_center_y"] = armor.center_norm.y;
     }
@@ -247,33 +280,20 @@ int main(int argc, char * argv[])
       std::vector<Eigen::Vector4d> armor_xyza_list;
 
       // 当前帧target更新后
-      armor_xyza_list = target.armor_xyza_list();
-      for (const Eigen::Vector4d & xyza : armor_xyza_list) {
-        auto image_points =
-          solver.reproject_armor(xyza.head(3), xyza[3], target.armor_type, target.name);
-        tools::draw_points(img, image_points, {0, 255, 0});
-      }
+      // armor_xyza_list = target.armor_xyza_list();
+      // for (const Eigen::Vector4d & xyza : armor_xyza_list) {
+      //   auto image_points =
+      //     solver.reproject_armor(xyza.head(3), xyza[3], target.armor_type, target.name);
+      //   tools::draw_points(img, image_points, {0, 255, 0});
+      // }
 
       // aimer瞄准位置
-      auto aim_point = aimer.debug_aim_point;
-      Eigen::Vector4d aim_xyza = aim_point.xyza;
-      auto image_points =
-        solver.reproject_armor(aim_xyza.head(3), aim_xyza[3], target.armor_type, target.name);
-      if (aim_point.valid) tools::draw_points(img, image_points, {0, 0, 255});
+      // auto aim_point = aimer.debug_aim_point;
+      // Eigen::Vector4d aim_xyza = aim_point.xyza;
+      // auto image_points =
+      //   solver.reproject_armor(aim_xyza.head(3), aim_xyza[3], target.armor_type, target.name);
+      // if (aim_point.valid) tools::draw_points(img, image_points, {0, 0, 255});
 
-      // 🆕 发布 ROS2 Markers (使用 tracker 的集成功能)
-#ifdef AMENT_CMAKE_FOUND
-      // 转换时间戳为ROS时间
-      auto ros_time = rclcpp::Time(
-        std::chrono::duration_cast<std::chrono::nanoseconds>(
-          timestamp.time_since_epoch()).count());
-
-      if (aim_point.valid) {
-        tracker.publish_markers(targets, ros_time, aim_xyza, true);
-      } else {
-        tracker.publish_markers(targets, ros_time, Eigen::Vector4d::Zero(), false);
-      }
-#endif
 
       // 观测器内部数据
       Eigen::VectorXd x = target.ekf_x();
@@ -305,8 +325,12 @@ int main(int argc, char * argv[])
     plotter.plot(data);
 
     cv::resize(img, img, {}, 0.5, 0.5);  // 显示时缩小图片尺寸
-    cv::imshow("reprojection", img);
-    auto key = cv::waitKey(30);
+    
+    // 相机输出为 RGB 格式，imshow 需要 BGR 格式，进行转换
+    cv::Mat img_bgr;
+    cv::cvtColor(img, img_bgr, cv::COLOR_RGB2BGR);
+    cv::imshow("reprojection", img_bgr);
+    auto key = cv::waitKey(1);  
     if (key == 'q') break;
   }
 
@@ -316,4 +340,5 @@ int main(int argc, char * argv[])
 #endif
 
   return 0;
+
 }

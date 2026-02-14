@@ -85,7 +85,6 @@ std::list<Target> Tracker::track(
     state_ = "lost";
     return {};
   }
-
   // 收敛效果检测：
   if (
     std::accumulate(

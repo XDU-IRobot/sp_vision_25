@@ -1,0 +1,40 @@
+description: Ultralytics YOLO11n-pose model trained on dataset.yaml
+author: Ultralytics
+date: '2026-01-16T19:40:38.109964'
+version: 8.3.167
+license: AGPL-3.0 License (https://ultralytics.com/license)
+docs: https://docs.ultralytics.com
+stride: 32
+task: pose
+batch: 1
+imgsz:
+- 640
+- 640
+names:
+  0: blue_G
+  1: blue_1
+  2: blue_2
+  3: blue_3
+  4: blue_4
+  5: blue_5
+  6: blue_O
+  7: blue_B
+  8: red_G
+  9: red_1
+  10: red_2
+  11: red_3
+  12: red_4
+  13: red_5
+  14: red_O
+  15: red_B
+args:
+  batch: 1
+  fraction: 1.0
+  half: false
+  int8: true
+  dynamic: false
+  nms: false
+channels: 3
+kpt_shape:
+- 4
+- 3

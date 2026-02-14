@@ -310,55 +310,86 @@ std::list<Armor> YOLO11::detect(const cv::Mat & raw_img, int frame_count)
     }
 }
 
+// 🚀 优化后的parse函数：使用指针访问、预分配空间、减少类型转换
 std::list<Armor> YOLO11::parse(
     float scale, int pad_x, int pad_y, cv::Mat & output, const cv::Mat & bgr_img, int frame_count)
 {
+    const int num_detections = output.rows;
+    const int num_cols = output.cols;
+    const int img_width = bgr_img.cols;
+    const int img_height = bgr_img.rows;
+    
+    // 🚀 预先计算缩放因子的倒数（乘法比除法快）
+    const float inv_scale = 1.0f / scale;
+    const float pad_x_f = static_cast<float>(pad_x);
+    const float pad_y_f = static_cast<float>(pad_y);
     
     if (debug_) {
-        tools::logger()->info("Parse input: rows={}, cols={}", output.rows, output.cols);
+        tools::logger()->info("Parse input: rows={}, cols={}", num_detections, num_cols);
     }
 
+    // 🚀 预分配空间
+    const int estimated_valid = std::max(32, num_detections / 4);
     std::vector<int> ids;
     std::vector<float> confidences;
     std::vector<cv::Rect> boxes;
     std::vector<std::vector<cv::Point2f>> armors_key_points;
     std::vector<std::vector<float>> keypoints_visibility;
+    ids.reserve(estimated_valid);
+    confidences.reserve(estimated_valid);
+    boxes.reserve(estimated_valid);
+    armors_key_points.reserve(estimated_valid);
+    keypoints_visibility.reserve(estimated_valid);
+
+    // 🚀 获取原始数据指针
+    const float* data_ptr = output.ptr<float>(0);
 
     int detections_before_threshold = 0;
-    for (int r = 0; r < output.rows; r++) {
+    for (int r = 0; r < num_detections; ++r) {
+        // 🚀 使用指针偏移访问
+        const float* row_ptr = data_ptr + r * num_cols;
+        
         // 新格式：[xyxy(4), confidence(1), class_id(1), keypoints(12)] = 18维
-        auto xyxy = output.row(r).colRange(0, 4);           // xyxy
-        float confidence = output.row(r).at<float>(4);      // 置信度
-        int class_id = static_cast<int>(output.row(r).at<float>(5)); // 类别ID
-        auto one_key_points = output.row(r).colRange(6, 6 + 12); // 关键点从第7个位置开始（索引6）
-
+        const float confidence = row_ptr[4];
+        
         detections_before_threshold++;
 
-        // 检查置信度阈值
+        // 🚀 提前过滤低置信度
         if (confidence < score_threshold_) continue;
 
-        if (debug_ && ids.size() < 5) {  // 只打印前5个检测
+        const float x1_raw = row_ptr[0];
+        const float y1_raw = row_ptr[1];
+        const float x2_raw = row_ptr[2];
+        const float y2_raw = row_ptr[3];
+        const int class_id = static_cast<int>(row_ptr[5]);
+
+        if (debug_ && ids.size() < 5) {
             tools::logger()->info("Detection: confidence={:.3f}, class_id={}", confidence, class_id);
         }
 
+        // 🚀 使用乘法代替除法
+        const int x1 = std::clamp(static_cast<int>((x1_raw - pad_x_f) * inv_scale), 0, img_width);
+        const int y1 = std::clamp(static_cast<int>((y1_raw - pad_y_f) * inv_scale), 0, img_height);
+        const int x2 = std::clamp(static_cast<int>((x2_raw - pad_x_f) * inv_scale), 0, img_width);
+        const int y2 = std::clamp(static_cast<int>((y2_raw - pad_y_f) * inv_scale), 0, img_height);
         
-        int x1 = static_cast<int>((xyxy.at<float>(0) - pad_x) / scale);
-        int y1 = static_cast<int>((xyxy.at<float>(1) - pad_y) / scale);
-        int x2 = static_cast<int>((xyxy.at<float>(2) - pad_x) / scale);
-        int y2 = static_cast<int>((xyxy.at<float>(3) - pad_y) / scale);
-        x1 = std::clamp(x1, 0, bgr_img.cols);
-        x2 = std::clamp(x2, 0, bgr_img.cols);
-        y1 = std::clamp(y1, 0, bgr_img.rows);
-        y2 = std::clamp(y2, 0, bgr_img.rows);
-        int width  = std::max(0, x2 - x1);
-        int height = std::max(0, y2 - y1);
+        const int width  = x2 - x1;
+        const int height = y2 - y1;
+        
+        // 🚀 跳过无效box
+        if (width <= 0 || height <= 0) continue;
 
+        // 🚀 keypoints - 使用指针访问
         std::vector<cv::Point2f> armor_key_points;
         std::vector<float> visibilities;
-        for (int i = 0; i < 4; i++) {
-            float kx = (one_key_points.at<float>(0, i*3 + 0) - pad_x) / scale;
-            float ky = (one_key_points.at<float>(0, i*3 + 1) - pad_y) / scale;
-            float v  = one_key_points.at<float>(0, i*3 + 2); 
+        armor_key_points.reserve(4);
+        visibilities.reserve(4);
+        
+        const float* kpt_ptr = row_ptr + 6;  // 关键点从第7个位置开始
+        for (int i = 0; i < 4; ++i) {
+            const float kx = (kpt_ptr[i * 3] - pad_x_f) * inv_scale;
+            const float ky = (kpt_ptr[i * 3 + 1] - pad_y_f) * inv_scale;
+            const float v  = kpt_ptr[i * 3 + 2];
             armor_key_points.emplace_back(kx, ky);
             visibilities.push_back(v);
         }
@@ -366,8 +397,8 @@ std::list<Armor> YOLO11::parse(
         ids.emplace_back(class_id);
         confidences.emplace_back(confidence);
         boxes.emplace_back(x1, y1, width, height);
-        armors_key_points.emplace_back(armor_key_points);
-        keypoints_visibility.emplace_back(visibilities);
+        armors_key_points.emplace_back(std::move(armor_key_points));
+        keypoints_visibility.emplace_back(std::move(visibilities));
     }
 
     if (debug_) {

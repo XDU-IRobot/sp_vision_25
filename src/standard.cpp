@@ -126,6 +126,7 @@ int main(int argc, char * argv[])
     auto key = cv::waitKey(1);  
     if (key == 'q') break;
   }
+  
   // 清理 ROS2
 #ifdef AMENT_CMAKE_FOUND
   rclcpp::shutdown();

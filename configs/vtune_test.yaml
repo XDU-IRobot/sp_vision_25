@@ -12,11 +12,11 @@
 
 #####-----基础配置-----#####
 # 敌方颜色：red | blue
-enemy_color: "red"
+enemy_color: "blue"
 
 #####-----神经网络参数-----#####
 # 选择装甲板识别后端：yolov8 | yolo11 | yolov5
-yolo_name: yolov8
+yolo_name: yolo26
 
 # 数字/字迹分类器模型路径
 classify_model: ../assets/tiny_resnet.onnx
@@ -32,12 +32,9 @@ yolo26_model_path: ../assets/repair_int8_openvino_model/repair.xml              
 # yolo26_model_path: ../assets/yolo26.xml                                                  # 6-7ms
 
 # OpenVINO推理设备：CPU | GPU | AUTO
-# CPU: 使用CPU推理（兼容性最好）
-# GPU: 使用GPU推理（需要Intel核显驱动）
-# AUTO: 自动选择最优设备
 device: CPU
 
-# 是否使用异步推理（仅yolo11）
+# 是否使用异步推理
 
 use_async_inference: false
 
@@ -150,7 +147,7 @@ debug: true
 camera_settings:
   width: 1920                    # 图像宽度
   height: 1200                   # 图像高度
-  exposure: 200                 # 曝光时间（微秒）
+  exposure: 2000                 # 曝光时间（微秒）
   auto_exposure: false           # 是否自动曝光
   gain: 24                       # 增益值
   fps: 168                       # 目标帧率

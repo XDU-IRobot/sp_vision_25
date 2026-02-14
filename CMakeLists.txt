@@ -16,6 +16,7 @@ find_package(yaml-cpp REQUIRED)
 find_package(nlohmann_json REQUIRED)
 set(OpenVINO_DIR "/opt/intel/openvino_2024.6.0/runtime/cmake/")
 find_package(OpenVINO REQUIRED)
+find_package(fastcdr QUIET)
 
 include_directories(${EIGEN3_INCLUDE_DIR})
 include_directories(${OpenCV_INCLUDE_DIRS})
@@ -121,6 +122,8 @@ target_link_libraries(camera_planner_realtime ${OpenCV_LIBS} fmt::fmt yaml-cpp a
 
 add_executable(trigger_test tests/trigger_test.cpp)
 target_link_libraries(trigger_test ${OpenCV_LIBS} fmt::fmt yaml-cpp tools io)
+find_package(fastrtps QUIET)
+find_package(rosidl_runtime_cpp QUIET)
 
 # 检查 ROS 环境（只检查 standard_ros2 需要的包）
 find_package(ament_cmake QUIET)

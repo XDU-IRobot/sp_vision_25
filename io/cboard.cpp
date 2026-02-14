@@ -21,7 +21,6 @@ namespace io
 {
 CBoard::CBoard(const std::string & config_path)
 : mode(Mode::idle),
-  shoot_mode(ShootMode::left_shoot),
   bullet_speed(0),
   queue_(5000)  // 注意: callback的运行会早于Cboard构造函数的完成
 {

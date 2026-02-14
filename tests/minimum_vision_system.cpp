@@ -160,8 +160,8 @@ int main(int argc, char *argv[]) {
     }
     // 叠加当前 CBoard 状态与指令调试信息
     {
-      std::string line1 = fmt::format("[CBoard] mode={}, shoot_mode={}, bullet_speed={:.2f}m/s",
-                                      io::MODES[cboard.mode], io::SHOOT_MODES[cboard.shoot_mode], cboard.bullet_speed);
+      std::string line1 = fmt::format("[CBoard] mode={}, bullet_speed={:.2f}m/s",
+                                      io::MODES[cboard.mode], cboard.bullet_speed);
       std::string line2 = fmt::format("[CMD] ctrl={}, fire={}, yaw={:.3f}rad, pitch={:.3f}rad, dist={:.2f}m",
                                       ctrl, fire, cmd_yaw, cmd_pitch, cmd_dist);
       tools::draw_text(img, line1, {10, 20}, {0, 255, 255});
@@ -209,8 +209,8 @@ int main(int argc, char *argv[]) {
     // 每秒打印一次状态，确认通信正常
     auto now = std::chrono::steady_clock::now();
     if (tools::delta_time(now, last_status_log) > 1.0) {
-      tools::logger()->info("[CBoard][MIN] mode={}, shoot_mode={}, bullet_speed={:.2f}",
-                            io::MODES[cboard.mode], io::SHOOT_MODES[cboard.shoot_mode], cboard.bullet_speed);
+      tools::logger()->info("[CBoard][MIN] mode={}, bullet_speed={:.2f}",
+                            io::MODES[cboard.mode], cboard.bullet_speed);
       last_status_log = now;
     }
   }

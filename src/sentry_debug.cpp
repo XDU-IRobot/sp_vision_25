@@ -89,7 +89,7 @@ int main(int argc, char * argv[])
     if (tracker.state() == "lost")
       command = decider.decide(yolo, gimbal_pos, usbcam1, usbcam2, back_camera);
     else
-      command = aimer.aim(targets, timestamp, cboard.bullet_speed, cboard.shoot_mode);
+      command = aimer.aim(targets, timestamp, cboard.bullet_speed);
 
     /// 发射逻辑
     command.shoot = shooter.shoot(command, aimer, targets, gimbal_pos);
@@ -175,7 +175,6 @@ int main(int argc, char * argv[])
     // 云台响应情况
     data["gimbal_yaw"] = gimbal_pos[0] * 57.3;
     data["gimbal_pitch"] = -gimbal_pos[1] * 57.3;
-    data["shootmode"] = cboard.shoot_mode;
     if (command.control) {
       data["cmd_yaw"] = command.yaw * 57.3;
       data["cmd_pitch"] = command.pitch * 57.3;

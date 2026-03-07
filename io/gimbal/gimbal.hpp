@@ -136,9 +136,6 @@ typedef struct __attribute__((packed)) {
   float SystemTimer;
   // 包尾
   uint8_t EOF;
-  // 处理后数据
-  float PitchRelativeAngle;
-  float YawRelativeAngle;
 } AimbotFrame_SCM_t;
 
 /*步兵 发送数据包结构*/

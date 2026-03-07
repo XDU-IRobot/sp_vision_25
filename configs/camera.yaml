@@ -32,15 +32,16 @@ roi:                                     # 开启 use_roi 时生效
 use_roi: false                             # 首次联调建议 false 先看全图是否能出框
 
 #####-----传统方法参数-----#####     # 仅 yolov5/use_traditional 时用于角点微调和兜底
-threshold: 150                         # 二值阈值
-max_angle_error: 45                    # degree，灯条最大倾角误差
-min_lightbar_ratio: 1.5                # 灯条高宽比下限
-max_lightbar_ratio: 20                 # 灯条高宽比上限
-min_lightbar_length: 8                 # 灯条最小长度
-min_armor_ratio: 1                     # 装甲板宽高比下限
-max_armor_ratio: 5                     # 装甲板宽高比上限
-max_side_ratio: 1.5                    # 两侧灯条长度比上限
-max_rectangular_error: 25              # degree，矩形偏差上限
+threshold: 120                         # 二值阈值
+max_angle_error: 50                    # degree，灯条最大倾角误差
+min_lightbar_ratio: 1.2                # 灯条高宽比下限
+max_lightbar_ratio: 25                 # 灯条高宽比上限
+min_lightbar_length: 6                 # 灯条最小长度
+min_armor_ratio: 0.8                     # 装甲板宽高比下限
+max_armor_ratio: 5.5                     # 装甲板宽高比上限
+max_side_ratio: 1.8                    # 两侧灯条长度比上限
+max_rectangular_error: 30              # degree，矩形偏差上限
+min_confidence: 0.6
 
 #####-----tracker参数-----#####
 min_detect_count: 5
@@ -113,7 +114,7 @@ t_camera2gimbal: [0.13160669975045827, -0.10377721766577375, 0.02490827191291464
 camera_settings:
   width: 1920
   height: 1200
-  exposure: 3000
+  exposure: 5000
   auto_exposure: false
   gain: 24
   fps: 168

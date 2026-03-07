@@ -2,6 +2,7 @@
 #include <memory>
 #include <opencv2/opencv.hpp>
 #include <rclcpp/executors.hpp>
+#include <string>
 #include <thread>
 #include <rclcpp/rclcpp.hpp>
 
@@ -95,7 +96,9 @@ int main(int argc, char * argv[])
 
     Eigen::Vector3d ypr = tools::eulers(solver.R_gimbal2world(), 2, 1, 0);
 
+    // auto armors = detector.detect(img);
     auto armors = detector.detect(img);
+    // auto armors = yolo.detect(img);
     /** 绘制每一帧识别装甲板   */
     int armor_idx = 0;
     for (const auto & armor : armors) {
@@ -114,7 +117,7 @@ int main(int argc, char * argv[])
     auto targets = tracker.track(armors, t);
 
     // auto command = aimer.aim(targets, t, cboard.bullet_speed);
-    auto command = aimer.aim(targets, t, 10);
+    auto command = aimer.aim(targets, t, 20);
 
     command.shoot = shooter.shoot(command, aimer, targets, ypr);
     //yaw,pitch范围为[-180,180],故需要增大180度
@@ -123,10 +126,10 @@ int main(int argc, char * argv[])
   if (wrapped < 0) wrapped += 2 * M_PI;
   return wrapped;
 };
-command.yaw = -command.yaw;
-command.pitch = -command.pitch;
-command.yaw += M_PI;
-command.pitch += M_PI;
+// command.yaw = -command.yaw;
+// command.yaw = command.yaw+M_PI;
+// command.pitch = -command.pitch;
+// command.pitch = command.pitch-M_PI;
 command.yaw = wrap_rad_2pi(command.yaw);
 command.pitch = wrap_rad_2pi(command.pitch);
     // cboard.send(command);
@@ -233,13 +236,15 @@ command.pitch = wrap_rad_2pi(command.pitch);
     // data["bullet_speed"] = cboard.bullet_speed;
     data["bullet_speed"] = 10;
     if (command.control) {
-      data["cmd_yaw"] = command.yaw * 57.3;
-      data["cmd_pitch"] = command.pitch * 57.3;
+      data["cmd_yaw"] = command.yaw ;
+      data["cmd_pitch"] = command.pitch ;
       data["cmd_shoot"] = command.shoot;
     }
     plotter.plot(data);
 
     cv::resize(img, img, {}, 0.5, 0.5);  // 显示时缩小图片尺寸
+    //翻转图像
+    // cv::flip(img, img, -1);
     cv::imshow("reprojection", img);
     auto key = cv::waitKey(1);
     if (key == 'q') break;

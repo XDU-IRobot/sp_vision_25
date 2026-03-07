@@ -2,6 +2,7 @@
 
 #include <chrono>
 #include <fstream>
+#include <opencv2/videoio.hpp>
 #include <thread>
 #include <nlohmann/json.hpp>
 #include <opencv2/opencv.hpp>
@@ -176,6 +177,25 @@ int main(int argc, char * argv[])
 
     auto aimer_start = std::chrono::steady_clock::now();
     auto command = aimer.aim(targets, timestamp, 27, false);
+    cv::VideoWriter video_writer;
+    bool enable_video_writer = true;
+    std::string video_filename = "../autoaim_output.avi";
+    int fps = 168;
+    if (enable_video_writer && !video_writer.isOpened()) {
+      video_writer.open(
+        video_filename, cv::VideoWriter::fourcc('M', 'J', 'P', 'G'), fps,
+        cv::Size(img.cols, img.rows));
+      if (!video_writer.isOpened()) {
+        tools::logger()->error("Failed to open video writer: {}", video_filename);
+        enable_video_writer = false;
+      } else {
+        tools::logger()->info("Video writer opened: {}", video_filename);
+      }
+    }
+    // 录制视频
+    if (enable_video_writer) {
+      video_writer.write(img);
+    }
 
     if (
       !targets.empty() && aimer.debug_aim_point.valid &&

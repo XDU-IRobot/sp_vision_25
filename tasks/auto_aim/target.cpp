@@ -38,7 +38,7 @@ Target::Target(
   // w: angular velocity
   // l: r2 - r1
   // h: z2 - z1
-  // ✅ 根据 armor_num 和 P0_dig 大小决定状态向量维度
+  // 根据 armor_num 和 P0_dig 大小决定状态向量维度
   Eigen::VectorXd x0;
   Eigen::MatrixXd P0;
   
@@ -49,7 +49,7 @@ Target::Target(
     // 确保 P0 也是 13x13
     P0 = P0_dig.asDiagonal();
     
-    tools::logger()->info("✅ Target(13D): r={:.4f}, x0[8]={:.4f}", r, x0[8]);
+    tools::logger()->info(" Target(13D): r={:.4f}, x0[8]={:.4f}", r, x0[8]);
   } else {
     x0.resize(11);
     x0 << center_x, 0, center_y, 0, center_z, 0, ypr[0], 0, r, 0, 0;
@@ -57,7 +57,7 @@ Target::Target(
     // 11D 的 P0
     P0 = P0_dig.asDiagonal();
     
-    tools::logger()->debug("✅ Target(11D): r={:.4f}, x0[8]={:.4f}", r, x0[8]);
+    tools::logger()->debug(" Target(11D): r={:.4f}, x0[8]={:.4f}", r, x0[8]);
   }
   // Eigen::MatrixXd P0 = P0_dig.asDiagonal();
 
@@ -379,7 +379,7 @@ bool Target::convergened()
   }
 
   //前哨站特殊判断
-  if (this->name == ArmorName::outpost && update_count_ > 10 && !this->diverged()) {
+  if (this->name == ArmorName::outpost && update_count_ > 50 && !this->diverged()) {
     is_converged_ = true;
   }
 

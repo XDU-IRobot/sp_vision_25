@@ -20,6 +20,7 @@ bool Shooter::shoot(
   const io::Command & command, const auto_aim::Aimer & aimer,
   const std::list<auto_aim::Target> & targets, const Eigen::Vector3d & gimbal_pos)
 {
+  // tools::logger()->debug("auto_fire is {}, targets size is {}, command.control is {}", auto_fire_, targets.size(), command.control);
   if (!command.control || targets.empty() || !auto_fire_) return false;
 
   auto target_x = targets.front().ekf_x()[0];
@@ -27,12 +28,13 @@ bool Shooter::shoot(
   auto tolerance = std::sqrt(tools::square(target_x) + tools::square(target_y)) > judge_distance_
                      ? second_tolerance_
                      : first_tolerance_;
-  // tools::logger()->debug("d(command.yaw) is {:.4f}", std::abs(last_command_.yaw - command.yaw));
+  // tools::logger()->debug("d(command.yaw_diff) is {:.4f}", std::abs(last_command_.yaw - command.yaw));
   if (
     std::abs(last_command_.yaw - command.yaw) < tolerance * 2 &&  //此时认为command突变不应该射击
     std::abs(gimbal_pos[0] - last_command_.yaw) < tolerance &&    //应该减去上一次command的yaw值
     aimer.debug_aim_point.valid) {
     last_command_ = command;
+    // tools::logger()->debug("command.shoot if true");
     return true;
   }
 

@@ -1,0 +1,144 @@
+# TensorRT测试配置文件 (用于auto_aim_test)
+
+#####-----基础配置-----#####
+enemy_color: "blue"
+
+#####-----神经网络参数-----#####
+# 推理后端选择：tensorrt | openvino
+inference_backend: openvino
+
+# 选择YOLO模型：yolov8 | yolo11
+yolo_name: yolov8
+
+# 数字/字迹分类器模型路径
+classify_model: ../assets/tiny_resnet.onnx
+
+# OpenVINO模型路径（备用）
+yolo11_model_path: ../assets/yolo11.xml
+# yolov8_model_path: ../assets/yolov8.xml
+yolov8_model_path: ../assets/kinds_of_weights/yolov8_int8_openvino_model/yolov8.xml
+yolov5_model_path: ../assets/yolov5.xml
+
+# TensorRT引擎路径（优先使用）
+yolov8_engine_path: ../assets/engines/yolov8.engine
+yolo11_engine_path: ../assets/engines/yolo11.engine
+
+# TensorRT ONNX模型路径（如果engine不存在，会从ONNX构建）
+yolov8_onnx_path: ../assets/yolov8.onnx
+yolo11_onnx_path: ../assets/yolo11.onnx
+
+# TensorRT推理设备（GPU）
+device: GPU
+
+# 推理参数
+min_confidence: 0.8
+use_traditional: false
+use_async_inference: false  # 异步推理（可提升帧率，但有1帧延迟）
+
+#####-----功能开关-----#####
+enable_buff: false
+
+#####-----ROI（感兴趣区域）参数-----#####
+roi:
+  x: 420
+  y: 50
+  width: 600
+  height: 600
+
+use_roi: false
+
+#####-----传统检测方法参数-----#####
+threshold: 150
+max_angle_error: 45
+min_lightbar_ratio: 1.5
+max_lightbar_ratio: 20
+min_lightbar_length: 8
+min_armor_ratio: 1
+max_armor_ratio: 5
+max_side_ratio: 1.5
+max_rectangular_error: 25
+
+#####-----Tracker（跟踪器）参数-----#####
+min_detect_count: 5
+max_temp_lost_count: 15
+outpost_max_temp_lost_count: 75
+
+#####-----Aimer（瞄准器）参数-----#####
+yaw_offset: -1
+pitch_offset: -1.4
+comming_angle: 60
+leaving_angle: 20
+decision_speed: 8
+high_speed_delay_time: 0.030
+low_speed_delay_time: 0.015
+actuation_delay_ms: 0
+yaw_ramp_t0: 0.10
+yaw_ramp_t0_pos: 0.10
+yaw_ramp_t0_neg: 0.10
+
+#####-----Shooter（开火控制）参数-----#####
+first_tolerance: 3
+second_tolerance: 2
+judge_distance: 2
+auto_fire: false
+
+#####-----相机配置-----#####
+camera_name: "daheng"
+exposure_ms: 2.1
+gain: 24
+vid_pid: "2ba2:4d55"
+debug: true
+
+camera_settings:
+  width: 1920
+  height: 1200
+  exposure: 2000
+  auto_exposure: false
+  gain: 24
+  fps: 168
+  auto_white_balance: true
+  rgain: 0.0
+  bgain: 0.0
+  ggain: 0.0
+  time_offset: 45500000
+  auto_exp_change: false
+  max_exp: 3000
+  min_exp: 200
+  pixel_format: BayerRG8
+  bayer_pattern: BayerBG8
+
+trigger_enable: false
+trigger_source: 2
+trigger_activation: 0
+
+#####-----相机标定参数-----#####
+R_gimbal2imubody: [1, 0, 0, 0, 1, 0, 0, 0, 1]
+
+camera_matrix: [1576.573009, 0.000000, 926.043671, 0.000000, 1576.654543, 589.242106, 0.000000, 0.000000, 1.000000]
+distort_coeffs: [-0.271500, 0.213079, -0.000170, -0.000156, 0.000000]
+
+R_camera2gimbal: [-0.027182119030230909, -0.12616154330853446, 0.99163723074269183, -0.99949106557517331, 0.019998323121329122, -0.024853106601381177, -0.016695575474690555, -0.99180811252093692, -0.12664093215554434]
+t_camera2gimbal: [0.13160669975045827, 0.10377721766577375, 0.024908271912914642]
+
+#####-----CBoard通信配置-----#####
+cboard_transport: "can"
+quaternion_canid: 0x100
+bullet_speed_canid: 0x101
+send_canid: 0xff
+use_new_can_protocol: true
+new_can_quat_id: 0x150
+new_can_status_id: 0x160
+new_can_cmd_id: 0x170
+debug_rx: false
+debug_tx: false
+debug_frame_match: true
+can_interface: "can2"
+
+#####-----轨迹规划器（Planner）参数-----#####
+fire_thresh: 0.0035
+max_yaw_acc: 50
+Q_yaw: [9e6, 0]
+R_yaw: [1]
+max_pitch_acc: 100
+Q_pitch: [9e6, 0]
+R_pitch: [1]

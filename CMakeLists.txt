@@ -1,6 +1,54 @@
 cmake_minimum_required(VERSION 3.16.3)
 
-project(sp_vision)
+# 设置 CUDA 架构策略（必须在 project() 之前）
+if(POLICY CMP0104)
+  cmake_policy(SET CMP0104 NEW)
+endif()
+
+# 检测 CUDA 是否可用（使用现代 CMake 方法）
+# 先尝试设置 CUDA 编译器路径（Jetson 和常见安装路径）
+if(NOT DEFINED CMAKE_CUDA_COMPILER)
+  find_program(CMAKE_CUDA_COMPILER
+    NAMES nvcc
+    PATHS
+      /usr/local/cuda-12.6/bin
+      /usr/local/cuda-12.4/bin
+      /usr/local/cuda-12/bin
+      /usr/local/cuda-11.8/bin
+      /usr/local/cuda/bin
+    NO_DEFAULT_PATH
+  )
+  if(CMAKE_CUDA_COMPILER)
+    message(STATUS "Found CUDA compiler: ${CMAKE_CUDA_COMPILER}")
+  endif()
+endif()
+
+include(CheckLanguage)
+check_language(CUDA)
+
+if(CMAKE_CUDA_COMPILER)
+  # 提前设置 CUDA 架构（必须在 project() 之前）
+  if(NOT DEFINED CMAKE_CUDA_ARCHITECTURES)
+    # 检测系统处理器类型来设置合适的 CUDA 架构
+    if(CMAKE_SYSTEM_PROCESSOR MATCHES "aarch64|arm64")
+      # Jetson 设备：Orin (87) 或 Xavier (72)
+      set(CMAKE_CUDA_ARCHITECTURES "72;87")
+    else()
+      # x86_64 设备：常见桌面 GPU
+      set(CMAKE_CUDA_ARCHITECTURES "75;86;89")
+    endif()
+  endif()
+
+  # 在 project() 中启用 CUDA 语言
+  project(sp_vision LANGUAGES CXX CUDA)
+  message(STATUS "CUDA enabled with architectures: ${CMAKE_CUDA_ARCHITECTURES}")
+  set(CUDA_FOUND TRUE)
+else()
+  # 如果没有 CUDA，只启用 C++ 语言
+  project(sp_vision LANGUAGES CXX)
+  message(STATUS "CUDA not found, building without CUDA support")
+  set(CUDA_FOUND FALSE)
+endif()
 
 set(CMAKE_EXPORT_COMPILE_COMMANDS true)
 add_definitions(-std=c++17)
@@ -8,14 +56,110 @@ set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_BUILD_TYPE Release)
 message(STATUS "--------------------CMAKE_BUILD_TYPE: ${CMAKE_BUILD_TYPE}--------------------")
 
-find_package(OpenCV REQUIRED)
+
+find_package(OpenCV 4.5 REQUIRED)
+
 find_package(fmt REQUIRED)
 find_package(Eigen3 REQUIRED)
 find_package(spdlog REQUIRED)
 find_package(yaml-cpp REQUIRED)
 find_package(nlohmann_json REQUIRED)
+# 尝试查找 OpenVINO（可选）
 set(OpenVINO_DIR "/opt/intel/openvino_2024.6.0/runtime/cmake/")
-find_package(OpenVINO REQUIRED)
+find_package(OpenVINO QUIET COMPONENTS Runtime)
+
+if(OpenVINO_FOUND)
+  message(STATUS "OpenVINO found: Inference backend OpenVINO enabled")
+else()
+  message(STATUS "OpenVINO not found: OpenVINO backend disabled")
+endif()
+
+# 检测系统架构
+if(CMAKE_SYSTEM_PROCESSOR MATCHES "x86_64|AMD64")
+  set(ARCH_SUFFIX "x86_64-linux-gnu")
+  set(CUDA_ARCH_DIR "x86_64-linux")
+  message(STATUS "Detected architecture: x86_64")
+elseif(CMAKE_SYSTEM_PROCESSOR MATCHES "aarch64|arm64")
+  set(ARCH_SUFFIX "aarch64-linux-gnu")
+  set(CUDA_ARCH_DIR "aarch64-linux")
+  message(STATUS "Detected architecture: ARM64 (aarch64)")
+else()
+  message(WARNING "Unknown architecture: ${CMAKE_SYSTEM_PROCESSOR}, defaulting to x86_64")
+  set(ARCH_SUFFIX "x86_64-linux-gnu")
+  set(CUDA_ARCH_DIR "x86_64-linux")
+endif()
+
+# 尝试查找 TensorRT（可选）
+if(CUDA_FOUND)
+  # 从 CMAKE_CUDA_COMPILER 推导 CUDA toolkit 目录
+  get_filename_component(CUDA_COMPILER_BIN "${CMAKE_CUDA_COMPILER}" DIRECTORY)
+  get_filename_component(CUDA_TOOLKIT_ROOT_DIR "${CUDA_COMPILER_BIN}" DIRECTORY)
+
+  message(STATUS "CUDA compiler: ${CMAKE_CUDA_COMPILER}")
+  message(STATUS "CUDA toolkit root: ${CUDA_TOOLKIT_ROOT_DIR}")
+  message(STATUS "Using CUDA architectures: ${CMAKE_CUDA_ARCHITECTURES}")
+
+  set(CUDA_NVCC_EXECUTABLE ${CMAKE_CUDA_COMPILER})
+endif()
+
+if(CUDA_FOUND)
+  find_path(TensorRT_INCLUDE_DIR NvInfer.h
+    HINTS /usr/include/${ARCH_SUFFIX} /usr/local/cuda/include /usr/local/TensorRT-10.0.1.6/include /usr/include
+    PATH_SUFFIXES tensorrt)
+
+  # 查找所有需要的 TensorRT 库
+  find_library(TensorRT_LIBRARY nvinfer
+    HINTS /usr/lib/${ARCH_SUFFIX} /usr/local/cuda/lib64 /usr/local/TensorRT-10.0.1.6/lib /usr/lib)
+  find_library(TensorRT_PLUGIN_LIBRARY nvinfer_plugin
+    HINTS /usr/lib/${ARCH_SUFFIX} /usr/local/cuda/lib64 /usr/local/TensorRT-10.0.1.6/lib /usr/lib)
+  find_library(TensorRT_ONNX_LIBRARY nvonnxparser
+    HINTS /usr/lib/${ARCH_SUFFIX} /usr/local/cuda/lib64 /usr/local/TensorRT-10.0.1.6/lib /usr/lib)
+
+  # 查找 CUDA 运行时库
+  find_library(CUDA_RUNTIME_LIBRARY cudart
+    HINTS ${CUDA_TOOLKIT_ROOT_DIR}/lib64
+          /usr/local/cuda/lib64
+          /usr/local/cuda-12.6/targets/${CUDA_ARCH_DIR}/lib
+          /usr/local/cuda-12.4/targets/${CUDA_ARCH_DIR}/lib
+          /usr/local/cuda-11.8/targets/${CUDA_ARCH_DIR}/lib
+          /usr/local/cuda/targets/${CUDA_ARCH_DIR}/lib)
+
+  if(TensorRT_INCLUDE_DIR AND TensorRT_LIBRARY AND TensorRT_PLUGIN_LIBRARY AND TensorRT_ONNX_LIBRARY AND CUDA_RUNTIME_LIBRARY)
+    set(TensorRT_FOUND TRUE)
+    set(TensorRT_LIBRARIES ${TensorRT_LIBRARY} ${TensorRT_PLUGIN_LIBRARY} ${TensorRT_ONNX_LIBRARY} ${CUDA_RUNTIME_LIBRARY})
+    message(STATUS "TensorRT found: Inference backend TensorRT enabled")
+    message(STATUS "  Include: ${TensorRT_INCLUDE_DIR}")
+    message(STATUS "  nvinfer: ${TensorRT_LIBRARY}")
+    message(STATUS "  nvinfer_plugin: ${TensorRT_PLUGIN_LIBRARY}")
+    message(STATUS "  nvonnxparser: ${TensorRT_ONNX_LIBRARY}")
+    message(STATUS "  cudart: ${CUDA_RUNTIME_LIBRARY}")
+  else()
+    set(TensorRT_FOUND FALSE)
+    message(STATUS "TensorRT not found: TensorRT backend disabled")
+    if(NOT TensorRT_INCLUDE_DIR)
+      message(STATUS "  Missing: TensorRT include directory")
+    endif()
+    if(NOT TensorRT_LIBRARY)
+      message(STATUS "  Missing: nvinfer library")
+    endif()
+    if(NOT TensorRT_PLUGIN_LIBRARY)
+      message(STATUS "  Missing: nvinfer_plugin library")
+    endif()
+    if(NOT TensorRT_ONNX_LIBRARY)
+      message(STATUS "  Missing: nvonnxparser library")
+    endif()
+    if(NOT CUDA_RUNTIME_LIBRARY)
+      message(STATUS "  Missing: CUDA runtime library")
+    endif()
+  endif()
+else()
+  message(STATUS "CUDA not found: TensorRT backend disabled")
+endif()
+
+# 检查至少有一个后端可用
+if(NOT OpenVINO_FOUND AND NOT TensorRT_FOUND)
+  message(WARNING "Neither OpenVINO nor TensorRT found. YOLO inference will not be available.")
+endif()
 
 include_directories(${EIGEN3_INCLUDE_DIR})
 include_directories(${OpenCV_INCLUDE_DIRS})
@@ -30,26 +174,33 @@ add_subdirectory(librm)
 
 ####################src###################
 add_executable(standard src/standard.cpp)
-add_executable(mt_standard src/mt_standard.cpp)
-add_executable(standard_mpc src/standard_mpc.cpp)
 add_executable(daheng_camera_test src/daheng_camera_test.cpp)
-add_executable(auto_aim_debug_mpc src/auto_aim_debug_mpc.cpp)
-add_executable(mt_auto_aim_debug src/mt_auto_aim_debug.cpp)
-add_executable(auto_buff_debug src/auto_buff_debug.cpp)
-add_executable(auto_buff_debug_mpc src/auto_buff_debug_mpc.cpp)
-add_executable(uav src/uav.cpp)
 add_executable(uav_debug src/uav_debug.cpp)
 
+# 需要 auto_buff 的可执行文件（需要 OpenVINO 和 Ceres）
+if(OpenVINO_FOUND AND Ceres_FOUND)
+    add_executable(uav src/uav.cpp)
+    add_executable(mt_standard src/mt_standard.cpp)
+    add_executable(standard_mpc src/standard_mpc.cpp)
+    add_executable(auto_aim_debug_mpc src/auto_aim_debug_mpc.cpp)
+    add_executable(mt_auto_aim_debug src/mt_auto_aim_debug.cpp)
+endif()
 
-target_link_libraries(standard ${OpenCV_LIBS} fmt::fmt yaml-cpp auto_aim auto_buff tools io )
-target_link_libraries(mt_standard ${OpenCV_LIBS} fmt::fmt yaml-cpp auto_aim auto_buff tools io)
-target_link_libraries(standard_mpc ${OpenCV_LIBS} fmt::fmt yaml-cpp auto_aim auto_buff tools io)
+# auto_buff 相关可执行文件（需要 OpenVINO 和 Ceres）
+if(OpenVINO_FOUND AND Ceres_FOUND)
+    add_executable(auto_buff_debug src/auto_buff_debug.cpp)
+    add_executable(auto_buff_debug_mpc src/auto_buff_debug_mpc.cpp)
+    target_link_libraries(auto_buff_debug ${OpenCV_LIBS} fmt::fmt yaml-cpp auto_buff tools io ${CERES_LIBRARIES})
+    target_link_libraries(auto_buff_debug_mpc ${OpenCV_LIBS} fmt::fmt yaml-cpp auto_buff tools io ${CERES_LIBRARIES})
+    target_link_libraries(uav ${OpenCV_LIBS} fmt::fmt yaml-cpp auto_aim auto_buff tools io)
+    target_link_libraries(mt_standard ${OpenCV_LIBS} fmt::fmt yaml-cpp auto_aim auto_buff tools io)
+    target_link_libraries(standard_mpc ${OpenCV_LIBS} fmt::fmt yaml-cpp auto_aim auto_buff tools io)
+    target_link_libraries(auto_aim_debug_mpc ${OpenCV_LIBS} fmt::fmt yaml-cpp auto_aim auto_buff tools io)
+    target_link_libraries(mt_auto_aim_debug ${OpenCV_LIBS} fmt::fmt yaml-cpp auto_aim auto_buff tools io)
+endif()
+
+target_link_libraries(standard ${OpenCV_LIBS} fmt::fmt yaml-cpp auto_aim tools io )
 target_link_libraries(daheng_camera_test ${OpenCV_LIBS} fmt::fmt yaml-cpp auto_aim tools io)
-target_link_libraries(auto_aim_debug_mpc ${OpenCV_LIBS} fmt::fmt yaml-cpp auto_aim auto_buff tools io)
-target_link_libraries(mt_auto_aim_debug ${OpenCV_LIBS} fmt::fmt yaml-cpp auto_aim auto_buff tools io)
-target_link_libraries(auto_buff_debug ${OpenCV_LIBS} fmt::fmt yaml-cpp auto_buff tools io ${CERES_LIBRARIES})
-target_link_libraries(auto_buff_debug_mpc ${OpenCV_LIBS} fmt::fmt yaml-cpp auto_buff tools io ${CERES_LIBRARIES})
-target_link_libraries(uav ${OpenCV_LIBS} fmt::fmt yaml-cpp auto_aim auto_buff tools io)
 target_link_libraries(uav_debug ${OpenCV_LIBS} fmt::fmt yaml-cpp auto_aim tools io)
 
 
@@ -68,7 +219,6 @@ target_link_libraries(split_video ${OpenCV_LIBS} fmt::fmt tools)
 
 ##################tests##################
 add_executable(auto_aim_test tests/auto_aim_test.cpp)
-add_executable(auto_buff_test tests/auto_buff_test.cpp)
 add_executable(camera_detect_test tests/camera_detect_test.cpp)
 add_executable(camera_pnp_test tests/camera_pnp_test.cpp)
 add_executable(camera_test tests/camera_test.cpp)
@@ -82,11 +232,21 @@ add_executable(usbcamera_detect_test tests/usbcamera_detect_test.cpp)
 add_executable(usbcamera_test tests/usbcamera_test.cpp)
 add_executable(handeye_test tests/handeye_test.cpp)
 add_executable(dm_test tests/dm_test.cpp)
-add_executable(minimum_vision_system tests/minimum_vision_system.cpp)
 
 target_link_libraries(auto_aim_test ${OpenCV_LIBS} fmt::fmt yaml-cpp tools io auto_aim)
-target_link_libraries(auto_buff_test ${OpenCV_LIBS} fmt::fmt yaml-cpp auto_buff tools io)
 target_link_libraries(camera_detect_test ${OpenCV_LIBS} fmt::fmt yaml-cpp tools auto_aim io)
+
+# auto_buff 测试（需要 OpenVINO 和 Ceres）
+if(OpenVINO_FOUND AND Ceres_FOUND)
+    add_executable(auto_buff_test tests/auto_buff_test.cpp)
+    target_link_libraries(auto_buff_test ${OpenCV_LIBS} fmt::fmt yaml-cpp auto_buff tools io)
+endif()
+
+# minimum_vision_system 测试（需要 OpenVINO，使用 MultiThreadDetector）
+if(OpenVINO_FOUND)
+    add_executable(minimum_vision_system tests/minimum_vision_system.cpp)
+    target_link_libraries(minimum_vision_system ${OpenCV_LIBS} fmt::fmt yaml-cpp tools io auto_aim)
+endif()
 target_link_libraries(camera_pnp_test ${OpenCV_LIBS} fmt::fmt yaml-cpp tools auto_aim io)
 target_link_libraries(camera_test ${OpenCV_LIBS} fmt::fmt tools io)
 target_link_libraries(camera_thread_test ${OpenCV_LIBS} fmt::fmt auto_aim tools io)
@@ -99,7 +259,6 @@ target_link_libraries(usbcamera_detect_test ${OpenCV_LIBS} fmt::fmt yaml-cpp too
 target_link_libraries(usbcamera_test ${OpenCV_LIBS} fmt::fmt yaml-cpp tools io)
 target_link_libraries(handeye_test ${OpenCV_LIBS} fmt::fmt yaml-cpp tools io auto_aim)
 target_link_libraries(dm_test ${OpenCV_LIBS} fmt::fmt yaml-cpp tools io)
-target_link_libraries(minimum_vision_system ${OpenCV_LIBS} fmt::fmt yaml-cpp tools io auto_aim)
 
 add_executable(gimbal_test tests/gimbal_test.cpp)
 target_link_libraries(gimbal_test ${OpenCV_LIBS} fmt::fmt yaml-cpp auto_aim tools io)

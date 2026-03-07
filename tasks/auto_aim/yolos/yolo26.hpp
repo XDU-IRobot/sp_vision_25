@@ -1,6 +1,8 @@
 #ifndef AUTO_AIM__YOLO26_HPP
 #define AUTO_AIM__YOLO26_HPP
 
+#ifdef ENABLE_OPENVINO
+
 #include <list>
 #include <opencv2/opencv.hpp>
 #include <openvino/openvino.hpp>
@@ -61,5 +63,7 @@ private:
 };
 
 }  // namespace auto_aim
+
+#endif  // ENABLE_OPENVINO
 
 #endif  //AUTO_AIM__YOLO26_HPP

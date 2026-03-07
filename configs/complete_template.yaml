@@ -4,23 +4,48 @@
 enemy_color: "blue"
 
 #####-----神经网络参数-----#####
+# 推理后端选择（必须指定）：tensorrt | openvino
+# tensorrt: 使用TensorRT推理（需要NVIDIA GPU和TensorRT）
+# openvino: 使用OpenVINO推理（支持CPU/Intel GPU）
+inference_backend: openvino
+
 # 选择装甲板识别后端：yolov8 | yolo11 | yolov5
 yolo_name: yolo26
 
 # 数字/字迹分类器模型路径
 classify_model: assets/tiny_resnet.onnx
 
+#####-----OpenVINO模型路径-----#####
 # YOLO模型路径（根据yolo_name选择对应模型）
 yolo11_model_path: assets/yolo11.xml      # 输入640×640
 yolov8_model_path: assets/yolov8.xml        # 输入416×416
 yolov5_model_path: assets/yolov5.xml        # 输入640×640
+yolo26_model_path: assets/repair_int8_openvino_model/repair.xml
 
-yolo26_model_path: assets/repair_int8_openvino_model/repair.xml   
 # OpenVINO推理设备：CPU | GPU | AUTO
 # CPU: 使用CPU推理（兼容性最好）
 # GPU: 使用GPU推理（需要Intel核显驱动）
 # AUTO: 自动选择最优设备
 device: CPU
+
+#####-----TensorRT模型路径-----#####
+# TensorRT引擎文件路径（优先使用，加载速度快）
+yolo11_engine_path: assets/engines/yolo11.engine    # YOLO11引擎
+yolov8_engine_path: assets/engines/yolov8.engine    # YOLOV8引擎
+
+# TensorRT ONNX模型路径（如果engine不存在，会从ONNX构建并保存）
+yolo11_onnx_path: assets/yolo11.onnx                # YOLO11 ONNX
+yolov8_onnx_path: assets/yolov8.onnx                # YOLOV8 ONNX
+
+# TensorRT精度模式（构建引擎时使用，暂未实现）
+tensorrt_fp16_mode: true    # 是否使用FP16精度（提升速度）
+tensorrt_int8_mode: false   # 是否使用INT8量化（进一步提速）
+
+#####-----推理参数-----#####
+# 是否启用异步推理（YOLO11支持）
+# 异步推理可以实现GPU推理与CPU后处理并行，提升整体帧率
+# 注意：异步推理会有1帧延迟
+use_async_inference: false
 
 # 分类器最小置信度（0.0-1.0）
 min_confidence: 0.8
@@ -137,8 +162,6 @@ camera_settings:
 
 
 #####-----相机标定参数-----#####
-# 云台到IMU Body的旋转矩阵（3×3，行优先）
-R_gimbal2imubody: [-1, 0,0,0, -1, 0, 0 , 0, 1]
 
 # 相机内参矩阵（3×3，行优先）
 # [fx, 0, cx, 0, fy, cy, 0, 0, 1]
@@ -148,11 +171,22 @@ camera_matrix: [2807.679657, 0.000000, 954.251797, 0.000000, 2804.280283, 601.90
 # [k1, k2, p1, p2, k3]
 distort_coeffs: [-0.250596, -0.395102, -0.001980, 0.001022, 0.000000]
 
-# 相机到云台的旋转矩阵（3×3，行优先，需手眼标定）
-R_camera2gimbal: [0, 0, 1, 0, 1, 0, -1, 0, 0]
+# # 云台到IMU Body的旋转矩阵（3×3，行优先）
+R_gimbal2imubody: [-1, 0,0,0, -1, 0, 0 , 0, 1]
+# # 相机到云台的旋转矩阵（3×3，行优先，需手眼标定）
 
-# 相机到云台的平移向量（3个参数，需手眼标定）
+# R_camera2gimbal: [0, 0, 1, 0, 1, 0, -1, 0, 0]
+
+# # 相机到云台的平移向量（3个参数，需手眼标定）
 t_camera2gimbal: [0.13160669975045827, 0.10377721766577375, 0.024908271912914642]
+
+
+# R_gimbal2imubody: [-1, 0, 0, 0, -1, 0, 0, 0, 1]
+
+# 相机同理想情况的偏角: yaw5.15 pitch14.77 roll98.12 degree
+R_camera2gimbal: [0.26402379099613538, 0.053009349232717926, 0.96305838176195357, 0.11790986031858512, 0.98922565457675482, -0.086774818737019491, -0.95728193476513534, 0.13646469587814494, 0.25492878250837947]
+# t_camera2gimbal: [0.17099823161645825, -0.060977311538124079, 0.28556976291720942]
+
 
 #####-----CAN协议配置-----#####
 new_can_quat_id: 0x150        # 四元数姿态帧ID

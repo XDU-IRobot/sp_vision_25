@@ -1,5 +1,5 @@
 #include "detector.hpp"
-
+#include <numeric>
 #include <fmt/chrono.h>
 #include <yaml-cpp/yaml.h>
 
@@ -11,7 +11,11 @@
 namespace auto_aim
 {
 Detector::Detector(const std::string & config_path, bool debug)
-: classifier_(config_path), debug_(debug)
+:
+#ifdef ENABLE_OPENVINO
+  classifier_(config_path),
+#endif
+  debug_(debug)
 {
   auto yaml = YAML::LoadFile(config_path);
 
@@ -72,7 +76,9 @@ std::list<Armor> Detector::detect(const cv::Mat & bgr_img, int frame_count)
       if (!check_geometry(armor)) continue;
 
       armor.pattern = get_pattern(bgr_img, armor);
+#ifdef ENABLE_OPENVINO
       classifier_.classify(armor);
+#endif
       if (!check_name(armor)) continue;
 
       armor.type = get_type(armor);

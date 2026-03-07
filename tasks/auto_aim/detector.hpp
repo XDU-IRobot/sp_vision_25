@@ -7,7 +7,9 @@
 #include <vector>
 
 #include "armor.hpp"
+#ifdef ENABLE_OPENVINO
 #include "classifier.hpp"
+#endif
 
 namespace auto_aim
 {
@@ -24,7 +26,9 @@ public:
   friend class YOLOV8;
 
 private:
+#ifdef ENABLE_OPENVINO
   Classifier classifier_;
+#endif
 
   double threshold_;
   double max_angle_error_;

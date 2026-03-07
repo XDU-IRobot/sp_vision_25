@@ -1,5 +1,8 @@
 #include "classifier.hpp"
 
+// Classifier 需要 OpenVINO 支持
+#ifdef ENABLE_OPENVINO
+
 #include <yaml-cpp/yaml.h>
 
 namespace auto_aim
@@ -112,3 +115,4 @@ void Classifier::ovclassify(Armor & armor)
 }
 
 }  // namespace auto_aim
+#endif  // ENABLE_OPENVINO

@@ -1,6 +1,9 @@
 #ifndef AUTO_AIM__MT_DETECTOR_HPP
 #define AUTO_AIM__MT_DETECTOR_HPP
 
+// MultiThreadDetector 需要 OpenVINO 支持
+#ifdef ENABLE_OPENVINO
+
 #include <chrono>
 #include <opencv2/opencv.hpp>
 #include <openvino/openvino.hpp>
@@ -40,5 +43,7 @@ private:
 }  // namespace multithread
 
 }  // namespace auto_aim
+
+#endif  // ENABLE_OPENVINO
 
 #endif  // AUTO_AIM__MT_DETECTOR_HPP

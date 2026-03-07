@@ -50,7 +50,7 @@ int main(int argc, char * argv[])
   io::CBoard cboard(config_path);
   io::Camera camera(config_path);
 
-  auto_aim::YOLO detector(config_path, false);
+  auto_aim::YOLO detector(config_path, true);  // 启用调试，显示检测窗口
   auto_aim::Solver solver(config_path);
   auto_aim::Tracker tracker(config_path, solver);
   auto_aim::Aimer aimer(config_path);
@@ -112,7 +112,11 @@ int main(int argc, char * argv[])
 
     auto armors = detector.detect(img);
     auto targets = tracker.track(armors, t);
-    auto command = aimer.aim(targets, t, cboard.bullet_speed,false);
+
+    // 调试：打印 armors 和 targets 数量
+    fmt::print("[DEBUG] armors={}, targets={}\n", armors.size(), targets.size());
+
+    auto command = aimer.aim(targets, t, cboard.bullet_speed, true);  // to_now=true，生成当前时刻命令
     command.shoot = shooter.shoot(command, aimer, targets, ypr);
  
 

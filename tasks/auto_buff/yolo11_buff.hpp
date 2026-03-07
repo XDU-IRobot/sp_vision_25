@@ -1,5 +1,8 @@
 ﻿#ifndef AUTO_BUFF__YOLO11_BUFF_HPP
 #define AUTO_BUFF__YOLO11_BUFF_HPP
+
+#ifdef ENABLE_OPENVINO
+
 #include <yaml-cpp/yaml.h>
 
 #include <filesystem>
@@ -53,4 +56,7 @@ private:
   void save(const std::string & programName, const cv::Mat & image);
 };
 }  // namespace auto_buff
+
+#endif  // ENABLE_OPENVINO
+
 #endif

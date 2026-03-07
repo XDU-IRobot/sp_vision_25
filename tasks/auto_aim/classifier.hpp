@@ -2,10 +2,13 @@
 #define AUTO_AIM__CLASSIFIER_HPP
 
 #include <opencv2/opencv.hpp>
-#include <openvino/openvino.hpp>
 #include <string>
 
 #include "armor.hpp"
+
+// Classifier需要OpenVINO支持
+#ifdef ENABLE_OPENVINO
+#include <openvino/openvino.hpp>
 
 namespace auto_aim
 {
@@ -25,5 +28,7 @@ private:
 };
 
 }  // namespace auto_aim
+
+#endif  // ENABLE_OPENVINO
 
 #endif  // AUTO_AIM__CLASSIFIER_HPP

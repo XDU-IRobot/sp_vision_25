@@ -1,5 +1,8 @@
 #include "mt_detector.hpp"
 
+// MultiThreadDetector 需要 OpenVINO 支持
+#ifdef ENABLE_OPENVINO
+
 #include <yaml-cpp/yaml.h>
 
 namespace auto_aim
@@ -100,3 +103,5 @@ MultiThreadDetector::debug_pop()
 }  // namespace multithread
 
 }  // namespace auto_aim
+
+#endif  // ENABLE_OPENVINO

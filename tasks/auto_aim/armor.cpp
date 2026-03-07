@@ -85,7 +85,10 @@ Armor::Armor(
   ratio = max_length / max_width;
 
   // 根据 YOLO 版本选择映射表
-  const auto & properties = (version == YOLOVersion::YOLO26) ? yolo26_armor_properties : yolo11_armor_properties;
+  const auto & properties =
+    (version == YOLOVersion::YOLO26) ? yolo26_armor_properties :
+    (version == YOLOVersion::YOLOV8_TRT) ? yolov8_trt_armor_properties :
+    yolo11_armor_properties;
 
   if (class_id >= 0 && class_id < properties.size()) {
     auto [color, name, type] = properties[class_id];
@@ -93,9 +96,9 @@ Armor::Armor(
     this->name = name;
     this->type = type;
   } else {
-    this->color = blue;      
-    this->name = not_armor;  
-    this->type = small;      
+    this->color = blue;
+    this->name = not_armor;
+    this->type = small;
   }
 }
 
@@ -135,7 +138,10 @@ Armor::Armor(
   ratio = max_length / max_width;
 
   // 根据 YOLO 版本选择映射表
-  const auto & properties = (version == YOLOVersion::YOLO26) ? yolo26_armor_properties : yolo11_armor_properties;
+  const auto & properties =
+    (version == YOLOVersion::YOLO26) ? yolo26_armor_properties :
+    (version == YOLOVersion::YOLOV8_TRT) ? yolov8_trt_armor_properties :
+    yolo11_armor_properties;
 
   if (class_id >= 0 && class_id < properties.size()) {
     auto [color, name, type] = properties[class_id];

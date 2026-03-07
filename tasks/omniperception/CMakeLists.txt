@@ -1,11 +1,19 @@
 cmake_minimum_required(VERSION 3.16)
 
-set(OpenVINO_DIR "/opt/intel/openvino_2024.6.0/runtime/cmake")
+# omniperception 模块需要 OpenVINO 支持
+if(OpenVINO_FOUND)
+    message(STATUS "[omniperception] Building with OpenVINO support")
 
-find_package(OpenVINO REQUIRED COMPONENTS Runtime)
+    add_library(omniperception OBJECT
+        decider.cpp
+        perceptron.cpp
+    )
 
-add_library(omniperception OBJECT 
-    decider.cpp
-    perceptron.cpp
-)
-target_link_libraries(omniperception openvino::runtime)
+    target_compile_definitions(omniperception PRIVATE ENABLE_OPENVINO)
+    target_link_libraries(omniperception openvino::runtime)
+else()
+    message(STATUS "[omniperception] OpenVINO not found, skipping omniperception module")
+
+    # 创建一个空的目标以避免链接错误
+    add_library(omniperception INTERFACE)
+endif()

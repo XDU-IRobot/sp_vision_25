@@ -1,9 +1,11 @@
 #include "cboard.hpp"
 
 #include <cstdint>
-#include <openvino/core/type/element_type.hpp>
 
-#include "openvino/core/visibility.hpp"
+// OpenVINO头文件（如果需要的话，目前未使用）
+// #include <openvino/core/type/element_type.hpp>
+// #include "openvino/core/visibility.hpp"
+
 #include "tools/crc.hpp"
 #include "tools/float16.hpp"
 #include "tools/math_tools.hpp"

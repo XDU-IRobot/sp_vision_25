@@ -1,16 +1,26 @@
-pattern_cols: 10
-pattern_rows: 7
-center_distance_mm: 40
+pattern_cols: 11
+pattern_rows: 8
+square_size_mm: 30  # 棋盘格方格边长（毫米）
 
-R_gimbal2imubody: [1, 0, 0, 0, 1, 0,  0, 0, 1]
+# R_gimbal2imubody: [1, 0, 0, 0, 1, 0, 0, 0, 1]
 
-camera_name: "hikrobot"
-exposure_ms: 3
-gain: 10.0
-vid_pid: "2bdf:0001"
+R_gimbal2imubody: [-1, 0,0,0, -1, 0, 0 , 0, 1]
+# 相机内参矩阵（3×3，行优先）
+# [fx, 0, cx, 0, fy, cy, 0, 0, 1]
+camera_matrix: [2807.679657, 0.000000, 954.251797, 0.000000, 2804.280283, 601.906719, 0.000000, 0.000000, 1.000000]
 
-#####-----cboard参数-----#####
-quaternion_canid: 0x01
-bullet_speed_canid: 0x110
-send_canid: 0xff
+# 相机畸变系数（5个参数）
+# [k1, k2, p1, p2, k3]
+distort_coeffs: [-0.250596, -0.395102, -0.001980, 0.001022, 0.000000]
+
+camera_name: "daheng"
+exposure_ms: 2.1
+gain: 24
+vid_pid: "2ba2:4d55"
+
+#####-----CAN协议配置-----#####
+new_can_quat_id: 0x150        # 四元数姿态帧ID
+new_can_cmd_id: 0x170         # 自瞄指令帧ID
 can_interface: "can0"
+debug_rx: false
+debug_tx: true

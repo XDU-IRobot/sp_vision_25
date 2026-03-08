@@ -275,16 +275,47 @@ double Solver::armor_reprojection_error(
 }
 
 // 世界坐标到像素坐标的转换
+// std::vector<cv::Point2f> Solver::world2pixel(const std::vector<cv::Point3f> & worldPoints)
+// {
+//   Eigen::Matrix3d R_world2camera = R_camera2gimbal_.transpose() * R_gimbal2world_.transpose();
+//   Eigen::Vector3d t_world2camera = -R_camera2gimbal_.transpose() * t_camera2gimbal_;
+
+//   cv::Mat R_world2camera_cv;
+//   cv::Mat rvec;
+//   cv::Mat tvec;
+//   cv::eigen2cv(R_world2camera, R_world2camera_cv);
+//   cv::Rodrigues(R_world2camera_cv, rvec);
+//   cv::eigen2cv(t_world2camera, tvec);
+
+//   std::vector<cv::Point3f> valid_world_points;
+//   for (const auto & world_point : worldPoints) {
+//     Eigen::Vector3d world_point_eigen(world_point.x, world_point.y, world_point.z);
+//     Eigen::Vector3d camera_point = R_world2camera * world_point_eigen + t_world2camera;
+
+//     if (camera_point.z() > 0) {
+//       valid_world_points.push_back(world_point);
+//     }
+//   }
+//   // 如果没有有效点，返回空vector
+//   if (valid_world_points.empty()) {
+//     return std::vector<cv::Point2f>();
+//   }
+//   std::vector<cv::Point2f> pixelPoints;
+//   cv::projectPoints(valid_world_points, rvec, tvec, camera_matrix_, distort_coeffs_, pixelPoints);
+//   return pixelPoints;
+// }
+// }  // namespace auto_aim
+
+
+// 世界坐标到像素坐标的转换
 std::vector<cv::Point2f> Solver::world2pixel(const std::vector<cv::Point3f> & worldPoints)
 {
   Eigen::Matrix3d R_world2camera = R_camera2gimbal_.transpose() * R_gimbal2world_.transpose();
   Eigen::Vector3d t_world2camera = -R_camera2gimbal_.transpose() * t_camera2gimbal_;
 
-  cv::Mat R_world2camera_cv;
   cv::Mat rvec;
   cv::Mat tvec;
-  cv::eigen2cv(R_world2camera, R_world2camera_cv);
-  cv::Rodrigues(R_world2camera_cv, rvec);
+  cv::eigen2cv(R_world2camera, rvec);
   cv::eigen2cv(t_world2camera, tvec);
 
   std::vector<cv::Point3f> valid_world_points;

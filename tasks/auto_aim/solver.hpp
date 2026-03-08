@@ -25,6 +25,10 @@ public:
 
   Eigen::Matrix3d R_gimbal2imubody() const { return R_gimbal2imubody_; }
 
+  // 暴露标定参数供ROS2可视化使用
+  const Eigen::Matrix3d& R_camera2gimbal() const { return R_camera2gimbal_; }
+  const Eigen::Vector3d& t_camera2gimbal() const { return t_camera2gimbal_; }
+
   void set_R_gimbal2world(const Eigen::Quaterniond & q);
 
   void solve(Armor & armor) const;

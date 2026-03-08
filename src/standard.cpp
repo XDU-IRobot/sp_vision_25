@@ -4,12 +4,10 @@
 #include <nlohmann/json.hpp>
 #include <opencv2/opencv.hpp>
 
-// ROS2 headers (仅在 ROS2 可用时编译，用于初始化节点)
+// ROS2 headers (仅在 ROS2 可用时编译，用于可视化)
 #ifdef AMENT_CMAKE_FOUND
 #include <rclcpp/rclcpp.hpp>
-#include <tf2_ros/static_transform_broadcaster.h>
-#include <tf2_ros/transform_broadcaster.h>
-#include <geometry_msgs/msg/transform_stamped.hpp>
+#include "tools/ros2_visualizer.hpp"
 #endif
 
 #include "io/camera.hpp"
@@ -35,11 +33,10 @@ const std::string keys =
 
 int main(int argc, char * argv[])
 {
-    tools::Exiter exiter;
+  tools::Exiter exiter;
   tools::Plotter plotter;
   tools::Recorder recorder;
   cv::CommandLineParser cli(argc, argv, keys);
-
 
   auto config_path = cli.get<std::string>(0);
   if (cli.has("help") || config_path.empty()) {
@@ -47,10 +44,17 @@ int main(int argc, char * argv[])
     return 0;
   }
 
+#ifdef AMENT_CMAKE_FOUND
+  // 初始化ROS2可视化
+  rclcpp::init(argc, argv);
+  auto visualizer = std::make_shared<tools::ROS2Visualizer>("standard_node", "standard_markers");
+  tools::logger()->info("[ROS2] Visualizer initialized");
+#endif
+
   io::CBoard cboard(config_path);
   io::Camera camera(config_path);
 
-  auto_aim::YOLO detector(config_path, true);  // 启用调试，显示检测窗口
+  auto_aim::YOLO detector(config_path, false);  // 启用调试，显示检测窗口
   auto_aim::Solver solver(config_path);
   auto_aim::Tracker tracker(config_path, solver);
   auto_aim::Aimer aimer(config_path);
@@ -58,6 +62,15 @@ int main(int argc, char * argv[])
   auto_aim::multithread::CommandGener commandgener(shooter, aimer, cboard, plotter, true);
   // 🎯 所有模块初始化完成，启动相机触发
   tools::logger()->info("=== All modules initialized ===");
+
+#ifdef AMENT_CMAKE_FOUND
+  // 发布静态TF: gimbal -> camera（使用标定参数）
+  visualizer->publish_static_tf("gimbal", "camera",
+    solver.R_camera2gimbal(),
+    solver.t_camera2gimbal());
+  tools::logger()->info("[ROS2] Published static TF: gimbal -> camera");
+#endif
+
   tools::logger()->info("=== Entering main loop ===");
 
   cv::Mat img;
@@ -94,10 +107,19 @@ int main(int argc, char * argv[])
       if (imu_result.valid) {
         // 环形数组查询成功
         q = imu_result.q;  // 四元数
-        t = imu_result.timestamp;  
+        t = imu_result.timestamp;
         std::cout<<q<<std::endl;
+
+#ifdef AMENT_CMAKE_FOUND
+        // 发布动态TF: world -> gimbal（使用MCU四元数）
+        auto ns = std::chrono::duration_cast<std::chrono::nanoseconds>(
+          t.time_since_epoch()).count();
+        rclcpp::Time ros_time(ns);
+        Eigen::Vector3d zero_trans(0, 0, 0);  // world和gimbal原点重合
+        visualizer->publish_dynamic_tf("world", "gimbal", q, zero_trans, ros_time);
+#endif
       } else {
-        
+
       }
     mode = cboard.mode;
     frame_id_last=frame_id;
@@ -116,6 +138,31 @@ int main(int argc, char * argv[])
     // 调试：打印 armors 和 targets 数量
     fmt::print("[DEBUG] armors={}, targets={}\n", armors.size(), targets.size());
 
+#ifdef AMENT_CMAKE_FOUND
+    // 发布装甲板Marker（可视化检测结果）
+    if (!armors.empty()) {
+      auto ns = std::chrono::duration_cast<std::chrono::nanoseconds>(
+        t.time_since_epoch()).count();
+      rclcpp::Time ros_time(ns);
+
+      visualization_msgs::msg::MarkerArray marker_array;
+      int marker_id = 0;
+      for (const auto & armor : armors) {
+        auto marker = visualizer->create_sphere_marker(
+          "world", "armors", marker_id++,
+          armor.xyz_in_world.x(),
+          armor.xyz_in_world.y(),
+          armor.xyz_in_world.z(),
+          1.0, 0.0, 0.0, 0.8,  // 红色，80%不透明
+          0.1,  // 10cm直径
+          ros_time
+        );
+        marker_array.markers.push_back(marker);
+      }
+      visualizer->publish_marker_array(marker_array);
+    }
+#endif
+
     auto command = aimer.aim(targets, t, cboard.bullet_speed, true);  // to_now=true，生成当前时刻命令
     command.shoot = shooter.shoot(command, aimer, targets, ypr);
  
@@ -133,7 +180,9 @@ int main(int argc, char * argv[])
   
   // 清理 ROS2
 #ifdef AMENT_CMAKE_FOUND
+  visualizer.reset();
   rclcpp::shutdown();
+  tools::logger()->info("[ROS2] Shutdown complete");
 #endif
 
   return 0;

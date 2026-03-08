@@ -165,6 +165,14 @@ include_directories(${EIGEN3_INCLUDE_DIR})
 include_directories(${OpenCV_INCLUDE_DIRS})
 include_directories(${PROJECT_SOURCE_DIR})
 
+# 提前检查 ROS2 环境（tools 需要这些信息来决定是否编译 ROS2 Visualizer）
+find_package(ament_cmake QUIET)
+find_package(rclcpp QUIET)
+find_package(std_msgs QUIET)
+find_package(visualization_msgs QUIET)
+find_package(tf2_ros QUIET)
+find_package(geometry_msgs QUIET)
+
 add_subdirectory(tools)
 add_subdirectory(io)
 add_subdirectory(tasks/auto_aim)
@@ -281,16 +289,7 @@ target_link_libraries(camera_planner_realtime ${OpenCV_LIBS} fmt::fmt yaml-cpp a
 add_executable(trigger_test tests/trigger_test.cpp)
 target_link_libraries(trigger_test ${OpenCV_LIBS} fmt::fmt yaml-cpp tools io)
 
-# 检查 ROS 环境（只检查 standard_ros2 需要的包）
-find_package(ament_cmake QUIET)
-find_package(rclcpp QUIET)
-find_package(std_msgs QUIET)
-find_package(visualization_msgs QUIET)
-find_package(tf2_ros QUIET)
-find_package(geometry_msgs QUIET)
-# find_package(rosidl_typesupport_cpp QUIET)  # 暂不需要
-# find_package(sp_msgs QUIET)  # 暂不需要
-
+# ROS2 环境已在前面检查（为了让 tools 库能正确编译 ROS2 Visualizer）
 # 只编译 standard_ros2 (不编译 sentry 等其他 ROS2 程序)
 if(ament_cmake_FOUND AND rclcpp_FOUND AND std_msgs_FOUND AND visualization_msgs_FOUND AND tf2_ros_FOUND AND geometry_msgs_FOUND)
     message(STATUS "ROS2 environment found, compiling standard_ros2 with marker visualization")

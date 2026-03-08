@@ -46,6 +46,7 @@ private:
 
   cv::Rect roi_;
   cv::Point2f offset_;
+  cv::Mat tmp_img_;
 
   Detector detector_;
 

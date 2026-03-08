@@ -528,7 +528,11 @@ void YOLO11::draw_detections(const cv::Mat & img, const std::list<Armor> & armor
 void YOLO11::save(const Armor & armor) const {
     auto file_name = fmt::format("{:%Y-%m-%d_%H-%M-%S}", std::chrono::system_clock::now());
     auto img_path = fmt::format("{}/{}_{}.jpg", save_path_, armor.name, file_name);
-    cv::imwrite(img_path, tmp_img_);
+
+    // 相机输出是RGB格式，需要转换为BGR才能正确保存
+    cv::Mat bgr_img;
+    cv::cvtColor(tmp_img_, bgr_img, cv::COLOR_RGB2BGR);
+    cv::imwrite(img_path, bgr_img);
 }
 
 

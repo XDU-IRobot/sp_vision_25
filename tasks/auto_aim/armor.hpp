@@ -70,7 +70,7 @@ const std::vector<std::tuple<Color, ArmorName, ArmorType>> armor_properties = {
 // 8: red_G,  9: red_1,  10: red_2, 11: red_3, 12: red_4, 13: red_5, 14: red_O, 15: red_B
 const std::vector<std::tuple<Color, ArmorName, ArmorType>> yolo11_armor_properties = {
   {blue, sentry, small},   // 0: blue_G
-  {blue, one, small},      // 1: blue_1
+  {blue, one, big},        // 1: blue_1
   {blue, two, small},      // 2: blue_2
   {blue, three, small},    // 3: blue_3
   {blue, four, small},     // 4: blue_4
@@ -78,7 +78,7 @@ const std::vector<std::tuple<Color, ArmorName, ArmorType>> yolo11_armor_properti
   {blue, outpost, small},  // 6: blue_O
   {blue, base, big},       // 7: blue_B
   {red, sentry, small},    // 8: red_G
-  {red, one, small},       // 9: red_1
+  {red, one, big},         // 9: red_1
   {red, two, small},       // 10: red_2
   {red, three, small},     // 11: red_3
   {red, four, small},      // 12: red_4
@@ -91,7 +91,7 @@ const std::vector<std::tuple<Color, ArmorName, ArmorType>> yolo11_armor_properti
 // 0: red_1, 1: red_2, 2: red_3, 3: red_4, 4: red_5, 5: red_G, 6: red_O, 7: red_B
 // 8: blue_1, 9: blue_2, 10: blue_3, 11: blue_4, 12: blue_5, 13: blue_G, 14: blue_O, 15: blue_B
 const std::vector<std::tuple<Color, ArmorName, ArmorType>> yolo26_armor_properties = {
-  {red, one, small},       // 0: red_1
+  {red, one, big},         // 0: red_1
   {red, two, small},       // 1: red_2
   {red, three, small},     // 2: red_3
   {red, four, small},      // 3: red_4
@@ -99,7 +99,7 @@ const std::vector<std::tuple<Color, ArmorName, ArmorType>> yolo26_armor_properti
   {red, sentry, small},    // 5: red_6 (哨兵)
   {red, outpost, small},   // 6: red_7 (前哨站)
   {red, base, big},        // 7: red_8 (基地)
-  {blue, one, small},      // 8: blue_1
+  {blue, one, big},        // 8: blue_1
   {blue, two, small},      // 9: blue_2
   {blue, three, small},    // 10: blue_3
   {blue, four, small},     // 11: blue_4
@@ -113,7 +113,7 @@ const std::vector<std::tuple<Color, ArmorName, ArmorType>> yolo26_armor_properti
 // 0: red_1, 1: red_2, 2: red_3, 3: red_4, 4: red_5, 5: red_6(哨兵), 6: red_7(前哨站), 7: red_8(基地)
 // 8: blue_1, 9: blue_2, 10: blue_3, 11: blue_4, 12: blue_5, 13: blue_6(哨兵), 14: blue_7(前哨站), 15: blue_8(基地)
 const std::vector<std::tuple<Color, ArmorName, ArmorType>> yolov8_trt_armor_properties = {
-  {red, one, small},       // 0: red_1
+  {red, one, big},         // 0: red_1
   {red, two, small},       // 1: red_2
   {red, three, small},     // 2: red_3
   {red, four, small},      // 3: red_4
@@ -121,7 +121,7 @@ const std::vector<std::tuple<Color, ArmorName, ArmorType>> yolov8_trt_armor_prop
   {red, sentry, small},    // 5: red_6 (哨兵)
   {red, outpost, small},   // 6: red_7 (前哨站)
   {red, base, big},        // 7: red_8 (基地)
-  {blue, one, small},      // 8: blue_1
+  {blue, one, big},        // 8: blue_1
   {blue, two, small},      // 9: blue_2
   {blue, three, small},    // 10: blue_3
   {blue, four, small},     // 11: blue_4

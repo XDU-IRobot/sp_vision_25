@@ -22,14 +22,14 @@ enemy_color: "blue"
 #   - 优点: 兼容性好，支持模型多
 # ==========================================
 
-inference_backend: tensorrt    # 切换这里: tensorrt | openvino
+inference_backend: openvino    # 切换这里: tensorrt | openvino
 
 #####-----神经网络参数-----#####
 
 # YOLO模型选择
 # - TensorRT支持: yolo11, yolov8
 # - OpenVINO支持: yolov5, yolov8, yolo11, yolo26
-yolo_name: yolov8
+yolo_name: yolo26
 
 # 分类器模型路径
 classify_model: ../assets/tiny_resnet.onnx
@@ -47,8 +47,10 @@ classify_model: ../assets/tiny_resnet.onnx
 yolov5_model_path: ../assets/yolov5.xml
 # yolov8_model_path: ../assets/kinds_of_weights/yolov8_int8_openvino_model/yolov8.xml
 yolov8_model_path: ../assets/yolov8.xml
-yolo11_model_path: ../assets/kinds_of_weights/yolov11_int8_openvino_model/yolov11.xml
-yolo26_model_path: ../assets/kinds_of_weights/yolov26_int8_openvino_model/yolov26.xml
+yolo11_model_path: ../assets/best_openvino_model/best.xml
+
+yolo26_model_path: ../assets/repair_int8_openvino_model/repair.xml
+
 
 # OpenVINO 推理设备: CPU | GPU | AUTO
 device: CPU
@@ -101,7 +103,7 @@ use_roi: false
 threshold: 150
 max_angle_error: 45
 min_lightbar_ratio: 1.5
-max_lightbar_ratio: 20
+max_lightbar_ratio: 30
 min_lightbar_length: 8
 min_armor_ratio: 1
 max_armor_ratio: 5
@@ -142,7 +144,7 @@ debug: true
 camera_settings:
   width: 1920
   height: 1200
-  exposure: 200
+  exposure: 700
   auto_exposure: false
   gain: 24
   fps: 168

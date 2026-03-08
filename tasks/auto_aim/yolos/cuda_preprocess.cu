@@ -153,7 +153,37 @@ __global__ void extract_topk_kernel(
 }
 
 /**
- * TopK筛选实现
+ * CUDA kernel: 筛选高置信度检测并compact输出
+ */
+__global__ void filter_and_compact_kernel(
+    const float* input,
+    int num_features,
+    int num_detections,
+    float* confidences,
+    int* indices,
+    int* valid_count,
+    float score_threshold)
+{
+    int idx = blockIdx.x * blockDim.x + threadIdx.x;
+    if (idx >= num_detections) return;
+
+    // 计算置信度
+    float max_prob = 0.0f;
+    for (int c = 4; c < 20; ++c) {
+        float prob = input[c * num_detections + idx];
+        max_prob = fmaxf(max_prob, prob);
+    }
+
+    // 如果超过阈值，添加到输出
+    if (max_prob >= score_threshold) {
+        int out_idx = atomicAdd(valid_count, 1);
+        confidences[out_idx] = max_prob;
+        indices[out_idx] = idx;
+    }
+}
+
+/**
+ * TopK筛选实现（优化版：先过滤+静态预分配+无GPU→CPU同步）
  */
 int cuda_topk_filter(
     const float* input_device,
@@ -164,57 +194,58 @@ int cuda_topk_filter(
     float score_threshold,
     cudaStream_t stream)
 {
-    // 1. 计算每个detection的置信度
-    thrust::device_vector<float> confidences(num_detections);
-    thrust::device_vector<int> indices(num_detections);
+    // 静态预分配缓冲区（避免每帧分配）
+    static thrust::device_vector<float> confidences;
+    static thrust::device_vector<int> indices;
+    static thrust::device_vector<int> valid_count_dev(1);
+    static int last_num_detections = 0;
 
+    // 只在尺寸变化时重新分配
+    if (last_num_detections != num_detections) {
+        confidences.resize(num_detections);
+        indices.resize(num_detections);
+        last_num_detections = num_detections;
+    }
+
+    // 1. 重置计数器
+    cudaMemsetAsync(thrust::raw_pointer_cast(valid_count_dev.data()), 0, sizeof(int), stream);
+
+    // 2. 筛选高置信度检测（GPU并行）
     dim3 block(256);
     dim3 grid((num_detections + block.x - 1) / block.x);
-    compute_confidence_kernel<<<grid, block, 0, stream>>>(
+    filter_and_compact_kernel<<<grid, block, 0, stream>>>(
         input_device,
         num_features,
         num_detections,
-        thrust::raw_pointer_cast(confidences.data()));
-
-    // 2. 初始化索引 [0, 1, 2, ..., num_detections-1]
-    thrust::sequence(thrust::cuda::par.on(stream), indices.begin(), indices.end());
-
-    // 3. 按置信度降序排序索引
-    thrust::sort_by_key(
-        thrust::cuda::par.on(stream),
-        confidences.begin(),
-        confidences.end(),
-        indices.begin(),
-        thrust::greater<float>());
-
-    // 4. 统计超过阈值的数量
-    int valid_count = 0;
-    std::vector<float> host_confidences(topk);
-    cudaMemcpyAsync(
-        host_confidences.data(),
         thrust::raw_pointer_cast(confidences.data()),
-        topk * sizeof(float),
-        cudaMemcpyDeviceToHost,
-        stream);
+        thrust::raw_pointer_cast(indices.data()),
+        thrust::raw_pointer_cast(valid_count_dev.data()),
+        score_threshold);
+
+    // 3. 获取有效数量（需要同步，但只拷贝1个int）
+    int valid_count = 0;
+    cudaMemcpyAsync(&valid_count, thrust::raw_pointer_cast(valid_count_dev.data()),
+                    sizeof(int), cudaMemcpyDeviceToHost, stream);
     cudaStreamSynchronize(stream);
 
-    for (int i = 0; i < topk; ++i) {
-        if (host_confidences[i] >= score_threshold) {
-            valid_count++;
-        } else {
-            break;
-        }
-    }
+    // 4. 如果有效检测少于topk，直接使用；否则需要排序TopK
+    int actual_topk = (valid_count <= topk) ? valid_count : topk;
 
-    // 如果没有有效检测，返回0
-    if (valid_count == 0) {
+    if (actual_topk == 0) {
         return 0;
     }
 
-    // 实际提取数量：min(valid_count, topk)
-    int actual_topk = std::min(valid_count, topk);
+    // 5. 如果有效数量大于topk，对前valid_count个排序并取TopK
+    if (valid_count > topk) {
+        thrust::sort_by_key(
+            thrust::cuda::par.on(stream),
+            confidences.begin(),
+            confidences.begin() + valid_count,
+            indices.begin(),
+            thrust::greater<float>());
+    }
 
-    // 5. 根据TopK索引提取特征数据
+    // 6. 根据TopK索引提取特征数据
     dim3 extract_block(256);
     dim3 extract_grid(
         (actual_topk + extract_block.x - 1) / extract_block.x,

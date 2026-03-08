@@ -203,6 +203,7 @@ std::list<Armor> YOLO26::detect(const cv::Mat & raw_img, int frame_count)
   auto t_preprocess_start = std::chrono::high_resolution_clock::now();
 
   cv::Mat bgr_img;
+  tmp_img_ = raw_img;
   cv::Mat tmp_img = raw_img;
 
   if (use_roi_) {
@@ -441,8 +442,8 @@ bool YOLO26::check_name(const Armor & armor) const
   auto name_ok = armor.name != ArmorName::not_armor;
   auto confidence_ok = armor.confidence > min_confidence_;
 
-  // 保存不确定的图案，用于神经网络的迭代
-  // if (name_ok && !confidence_ok) save(armor);
+  // 保存高置信度的图案，用于神经网络的迭代
+  if (armor.confidence > 0.5 && armor.confidence < 0.7) save(armor);
 
   return name_ok && confidence_ok;
 }
@@ -454,7 +455,7 @@ bool YOLO26::check_type(const Armor & armor) const
                    : (armor.name != ArmorName::two && armor.name != ArmorName::sentry &&
                       armor.name != ArmorName::outpost);
 
-  // 保存异常的图案，用于神经网络的迭代
+  // 不在check_type中保存，统一在check_name中处理
   // if (!name_ok) save(armor);
 
   return name_ok;
@@ -526,12 +527,16 @@ void YOLO26::draw_detections(
   cv::imshow("YOLO26 Detection", bgr_detection);
 }
 
-// void YOLO26::save(const Armor & armor) const
-// {
-//   auto file_name = fmt::format("{:%Y-%m-%d_%H-%M-%S}", std::chrono::system_clock::now());
-//   auto img_path = fmt::format("{}/{}_{}.jpg", save_path_, armor.name, file_name);
-//   cv::imwrite(img_path, tmp_img_);
-// }
+void YOLO26::save(const Armor & armor) const
+{
+  auto file_name = fmt::format("{:%Y-%m-%d_%H-%M-%S}", std::chrono::system_clock::now());
+  auto img_path = fmt::format("{}/{}_{}.jpg", save_path_, armor.name, file_name);
+
+  // 相机输出是RGB格式，需要转换为BGR才能正确保存
+  cv::Mat bgr_img;
+  cv::cvtColor(tmp_img_, bgr_img, cv::COLOR_RGB2BGR);
+  cv::imwrite(img_path, bgr_img);
+}
 
 std::list<Armor> YOLO26::postprocess(
   double scale, cv::Mat & output, const cv::Mat & bgr_img, int frame_count)

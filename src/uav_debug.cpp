@@ -117,7 +117,7 @@ int main(int argc, char * argv[])
     auto targets = tracker.track(armors, t);
 
     // auto command = aimer.aim(targets, t, cboard.bullet_speed);
-    auto command = aimer.aim(targets, t, 20);
+    auto command = aimer.aim(targets, t, 20.9);
 
     command.shoot = shooter.shoot(command, aimer, targets, ypr);
     //yaw,pitch范围为[-180,180],故需要增大180度

@@ -11,6 +11,7 @@
 
 #include "tools/img_tools.hpp"
 #include "tools/logger.hpp"
+#include "tools/path.hpp"
 #include "tasks/auto_aim/yolos/cuda_preprocess.hpp"
 
 namespace auto_aim
@@ -31,8 +32,10 @@ YOLOV8_TRT::YOLOV8_TRT(const std::string & config_path, bool debug)
   auto yaml = YAML::LoadFile(config_path);
 
   // 读取配置（使用yolov8特定路径）
-  engine_path_ = yaml["yolov8_engine_path"].as<std::string>("");
-  onnx_path_ = yaml["yolov8_onnx_path"].as<std::string>("");
+  engine_path_ = tools::resolve_path_from_config(
+    config_path, yaml["yolov8_engine_path"].as<std::string>(""));
+  onnx_path_ = tools::resolve_path_from_config(
+    config_path, yaml["yolov8_onnx_path"].as<std::string>(""));
   device_ = yaml["device"].as<std::string>("GPU");
   binary_threshold_ = yaml["threshold"].as<double>();
   min_confidence_ = yaml["min_confidence"].as<double>();

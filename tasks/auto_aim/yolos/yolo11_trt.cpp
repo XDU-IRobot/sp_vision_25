@@ -10,6 +10,7 @@
 
 #include "tools/img_tools.hpp"
 #include "tools/logger.hpp"
+#include "tools/path.hpp"
 
 namespace auto_aim
 {
@@ -29,8 +30,10 @@ YOLO11_TRT::YOLO11_TRT(const std::string & config_path, bool debug)
   auto yaml = YAML::LoadFile(config_path);
 
   // 读取配置
-  engine_path_ = yaml["yolo11_engine_path"].as<std::string>("");
-  onnx_path_ = yaml["yolo11_onnx_path"].as<std::string>("");
+  engine_path_ = tools::resolve_path_from_config(
+    config_path, yaml["yolo11_engine_path"].as<std::string>(""));
+  onnx_path_ = tools::resolve_path_from_config(
+    config_path, yaml["yolo11_onnx_path"].as<std::string>(""));
   device_ = yaml["device"].as<std::string>("GPU");
   binary_threshold_ = yaml["threshold"].as<double>();
   min_confidence_ = yaml["min_confidence"].as<double>();

@@ -2,6 +2,7 @@
 
 #include <chrono>
 #include <fstream>
+#include <filesystem>
 #include <thread>
 #include <nlohmann/json.hpp>
 #include <opencv2/opencv.hpp>
@@ -31,6 +32,28 @@ const std::string keys =
   "{end-index e    | 0                            | 视频结束帧下标    }"
   "{@input-path    | ../assets/demo/demo          | avi和txt文件的路径（相对于build目录）}";
 
+static std::string resolve_config_path(const std::string & raw_path)
+{
+  namespace fs = std::filesystem;
+  fs::path input(raw_path);
+  if (input.is_absolute() && fs::exists(input)) {
+    return input.string();
+  }
+
+  std::vector<fs::path> candidates = {
+    fs::current_path() / input,
+    fs::current_path() / "build" / input,
+    fs::current_path() / "configs" / input.filename(),
+    fs::current_path() / ".." / "configs" / input.filename(),
+  };
+  for (const auto & candidate : candidates) {
+    if (fs::exists(candidate)) {
+      return fs::weakly_canonical(candidate).string();
+    }
+  }
+  return raw_path;
+}
+
 int main(int argc, char * argv[])
 {
   // cv::setNumThreads(0); 
@@ -45,6 +68,26 @@ int main(int argc, char * argv[])
   auto use_camera = cli.get<bool>("use-camera");
   auto start_index = cli.get<int>("start-index");
   auto end_index = cli.get<int>("end-index");
+
+  // 兼容用法: ./auto_aim_test configs/xxx.yaml
+  if (!cli.has("config-path")) {
+    const auto has_suffix = [](const std::string & s, const std::string & suffix) {
+      return s.size() >= suffix.size() &&
+        s.compare(s.size() - suffix.size(), suffix.size(), suffix) == 0;
+    };
+    const bool positional_is_yaml = has_suffix(input_path, ".yaml") || has_suffix(input_path, ".yml");
+    if (positional_is_yaml) {
+      config_path = input_path;
+      input_path = "../assets/demo/demo";
+    }
+  }
+
+  config_path = resolve_config_path(config_path);
+  if (!std::filesystem::exists(config_path)) {
+    tools::logger()->error("Config file not found: {}", config_path);
+    tools::logger()->error("Use --config-path configs/vtune_test.yaml or run from build directory.");
+    return -1;
+  }
 
   tools::Plotter plotter;
   tools::Exiter exiter;

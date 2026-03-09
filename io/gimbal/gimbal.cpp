@@ -288,11 +288,49 @@ void Gimbal::send_scm(bool control, bool fire, float yaw, float yaw_vel,
   frame.TargetYawSpeed = out_yaw_vel;
   frame.SystemTimer = system_timer;
   frame.EOF = scm_eof_;
-  frame.PitchRelativeAngle = frame.Pitch;
-  frame.YawRelativeAngle = frame.Yaw;
+  // frame.PitchRelativeAngle = frame.Pitch;
+  // frame.YawRelativeAngle = frame.Yaw;
 
   try {
     serial_.write(reinterpret_cast<uint8_t *>(&frame), sizeof(frame));
+  } catch (const std::exception &e) {
+    tools::logger()->warn("[Gimbal][SCM] Failed to write serial: {}", e.what());
+  }
+}
+void Gimbal::send_command_scm(io::Command command) {
+  // TODO: Implement SCM command sending
+  uint8_t aimbot_state = 0; // 0:不控 2:控不火 4:控且火
+  if (command.control)
+    aimbot_state = command.shoot ? 4 : 2;
+  uint8_t aimbot_target = command.shoot;   //0: 不开火 1: 开火
+  float out_yaw = scm_angles_in_deg_ ? rad2deg(command.yaw) : command.yaw;
+  float out_pitch =
+      scm_angles_in_deg_ ? rad2deg(command.pitch) : command.pitch;
+  float system_timer =
+      std::chrono::duration<float>(std::chrono::steady_clock::now() - start_tp_)
+          .count();
+
+  AimbotFrame_SCM_t frame{};
+  frame.SOF = 0x55;
+  // frame.ID = 0x02;
+  frame.ID = scm_tx_id_;
+  frame.AimbotState = aimbot_state;
+  frame.AimbotTarget = aimbot_target;
+  frame.Pitch = out_pitch;
+  frame.Yaw = out_yaw;
+  frame.TargetPitchSpeed = 0.0f;
+  frame.TargetYawSpeed = 0.0f;
+  frame.SystemTimer = static_cast<uint32_t>(
+      std::chrono::duration_cast<std::chrono::milliseconds>(
+          std::chrono::steady_clock::now() - start_tp_).count());
+  frame.EOF = 0xFF;
+
+  try {
+    serial_.write(reinterpret_cast<uint8_t *>(&frame), sizeof(frame));
+    tools::logger()->info(
+        "[Gimbal][SCM] tx command: mode={}, yaw={}, pitch={}, system_timer={}",
+        static_cast<int>(aimbot_state), static_cast<float>(out_yaw),
+        static_cast<float>(out_pitch), static_cast<float>(system_timer));
   } catch (const std::exception &e) {
     tools::logger()->warn("[Gimbal][SCM] Failed to write serial: {}", e.what());
   }

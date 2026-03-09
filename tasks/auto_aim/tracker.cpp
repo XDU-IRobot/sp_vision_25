@@ -269,8 +269,11 @@ bool Tracker::set_target(std::list<Armor> & armors, std::chrono::steady_clock::t
   }
 
   else if (armor.name == ArmorName::outpost) {
-    Eigen::VectorXd P0_dig{{1, 64, 1, 64, 1, 81, 0.4, 100, 1e-4, 0, 0}};
+    //  创建 OutpostTarget（13维状态）
+    Eigen::VectorXd P0_dig{{1, 64, 1, 64, 1, 81, 0.4, 100, 1e-4, 0, 0, 100, 100}};  // 13维
+    // 无需传入高度差，EKF会自动估计，在target内初始化为0
     target_ = Target(armor, t, 0.2765, 3, P0_dig);
+    tools::logger()->info(" Created OutpostTarget (13D state)");
   }
 
   else if (armor.name == ArmorName::base) {

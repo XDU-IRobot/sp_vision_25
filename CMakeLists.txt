@@ -184,6 +184,7 @@ add_subdirectory(librm)
 add_executable(standard src/standard.cpp)
 add_executable(daheng_camera_test src/daheng_camera_test.cpp)
 add_executable(uav_debug src/uav_debug.cpp)
+add_executable(uav_debug_jetsn src/uav_debug_jetsn.cpp)
 
 # 需要 auto_buff 的可执行文件（需要 OpenVINO 和 Ceres）
 if(OpenVINO_FOUND AND Ceres_FOUND)
@@ -210,7 +211,7 @@ endif()
 target_link_libraries(standard fmt::fmt yaml-cpp auto_aim tools io ${OpenCV_LIBS})
 target_link_libraries(daheng_camera_test fmt::fmt yaml-cpp auto_aim tools io ${OpenCV_LIBS})
 target_link_libraries(uav_debug fmt::fmt yaml-cpp auto_aim tools io ${OpenCV_LIBS})
-
+target_link_libraries(uav_debug_jetsn fmt::fmt yaml-cpp auto_aim tools io ${OpenCV_LIBS})
 
 ##################calibration################
 add_executable(capture calibration/capture.cpp)

@@ -12,6 +12,7 @@
 
 #include "serial/serial.h"
 #include "tools/thread_safe_queue.hpp"
+#include "io/command.hpp"
 
 namespace io {
 struct __attribute__((packed)) GimbalToVision {
@@ -75,6 +76,8 @@ public:
 
   void send(io::VisionToGimbal VisionToGimbal);
 
+  void send_command_scm(io::Command command);
+
 private:
   serial::Serial serial_;
 
@@ -131,9 +134,6 @@ typedef struct __attribute__((packed)) {
   float SystemTimer;
   // 包尾
   uint8_t EOF;
-  // 处理后数据
-  float PitchRelativeAngle;
-  float YawRelativeAngle;
 } AimbotFrame_SCM_t;
 
 typedef struct __attribute__((packed)) {

@@ -67,7 +67,7 @@ ov_streams: 1         # OpenVINO streams 数量
 # ==========================================
 
 yolo11_engine_path: ../assets/engines/yolo11.engine
-yolov8_engine_path: ../assets/engines/yolov8.engine
+yolov8_engine_path: ../assets/engines/yolov8_jetson_fp16.engine
 
 # TensorRT ONNX 源文件 (用于构建engine)
 yolo11_onnx_path: ../assets/engines/yolo11.onnx

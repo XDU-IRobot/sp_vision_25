@@ -165,7 +165,19 @@ int main(int argc, char * argv[])
 
     auto command = aimer.aim(targets, t, cboard.bullet_speed, true);  // to_now=true，生成当前时刻命令
     command.shoot = shooter.shoot(command, aimer, targets, ypr);
- 
+
+    // 发送命令到 PlotJuggler（显示实际发送的值）
+    nlohmann::json plot_data;
+    plot_data["t"] = std::chrono::duration<double>(t - std::chrono::steady_clock::time_point()).count();
+    plot_data["cmd_yaw"] = command.yaw * 180.0 / M_PI;
+    plot_data["cmd_pitch"] = -command.pitch * 180.0 / M_PI;  // 取反，匹配实际发送值
+    plot_data["control"] = command.control;
+    plot_data["shoot"] = command.shoot;
+    // 电控的欧拉角（从MCU获取的姿态）
+    plot_data["mcu_yaw"] = ypr[0] * 180.0 / M_PI;
+    plot_data["mcu_pitch"] = ypr[1] * 180.0 / M_PI;
+    plot_data["mcu_roll"] = ypr[2] * 180.0 / M_PI;
+    plotter.plot(plot_data);
 
     cboard.send(command);
     

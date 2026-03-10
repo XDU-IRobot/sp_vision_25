@@ -66,36 +66,49 @@ Eigen::Quaterniond CBoard::imu_at(std::chrono::steady_clock::time_point timestam
 
 void CBoard::send(Command command)
 {
- new_can_cmd_id_=0x170;
-    can_frame frame;
-    frame.can_id = new_can_cmd_id_;
-    frame.can_dlc = 7;
+  new_can_cmd_id_ = 0x170;
+  can_frame frame;
+  frame.can_id = new_can_cmd_id_;
+  frame.can_dlc = 7;  // 帧长度为7字节
 
-    frame.data[6] = 1;  // start标志一直为1
+  // Byte 0: AimbotState (位域)
+  uint8_t aimbot_state = compute_aimbotstate(command.control, command.shoot);
+  frame.data[0] = aimbot_state;
 
-    frame.data[0] = compute_aimbotstate(command.control, command.shoot);
-    frame.data[1] = command.control ? 1 : 0;
+  // Byte 1: AimbotTarget (0/1 表示是否检测到目标/被控制)
+  frame.data[1] = command.control ? 1 : 0;
 
-    double yaw_rel = static_cast<double>(command.yaw);
-    double pitch_rel = static_cast<double>(command.pitch);
-    f16tools::f16 yaw_int = f16tools::f64_to_f16(yaw_rel);
-    f16tools::f16 pitch_int = f16tools::f64_to_f16(pitch_rel);
+  // 将yaw, pitch转换为f16格式（与电控侧保持一致：double -> float -> f16）
+  // 坐标系转换：电控 pitch 向上为正，视觉 pitch 向下为正，需要取反
+  float yaw_f32 = static_cast<float>(command.yaw);
+  float pitch_f32 = static_cast<float>(-command.pitch);
+  f16tools::f16 yaw_f16 = f16tools::f32_to_f16(yaw_f32);
+  f16tools::f16 pitch_f16 = f16tools::f32_to_f16(pitch_f32);
 
-    frame.data[2] = (yaw_int >> 8) & 0xFF;
-    frame.data[3] = yaw_int & 0xFF;
-    frame.data[4] = (pitch_int >> 8) & 0xFF;
-    frame.data[5] = pitch_int & 0xFF;
+  // Byte 2-3: yaw (f16, 大端序)
+  frame.data[2] = (yaw_f16 >> 8) & 0xFF;
+  frame.data[3] = yaw_f16 & 0xFF;
 
-    try {
-      can_->write(&frame);
+  // Byte 4-5: pitch (f16, 大端序)
+  frame.data[4] = (pitch_f16 >> 8) & 0xFF;
+  frame.data[5] = pitch_f16 & 0xFF;
 
-      if (debug_tx_) {
-        tools::logger()->info(
-          "[TX][NewCAN] id=0x{:03X} state=0x{:02X} target={} yaw={} pitch={}", frame.can_id,
-          frame.data[0], frame.data[1], yaw_int ,pitch_int);
-      }
-    } catch (const std::exception & e) {
-      tools::logger()->warn("[NewCAN] write failed: {}", e.what());
+  // Byte 6: NucStartFlag (固定为1表示NUC在线)
+  frame.data[6] = 1;
+
+  try {
+    can_->write(&frame);
+
+    if (debug_tx_) {
+      // 转换为角度制显示
+      double yaw_deg = command.yaw * 180.0 / M_PI;
+      double pitch_deg = command.pitch * 180.0 / M_PI;
+      tools::logger()->info(
+        "[TX][NewCAN] id=0x{:03X} aimbot_state=0x{:02X} target={} yaw={:.2f}° pitch={:.2f}° nuc_flag={}",
+        frame.can_id, aimbot_state, frame.data[1], yaw_deg, pitch_deg, frame.data[6]);
+    }
+  } catch (const std::exception & e) {
+    tools::logger()->warn("[NewCAN] write failed: {}", e.what());
   }
   return;
 }
@@ -112,28 +125,35 @@ void CBoard::callback(const can_frame & frame)
         return;
       }
 
-      // 解析4个f16四元数分量
+      // 解析欧拉角 (yaw, pitch, roll)
       auto be_to_f16 = [](const uint8_t * p) -> f16tools::f16 {
         return static_cast<f16tools::f16>((static_cast<uint16_t>(p[0]) << 8) | p[1]);
       };
 
-      f16tools::f16 q_w16 = be_to_f16(&frame.data[0]);
-      f16tools::f16 q_x16 = be_to_f16(&frame.data[2]);
-      f16tools::f16 q_y16 = be_to_f16(&frame.data[4]);
+      f16tools::f16 yaw16 = be_to_f16(&frame.data[0]);
+      f16tools::f16 pitch16 = be_to_f16(&frame.data[2]);
+      f16tools::f16 roll16 = be_to_f16(&frame.data[4]);
 
-      double qw = f16tools::f16_to_f64(q_w16);
-      double qx = f16tools::f16_to_f64(q_x16);
-      double qy = f16tools::f16_to_f64(q_y16);
+      // f16 -> f32 -> double（与电控发送路径对称）
+      float yaw_f32 = f16tools::f16_to_f32(yaw16);
+      float pitch_f32 = f16tools::f16_to_f32(pitch16);
+      float roll_f32 = f16tools::f16_to_f32(roll16);
+
+      double yaw = static_cast<double>(yaw_f32);
+      double pitch = static_cast<double>(pitch_f32);
+      double roll = static_cast<double>(roll_f32);
+
+      // 将欧拉角转换为四元数 (ZYX顺序: yaw-pitch-roll)
+      Eigen::Quaterniond q = Eigen::AngleAxisd(yaw, Eigen::Vector3d::UnitZ()) *
+                             Eigen::AngleAxisd(pitch, Eigen::Vector3d::UnitY()) *
+                             Eigen::AngleAxisd(roll, Eigen::Vector3d::UnitX());
 
       //  解析 byte6 的打包字段
       uint8_t packed = frame.data[6];
-      uint8_t z_sign = (packed >> 7) & 0x1;
-      uint8_t id_bit = (packed >> 6) & 0x1;
-      uint8_t mode_bits = 1;
-      uint8_t imu_bits = packed & 0xF;
-      //  根据归一化约束和符号位恢复 z
-      double qz_abs = std::sqrt(std::max(0.0, 1.0 - qw * qw - qx * qx - qy * qy));
-      double qz = (z_sign == 1) ? qz_abs : -qz_abs;
+      uint8_t id_bit = (packed >> 6) & 0x1;      // 第6位：颜色标识
+      uint8_t mode_bits = (packed >> 4) & 0x3;   // 第4-5位：模式
+      uint8_t imu_bits = packed & 0xF;           // 低4位：IMU计数
+
       // 恢复 robot_id
       robot_id_ = id_bit ? (100 + mode_bits) : mode_bits;
 
@@ -145,7 +165,7 @@ void CBoard::callback(const can_frame & frame)
 
       //  解析 byte7 的子弹速度
       bullet_speed = static_cast<double>(frame.data[7]) * 32.0 / 255.0;
-      Eigen::Quaterniond q(qw,qx,qy,qz);
+
       imu_ring_buffer_[imu_count_low].q = q;
       imu_ring_buffer_[imu_count_low].timestamp = timestamp;
       imu_ring_buffer_[imu_count_low].imu_count = imu_count_low;
@@ -162,11 +182,14 @@ void CBoard::callback(const can_frame & frame)
       mcu_online_.store(true, std::memory_order_relaxed);
 
       if (debug_rx_) {
+        // 转换为角度制显示
+        double yaw_deg = yaw * 180.0 / M_PI;
+        double pitch_deg = pitch * 180.0 / M_PI;
+        double roll_deg = roll * 180.0 / M_PI;
         tools::logger()->info(
-          "[RX][NewCAN][Quat] id=0x{:03X} robot_id={} mode={} imu_count={} bullet_speed={:.2f} "
-          "q({:.4f},{:.4f},{:.4f},{:.4f})",
-          frame.can_id, robot_id_, MODES[mode], imu_count_low, bullet_speed, q.w(), q.x(), q.y(),
-          q.z());
+          "[RX][NewCAN][Euler] id=0x{:03X} robot_id={} mode={} imu_count={} bullet_speed={:.2f} "
+          "yaw={:.2f}° pitch={:.2f}° roll={:.2f}°",
+          frame.can_id, robot_id_, MODES[mode], imu_count_low, bullet_speed, yaw_deg, pitch_deg, roll_deg);
       }
       return;
     }

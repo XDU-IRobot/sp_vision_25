@@ -14,12 +14,10 @@ enemy_color: "blue"
 # TensorRT 后端 (GPU推理，速度快):
 #   - 支持模型: yolo11, yolov8
 #   - 需要: NVIDIA GPU, TensorRT
-#   - 优点: 推理速度快 (8-10ms)
 #
 # OpenVINO 后端 (CPU/GPU推理):
 #   - 支持模型: yolov5, yolov8, yolo11, yolo26
 #   - 需要: Intel OpenVINO
-#   - 优点: 兼容性好，支持模型多
 # ==========================================
 
 inference_backend: openvino    # 切换这里: tensorrt | openvino
@@ -207,13 +205,13 @@ cboard_serial_force_fire_when_control: false
 cboard_serial_force_control: true
 
 #####-----轨迹规划器（Planner）参数-----#####
-fire_thresh: 0.0035
-max_yaw_acc: 50
-Q_yaw: [9e6, 0]
-R_yaw: [1]
-max_pitch_acc: 100
-Q_pitch: [9e6, 0]
-R_pitch: [1]
+fire_thresh: 0.003
+max_yaw_acc: 120       # 大幅提升响应速度（原 50）
+Q_yaw: [2e7, 1e5]      # 增大位置权重 + 增加速度权重（原 [9e6, 0]）
+R_yaw: [0.3]           # 降低平滑性约束（原 1）
+max_pitch_acc: 200     # 大幅提升响应速度（原 100）
+Q_pitch: [2e7, 1e5]    # 增大位置权重 + 增加速度权重（原 [9e6, 0]）
+R_pitch: [0.3]         # 降低平滑性约束（原 1）
 
 # ==========================================
 # 快速切换指南:

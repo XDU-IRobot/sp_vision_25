@@ -120,6 +120,18 @@ int main(int argc, char * argv[])
         cmd.horizon_distance = 0.0;
         cboard.send(cmd);
 
+        // 发送命令数据到 PlotJuggler
+        nlohmann::json plot_data;
+        auto now = std::chrono::steady_clock::now();
+        plot_data["t"] = std::chrono::duration<double>(now - std::chrono::steady_clock::time_point()).count();
+        plot_data["cmd_yaw"] = cmd.yaw * 180.0 / M_PI;
+        plot_data["cmd_pitch"] = cmd.pitch * 180.0 / M_PI;
+        plot_data["cmd_yaw_vel"] = plan.yaw_vel * 180.0 / M_PI;
+        plot_data["cmd_pitch_vel"] = plan.pitch_vel * 180.0 / M_PI;
+        plot_data["control"] = cmd.control;
+        plot_data["shoot"] = cmd.shoot;
+        plotter.plot(plot_data);
+
         std::this_thread::sleep_for(10ms);
       } else {
         std::this_thread::sleep_for(200ms);
@@ -203,6 +215,17 @@ int main(int argc, char * argv[])
         cmd2.pitch = buff_plan.pitch;
         cmd2.horizon_distance = 0.0;
         cboard.send(cmd2);
+
+        // 发送打符命令数据到 PlotJuggler
+        nlohmann::json plot_data;
+        plot_data["t"] = std::chrono::duration<double>(t - std::chrono::steady_clock::time_point()).count();
+        plot_data["cmd_yaw"] = cmd2.yaw * 180.0 / M_PI;
+        plot_data["cmd_pitch"] = cmd2.pitch * 180.0 / M_PI;
+        plot_data["cmd_yaw_vel"] = buff_plan.yaw_vel * 180.0 / M_PI;
+        plot_data["cmd_pitch_vel"] = buff_plan.pitch_vel * 180.0 / M_PI;
+        plot_data["control"] = cmd2.control;
+        plot_data["shoot"] = cmd2.shoot;
+        plotter.plot(plot_data);
       }
 
     } else {
@@ -217,7 +240,7 @@ int main(int argc, char * argv[])
     if (key == 'q') break;
   }
 
-    
+  quit = true;  // 通知 plan_thread 退出
   if (plan_thread.joinable()) plan_thread.join();
   io::Command stop{}; stop.control = false; stop.shoot = false; stop.yaw = 0; stop.pitch = 0; stop.horizon_distance = 0;
   cboard.send(stop);

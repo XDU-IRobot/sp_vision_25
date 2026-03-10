@@ -87,7 +87,7 @@ const std::vector<std::tuple<Color, ArmorName, ArmorType>> yolo11_armor_properti
   {red, base, big}         // 15: red_B
 };
 
-// YOLO26 模型的类别映射 (16类) 
+// YOLO26 模型的类别映射 (16类)
 // 0: red_1, 1: red_2, 2: red_3, 3: red_4, 4: red_5, 5: red_G, 6: red_O, 7: red_B
 // 8: blue_1, 9: blue_2, 10: blue_3, 11: blue_4, 12: blue_5, 13: blue_G, 14: blue_O, 15: blue_B
 const std::vector<std::tuple<Color, ArmorName, ArmorType>> yolo26_armor_properties = {

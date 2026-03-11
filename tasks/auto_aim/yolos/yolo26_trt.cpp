@@ -95,26 +95,40 @@ YOLO26_TRT::YOLO26_TRT(const std::string & config_path, bool debug)
   const char * input_name = engine_->getIOTensorName(0);
   const char * output_name = engine_->getIOTensorName(1);
   auto input_dims = engine_->getTensorShape(input_name);
-  auto output_dims = engine_->getTensorShape(output_name);
 
   input_dtype_ = engine_->getTensorDataType(input_name);
   output_dtype_ = engine_->getTensorDataType(output_name);
 
-  if (input_dims.nbDims == 4) {
+  if (input_dims.nbDims == 4 && input_dims.d[2] > 0 && input_dims.d[3] > 0) {
     input_h_ = input_dims.d[2];
     input_w_ = input_dims.d[3];
+  }
+
+  if (input_dims.nbDims == 4 && (input_dims.d[0] <= 0 || input_dims.d[1] <= 0 || input_dims.d[2] <= 0 || input_dims.d[3] <= 0)) {
+    nvinfer1::Dims4 fixed_input_shape{1, 3, input_h_, input_w_};
+    if (!context_->setInputShape(input_name, fixed_input_shape)) {
+      throw std::runtime_error("Failed to set dynamic input shape for YOLO26_TRT");
+    }
+  }
+
+  auto runtime_input_dims = context_->getTensorShape(input_name);
+  auto runtime_output_dims = context_->getTensorShape(output_name);
+
+  if (runtime_input_dims.nbDims == 4 && runtime_input_dims.d[2] > 0 && runtime_input_dims.d[3] > 0) {
+    input_h_ = runtime_input_dims.d[2];
+    input_w_ = runtime_input_dims.d[3];
   }
 
   const size_t input_elements = static_cast<size_t>(1) * 3 * input_h_ * input_w_;
   input_size_bytes_ = input_elements * get_dtype_size(input_dtype_);
 
   size_t output_elements = 1;
-  for (int i = 0; i < output_dims.nbDims; ++i) {
-    output_elements *= static_cast<size_t>(output_dims.d[i] > 0 ? output_dims.d[i] : 1);
+  for (int i = 0; i < runtime_output_dims.nbDims; ++i) {
+    output_elements *= static_cast<size_t>(runtime_output_dims.d[i] > 0 ? runtime_output_dims.d[i] : 1);
   }
   output_size_bytes_ = output_elements * get_dtype_size(output_dtype_);
 
-  prepareOutputLayoutFromEngine();
+  prepareOutputLayoutFromEngine(output_name);
 
   if (input_dtype_ == nvinfer1::DataType::kFLOAT) {
     input_host_float_.resize(input_elements);
@@ -227,18 +241,22 @@ void YOLO26_TRT::serializeEngine(const std::string & engine_file)
   file.write(reinterpret_cast<const char *>(serialized->data()), serialized->size());
 }
 
-void YOLO26_TRT::prepareOutputLayoutFromEngine()
+void YOLO26_TRT::prepareOutputLayoutFromEngine(const char * output_name)
 {
-  auto output_dims = engine_->getTensorShape(engine_->getIOTensorName(1));
+  auto output_dims = context_->getTensorShape(output_name);
+
+  output_rows_ = 0;
+  output_stride_ = 14;
+  output_channel_first_ = false;
 
   if (output_dims.nbDims == 3) {
-    if (output_dims.d[2] == 14) {
+    if (output_dims.d[2] == 14 || output_dims.d[2] == 18 || output_dims.d[2] == 28) {
       output_rows_ = output_dims.d[1];
       output_stride_ = output_dims.d[2];
       output_channel_first_ = false;
       return;
     }
-    if (output_dims.d[1] == 14) {
+    if (output_dims.d[1] == 14 || output_dims.d[1] == 18 || output_dims.d[1] == 28) {
       output_rows_ = output_dims.d[2];
       output_stride_ = output_dims.d[1];
       output_channel_first_ = true;
@@ -247,13 +265,13 @@ void YOLO26_TRT::prepareOutputLayoutFromEngine()
   }
 
   if (output_dims.nbDims == 2) {
-    if (output_dims.d[1] == 14) {
+    if (output_dims.d[1] == 14 || output_dims.d[1] == 18 || output_dims.d[1] == 28) {
       output_rows_ = output_dims.d[0];
       output_stride_ = output_dims.d[1];
       output_channel_first_ = false;
       return;
     }
-    if (output_dims.d[0] == 14) {
+    if (output_dims.d[0] == 14 || output_dims.d[0] == 18 || output_dims.d[0] == 28) {
       output_rows_ = output_dims.d[1];
       output_stride_ = output_dims.d[0];
       output_channel_first_ = true;
@@ -261,7 +279,7 @@ void YOLO26_TRT::prepareOutputLayoutFromEngine()
     }
   }
 
-  throw std::runtime_error("YOLO26_TRT unsupported output shape: expected [...,14] or [14,...]");
+  throw std::runtime_error("YOLO26_TRT unsupported output shape");
 }
 
 std::list<Armor> YOLO26_TRT::detect(const cv::Mat & raw_img, int frame_count)
@@ -318,7 +336,10 @@ std::list<Armor> YOLO26_TRT::detect(const cv::Mat & raw_img, int frame_count)
     cudaMemcpyAsync(buffers_[0], input_host_half_.data(), input_size_bytes_, cudaMemcpyHostToDevice, stream_);
   }
 
-  context_->enqueueV3(stream_);
+  if (!context_->enqueueV3(stream_)) {
+    tools::logger()->error("[YOLO26_TRT] enqueueV3 failed");
+    return {};
+  }
 
   if (output_dtype_ == nvinfer1::DataType::kFLOAT) {
     cudaMemcpyAsync(output_host_float_.data(), buffers_[1], output_size_bytes_, cudaMemcpyDeviceToHost, stream_);
@@ -376,19 +397,56 @@ std::list<Armor> YOLO26_TRT::parse(
 
   for (int r = 0; r < num_rows; ++r) {
     const float * row_ptr = output_data + r * stride;
-    const float conf = row_ptr[4];
-    const int cls = static_cast<int>(row_ptr[5]);
+    float conf = 0.0f;
+    int cls = 0;
+
+    float x1 = 0.0f, y1 = 0.0f, x2 = 0.0f, y2 = 0.0f;
+    int keypoint_start = 6;
+
+    if (stride == 14 || stride == 18) {
+      conf = row_ptr[4];
+      cls = static_cast<int>(row_ptr[5]);
+      x1 = row_ptr[0];
+      y1 = row_ptr[1];
+      x2 = row_ptr[2];
+      y2 = row_ptr[3];
+      keypoint_start = 6;
+    } else if (stride >= 4 + class_num_ + 8) {
+      float best_prob = 0.0f;
+      int best_cls = 0;
+      for (int c = 0; c < class_num_; ++c) {
+        float p = row_ptr[4 + c];
+        if (p > best_prob) {
+          best_prob = p;
+          best_cls = c;
+        }
+      }
+      conf = best_prob;
+      cls = best_cls;
+
+      const float cx = row_ptr[0];
+      const float cy = row_ptr[1];
+      const float w = row_ptr[2];
+      const float h = row_ptr[3];
+      x1 = cx - 0.5f * w;
+      y1 = cy - 0.5f * h;
+      x2 = cx + 0.5f * w;
+      y2 = cy + 0.5f * h;
+      keypoint_start = 4 + class_num_;
+    } else {
+      continue;
+    }
 
     if (conf < score_threshold_) {
       continue;
     }
 
-    const int x1 = std::clamp(static_cast<int>((row_ptr[0] - pad_x_f) * inv_scale), 0, img_width);
-    const int y1 = std::clamp(static_cast<int>((row_ptr[1] - pad_y_f) * inv_scale), 0, img_height);
-    const int x2 = std::clamp(static_cast<int>((row_ptr[2] - pad_x_f) * inv_scale), 0, img_width);
-    const int y2 = std::clamp(static_cast<int>((row_ptr[3] - pad_y_f) * inv_scale), 0, img_height);
-    const int width = x2 - x1;
-    const int height = y2 - y1;
+    const int box_x1 = std::clamp(static_cast<int>((x1 - pad_x_f) * inv_scale), 0, img_width);
+    const int box_y1 = std::clamp(static_cast<int>((y1 - pad_y_f) * inv_scale), 0, img_height);
+    const int box_x2 = std::clamp(static_cast<int>((x2 - pad_x_f) * inv_scale), 0, img_width);
+    const int box_y2 = std::clamp(static_cast<int>((y2 - pad_y_f) * inv_scale), 0, img_height);
+    const int width = box_x2 - box_x1;
+    const int height = box_y2 - box_y1;
     if (width <= 0 || height <= 0) {
       continue;
     }
@@ -397,13 +455,13 @@ std::list<Armor> YOLO26_TRT::parse(
     armor_key_points.reserve(4);
     for (int i = 0; i < 4; ++i) {
       armor_key_points.emplace_back(
-        (row_ptr[6 + i * 2] - pad_x_f) * inv_scale,
-        (row_ptr[6 + i * 2 + 1] - pad_y_f) * inv_scale);
+        (row_ptr[keypoint_start + i * 2] - pad_x_f) * inv_scale,
+        (row_ptr[keypoint_start + i * 2 + 1] - pad_y_f) * inv_scale);
     }
 
     ids.emplace_back(cls);
     confidences.emplace_back(conf);
-    boxes.emplace_back(x1, y1, width, height);
+    boxes.emplace_back(box_x1, box_y1, width, height);
     armors_key_points.emplace_back(std::move(armor_key_points));
   }
 

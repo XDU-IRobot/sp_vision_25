@@ -88,7 +88,7 @@ private:
   void loadEngine(const std::string & engine_file);
   void buildEngineFromONNX(const std::string & onnx_file);
   void serializeEngine(const std::string & engine_file);
-  void prepareOutputLayoutFromEngine();
+  void prepareOutputLayoutFromEngine(const char * output_name);
 };
 
 }  // namespace auto_aim

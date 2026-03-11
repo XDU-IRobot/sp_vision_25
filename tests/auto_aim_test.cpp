@@ -428,7 +428,6 @@ int main(int argc, char * argv[])
     // // 相机输出为 RGB 格式，imshow 需要 BGR 格式，进行转换
     // cv::Mat img_bgr;
     // cv::cvtColor(img, img_bgr, cv::COLOR_RGB2BGR);
-    // cv::imshow("reprojection", img_bgr);
     // auto key = cv::waitKey(1);  
     // if (key == 'q') break;
   }

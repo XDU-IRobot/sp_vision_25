@@ -104,16 +104,16 @@ endif()
 
 if(CUDA_FOUND)
   find_path(TensorRT_INCLUDE_DIR NvInfer.h
-    HINTS /usr/include/${ARCH_SUFFIX} /usr/local/cuda/include /usr/local/TensorRT-10.0.1.6/include /usr/include
-    PATH_SUFFIXES tensorrt)
+    HINTS /usr/include/${ARCH_SUFFIX} /usr/local/cuda/include /usr/local/TensorRT-10.0/include /usr/include
+    PATH_SUFFIXES tensorrt) # maybe 10.0.1.6
 
   # 查找所有需要的 TensorRT 库
   find_library(TensorRT_LIBRARY nvinfer
-    HINTS /usr/lib/${ARCH_SUFFIX} /usr/local/cuda/lib64 /usr/local/TensorRT-10.0.1.6/lib /usr/lib)
+    HINTS /usr/lib/${ARCH_SUFFIX} /usr/local/cuda/lib64 /usr/local/TensorRT-10.0/lib /usr/lib)
   find_library(TensorRT_PLUGIN_LIBRARY nvinfer_plugin
-    HINTS /usr/lib/${ARCH_SUFFIX} /usr/local/cuda/lib64 /usr/local/TensorRT-10.0.1.6/lib /usr/lib)
+    HINTS /usr/lib/${ARCH_SUFFIX} /usr/local/cuda/lib64 /usr/local/TensorRT-10.0/lib /usr/lib)
   find_library(TensorRT_ONNX_LIBRARY nvonnxparser
-    HINTS /usr/lib/${ARCH_SUFFIX} /usr/local/cuda/lib64 /usr/local/TensorRT-10.0.1.6/lib /usr/lib)
+    HINTS /usr/lib/${ARCH_SUFFIX} /usr/local/cuda/lib64 /usr/local/TensorRT-10.0/lib /usr/lib)
 
   # 查找 CUDA 运行时库
   find_library(CUDA_RUNTIME_LIBRARY cudart

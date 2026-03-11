@@ -39,6 +39,7 @@ if(TensorRT_FOUND)
             yolos/tensorrt_logger.cpp
             yolos/yolov8_trt.cpp
             yolos/yolo11_trt.cpp
+            yolos/yolo26_trt.cpp
             yolos/cuda_preprocess.cu
         )
     else()

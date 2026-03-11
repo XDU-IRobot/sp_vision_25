@@ -12,7 +12,7 @@ enemy_color: "blue"
 # 推理后端选择：tensorrt | openvino
 #
 # TensorRT 后端 (GPU推理，速度快):
-#   - 支持模型: yolo11, yolov8
+#   - 支持模型: yolo11, yolov8, yolo26
 #   - 需要: NVIDIA GPU, TensorRT
 #   - 优点: 推理速度快 (8-10ms)
 #
@@ -27,7 +27,7 @@ inference_backend: openvino    # 切换这里: tensorrt | openvino
 #####-----神经网络参数-----#####
 
 # YOLO模型选择
-# - TensorRT支持: yolo11, yolov8
+# - TensorRT支持: yolo11, yolov8, yolo26
 # - OpenVINO支持: yolov5, yolov8, yolo11, yolo26
 yolo_name: yolo26
 
@@ -68,10 +68,12 @@ ov_streams: 1         # OpenVINO streams 数量
 
 yolo11_engine_path: ../assets/engines/yolo11.engine
 yolov8_engine_path: ../assets/engines/yolov8_jetson_fp16.engine
+yolo26_engine_path: ../assets/engines/yolo26.engine
 
 # TensorRT ONNX 源文件 (用于构建engine)
 yolo11_onnx_path: ../assets/engines/yolo11.onnx
 yolov8_onnx_path: ../assets/engines/yolov8.onnx
+yolo26_onnx_path: ../assets/engines/yolo26.onnx
 
 # ==========================================
 # 推理参数 (通用)

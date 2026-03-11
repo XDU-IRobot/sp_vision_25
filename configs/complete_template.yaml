@@ -1,7 +1,7 @@
 
 #####-----基础配置-----#####
 # 敌方颜色：red | blue
-enemy_color: "blue"
+enemy_color: "red"
 
 #####-----神经网络参数-----#####
 # 推理后端选择（必须指定）：tensorrt | openvino
@@ -9,7 +9,7 @@ enemy_color: "blue"
 # openvino: 使用OpenVINO推理（支持CPU/Intel GPU）
 inference_backend: openvino
 
-# 选择装甲板识别后端：yolov8 | yolo11 | yolov5
+# 选择装甲板识别后端：yolov8 | yolo11 | yolov5 | yolo26
 yolo_name: yolo26
 
 # 数字/字迹分类器模型路径
@@ -32,10 +32,12 @@ device: CPU
 # TensorRT引擎文件路径（优先使用，加载速度快）
 yolo11_engine_path: assets/engines/yolo11.engine    # YOLO11引擎
 yolov8_engine_path: assets/engines/yolov8.engine    # YOLOV8引擎
+yolo26_engine_path: assets/engines/yolo26.engine    # YOLO26引擎
 
 # TensorRT ONNX模型路径（如果engine不存在，会从ONNX构建并保存）
 yolo11_onnx_path: assets/yolo11.onnx                # YOLO11 ONNX
 yolov8_onnx_path: assets/yolov8.onnx                # YOLOV8 ONNX
+yolo26_onnx_path: assets/yolo26.onnx                # YOLO26 ONNX
 
 # TensorRT精度模式（构建引擎时使用，暂未实现）
 tensorrt_fp16_mode: true    # 是否使用FP16精度（提升速度）

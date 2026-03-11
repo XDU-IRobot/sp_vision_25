@@ -3,6 +3,7 @@
 #include <chrono>
 #include <fstream>
 #include <filesystem>
+#include <opencv2/highgui.hpp>
 #include <thread>
 #include <nlohmann/json.hpp>
 #include <opencv2/opencv.hpp>
@@ -421,14 +422,13 @@ int main(int argc, char * argv[])
       data["recent_nis_failures"] = target.ekf().data.at("recent_nis_failures");
     }
 
-    plotter.plot(data);
-
-    cv::resize(img, img, {}, 0.5, 0.5);  // 显示时缩小图片尺寸
+    plotter.plot(data) ;
     
-    // // 相机输出为 RGB 格式，imshow 需要 BGR 格式，进行转换
-    // cv::Mat img_bgr;
-    // cv::cvtColor(img, img_bgr, cv::COLOR_RGB2BGR);
-    // auto key = cv::waitKey(1);  
+    // 相机输出为 RGB 格式，imshow 需要 BGR 格式，进行转换
+    cv::Mat img_bgr;
+    cv::cvtColor(img, img_bgr, cv::COLOR_RGB2BGR);
+    cv::imshow("rejection", img_bgr);
+    auto key = cv::waitKey(1);  
     // if (key == 'q') break;
   }
 

@@ -767,8 +767,8 @@ void YOLO26_TRT::draw_detections(
     cv::rectangle(detection, roi_, cv::Scalar(0, 255, 0), 2);
   }
 
-  cv::resize(detection, detection, {}, 0.5, 0.5);
-  cv::imshow("Yolo26_TRT Detection", detection);
+  //cv::resize(detection, detection, {}, 0.5, 0.5);
+  //cv::imshow("Yolo26_TRT Detection", detection);
 }
 
 }  // namespace auto_aim

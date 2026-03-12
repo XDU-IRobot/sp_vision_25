@@ -39,6 +39,8 @@ private:
   bool debug_;
   bool use_roi_;
   bool swap_rb_channels_ = false;
+  bool use_nms_ = true;
+  bool use_cuda_preprocess_ = false;
 
   const int class_num_ = 16;
   float nms_threshold_ = 0.3f;
@@ -53,6 +55,8 @@ private:
 
   cudaStream_t stream_;
   void * buffers_[2] = {nullptr, nullptr};
+  unsigned char * gpu_img_buffer_ = nullptr;
+  size_t gpu_img_buffer_bytes_ = 0;
 
   nvinfer1::DataType input_dtype_;
   nvinfer1::DataType output_dtype_;

@@ -9,6 +9,7 @@
 #include <stdexcept>
 #include <vector>
 
+#include "cuda_preprocess.hpp"
 #include "tools/img_tools.hpp"
 #include "tools/logger.hpp"
 #include "tools/path.hpp"
@@ -22,6 +23,29 @@ namespace
 auto runtime_deleter_v26 = [](nvinfer1::IRuntime * p) { if (p) delete p; };
 auto engine_deleter_v26 = [](nvinfer1::ICudaEngine * p) { if (p) delete p; };
 auto context_deleter_v26 = [](nvinfer1::IExecutionContext * p) { if (p) delete p; };
+
+void cuda_check(cudaError_t code, const std::string & where)
+{
+  if (code != cudaSuccess) {
+    throw std::runtime_error(
+            "CUDA failure at " + where + ": " + cudaGetErrorString(code) +
+            " (" + std::to_string(static_cast<int>(code)) + ")");
+  }
+}
+
+void cuda_preflight(int device_id)
+{
+  int device_count = 0;
+  cuda_check(cudaGetDeviceCount(&device_count), "cudaGetDeviceCount");
+  if (device_count <= 0) {
+    throw std::runtime_error("No CUDA device available");
+  }
+  if (device_id < 0 || device_id >= device_count) {
+    throw std::runtime_error("Invalid CUDA device id: " + std::to_string(device_id));
+  }
+  cuda_check(cudaSetDevice(device_id), "cudaSetDevice");
+  cuda_check(cudaFree(nullptr), "cudaFree(nullptr) preflight");
+}
 
 // 根据 TensorRT 的数据类型返回单个元素字节数，用于计算显存/内存大小。
 size_t get_dtype_size(nvinfer1::DataType dtype)
@@ -66,11 +90,15 @@ YOLO26_TRT::YOLO26_TRT(const std::string & config_path, bool debug)
   min_confidence_ = yaml["min_confidence"].as<double>();
   score_threshold_ = yaml["yolo26_score_threshold"].as<float>(0.2f);
   nms_threshold_ = yaml["yolo26_nms_threshold"].as<float>(0.3f);
+  use_nms_ = yaml["yolo26_use_nms"].as<bool>(true);
   swap_rb_channels_ = yaml["yolo26_trt_swap_rb"].as<bool>(false);
+  use_cuda_preprocess_ = yaml["yolo26_use_cuda_preprocess"].as<bool>(false);
   tools::logger()->info(
     "[YOLO26_TRT] thresholds: score_th={:.3f}, nms_th={:.3f}, min_conf={:.3f}",
     score_threshold_, nms_threshold_, min_confidence_);
   tools::logger()->info("[YOLO26_TRT] preprocess: swap_rb_channels={}", swap_rb_channels_);
+  tools::logger()->info("[YOLO26_TRT] preprocess: use_cuda_preprocess={}", use_cuda_preprocess_);
+  tools::logger()->info("[YOLO26_TRT] postprocess: use_nms={}", use_nms_);
 
   int x = yaml["roi"]["x"].as<int>();
   int y = yaml["roi"]["y"].as<int>();
@@ -83,8 +111,8 @@ YOLO26_TRT::YOLO26_TRT(const std::string & config_path, bool debug)
   save_path_ = "imgs";
   std::filesystem::create_directory(save_path_);
 
-  cudaSetDevice(0);
-  cudaStreamCreate(&stream_);
+  cuda_preflight(0);
+  cuda_check(cudaStreamCreate(&stream_), "cudaStreamCreate");
 
   runtime_.reset(nvinfer1::createInferRuntime(logger_));
   if (!runtime_) {
@@ -174,8 +202,12 @@ YOLO26_TRT::YOLO26_TRT(const std::string & config_path, bool debug)
     throw std::runtime_error("YOLO26_TRT only supports FP32/FP16 output tensors");
   }
 
-  cudaMalloc(reinterpret_cast<void **>(&buffers_[0]), input_size_bytes_);
-  cudaMalloc(reinterpret_cast<void **>(&buffers_[1]), output_size_bytes_);
+  cuda_check(
+    cudaMalloc(reinterpret_cast<void **>(&buffers_[0]), input_size_bytes_),
+    "cudaMalloc(input)");
+  cuda_check(
+    cudaMalloc(reinterpret_cast<void **>(&buffers_[1]), output_size_bytes_),
+    "cudaMalloc(output)");
 
   context_->setTensorAddress(input_name, buffers_[0]);
   context_->setTensorAddress(output_name, buffers_[1]);
@@ -190,6 +222,7 @@ YOLO26_TRT::YOLO26_TRT(const std::string & config_path, bool debug)
 YOLO26_TRT::~YOLO26_TRT()
 {
   // 释放显存与 CUDA stream。
+  if (gpu_img_buffer_) cudaFree(gpu_img_buffer_);
   if (buffers_[0]) cudaFree(buffers_[0]);
   if (buffers_[1]) cudaFree(buffers_[1]);
   if (stream_) cudaStreamDestroy(stream_);
@@ -408,13 +441,40 @@ std::list<Armor> YOLO26_TRT::detect(const cv::Mat & raw_img, int frame_count)
   const int pad_x = (input_w_ - new_w) / 2;
   const int pad_y = (input_h_ - new_h) / 2;
 
-  // Letterbox：按比例缩放并居中填充到网络输入尺寸。
-  cv::resize(
-    bgr_img,
-    input_image_(cv::Rect(pad_x, pad_y, new_w, new_h)),
-    cv::Size(new_w, new_h),
-    0, 0,
-    cv::INTER_LINEAR);
+  // 每帧先重置整张输入图，避免上一帧残留污染当前帧 padding 区域。
+  input_image_.setTo(cv::Scalar(114, 114, 114));
+
+  const bool use_cuda_path = use_cuda_preprocess_ && input_dtype_ == nvinfer1::DataType::kFLOAT;
+  if (use_cuda_path) {
+    const cv::Mat src_contiguous = bgr_img.isContinuous() ? bgr_img : bgr_img.clone();
+    const size_t img_size =
+      static_cast<size_t>(src_contiguous.cols) * src_contiguous.rows * 3 * sizeof(unsigned char);
+    if (img_size > gpu_img_buffer_bytes_) {
+      if (gpu_img_buffer_) {
+        cudaFree(gpu_img_buffer_);
+        gpu_img_buffer_ = nullptr;
+      }
+      cuda_check(
+        cudaMalloc(reinterpret_cast<void **>(&gpu_img_buffer_), img_size),
+        "cudaMalloc(gpu_img_buffer)");
+      gpu_img_buffer_bytes_ = img_size;
+    }
+
+    cuda_check(
+      cudaMemcpyAsync(gpu_img_buffer_, src_contiguous.data, img_size, cudaMemcpyHostToDevice, stream_),
+      "cudaMemcpyAsync(H2D,raw_image)");
+    cuda_preprocess_letterbox(
+      gpu_img_buffer_, src_contiguous.cols, src_contiguous.rows,
+      reinterpret_cast<float *>(buffers_[0]), input_w_, input_h_, stream_);
+  } else {
+    // Letterbox：按比例缩放并居中填充到网络输入尺寸。
+    cv::resize(
+      bgr_img,
+      input_image_(cv::Rect(pad_x, pad_y, new_w, new_h)),
+      cv::Size(new_w, new_h),
+      0, 0,
+      cv::INTER_LINEAR);
+  }
 
   const size_t plane_size = static_cast<size_t>(input_h_) * input_w_;
   const int channel_map[3] = {
@@ -423,7 +483,9 @@ std::list<Armor> YOLO26_TRT::detect(const cv::Mat & raw_img, int frame_count)
     swap_rb_channels_ ? 0 : 2
   };
   // 按 NCHW 把图像转换到输入缓存，并归一化到 [0,1]。
-  if (input_dtype_ == nvinfer1::DataType::kFLOAT) {
+  if (use_cuda_path) {
+    // CUDA 路径已经把预处理结果直接写入 TensorRT 输入 buffer。
+  } else if (input_dtype_ == nvinfer1::DataType::kFLOAT) {
     for (int c = 0; c < 3; ++c) {
       for (int h = 0; h < input_h_; ++h) {
         for (int w = 0; w < input_w_; ++w) {
@@ -432,7 +494,9 @@ std::list<Armor> YOLO26_TRT::detect(const cv::Mat & raw_img, int frame_count)
         }
       }
     }
-    cudaMemcpyAsync(buffers_[0], input_host_float_.data(), input_size_bytes_, cudaMemcpyHostToDevice, stream_);
+    cuda_check(
+      cudaMemcpyAsync(buffers_[0], input_host_float_.data(), input_size_bytes_, cudaMemcpyHostToDevice, stream_),
+      "cudaMemcpyAsync(H2D,input,float)");
   } else {
     for (int c = 0; c < 3; ++c) {
       for (int h = 0; h < input_h_; ++h) {
@@ -442,7 +506,9 @@ std::list<Armor> YOLO26_TRT::detect(const cv::Mat & raw_img, int frame_count)
         }
       }
     }
-    cudaMemcpyAsync(buffers_[0], input_host_half_.data(), input_size_bytes_, cudaMemcpyHostToDevice, stream_);
+    cuda_check(
+      cudaMemcpyAsync(buffers_[0], input_host_half_.data(), input_size_bytes_, cudaMemcpyHostToDevice, stream_),
+      "cudaMemcpyAsync(H2D,input,half)");
   }
 
   if (!context_->enqueueV3(stream_)) {
@@ -451,11 +517,15 @@ std::list<Armor> YOLO26_TRT::detect(const cv::Mat & raw_img, int frame_count)
   }
 
   if (output_dtype_ == nvinfer1::DataType::kFLOAT) {
-    cudaMemcpyAsync(output_host_float_.data(), buffers_[1], output_size_bytes_, cudaMemcpyDeviceToHost, stream_);
+    cuda_check(
+      cudaMemcpyAsync(output_host_float_.data(), buffers_[1], output_size_bytes_, cudaMemcpyDeviceToHost, stream_),
+      "cudaMemcpyAsync(D2H,output,float)");
   } else {
-    cudaMemcpyAsync(output_host_half_.data(), buffers_[1], output_size_bytes_, cudaMemcpyDeviceToHost, stream_);
+    cuda_check(
+      cudaMemcpyAsync(output_host_half_.data(), buffers_[1], output_size_bytes_, cudaMemcpyDeviceToHost, stream_),
+      "cudaMemcpyAsync(D2H,output,half)");
   }
-  cudaStreamSynchronize(stream_);
+  cuda_check(cudaStreamSynchronize(stream_), "cudaStreamSynchronize");
 
   if (output_dtype_ == nvinfer1::DataType::kHALF) {
     // 输出若为 FP16，统一转成 FP32 便于后续解析。
@@ -600,8 +670,13 @@ std::list<Armor> YOLO26_TRT::parse(
   }
 
   std::vector<int> indices;
-  // NMS 去除高度重叠框。
-  cv::dnn::NMSBoxes(boxes, confidences, score_threshold_, nms_threshold_, indices);
+  // NMS 去除高度重叠框（可配置开关）。
+  if (use_nms_) {
+    cv::dnn::NMSBoxes(boxes, confidences, score_threshold_, nms_threshold_, indices);
+  } else {
+    indices.resize(boxes.size());
+    std::iota(indices.begin(), indices.end(), 0);
+  }
 
   std::list<Armor> armors;
   for (int i : indices) {

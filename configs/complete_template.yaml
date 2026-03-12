@@ -1,13 +1,13 @@
 
 #####-----基础配置-----#####
 # 敌方颜色：red | blue
-enemy_color: "red"
+enemy_color: "blue"
 
 #####-----神经网络参数-----#####
 # 推理后端选择（必须指定）：tensorrt | openvino
 # tensorrt: 使用TensorRT推理（需要NVIDIA GPU和TensorRT）
 # openvino: 使用OpenVINO推理（支持CPU/Intel GPU）
-inference_backend: tensorrt    # 切换这里: tensorrt | openvino
+inference_backend: tensorrt   # 切换这里: tensorrt | openvino
 
 # 选择装甲板识别后端：yolov8 | yolo11 | yolov5 | yolo26
 yolo_name: yolo26
@@ -20,7 +20,7 @@ classify_model: assets/tiny_resnet.onnx
 # yolo11_model_path: assets/yolo11.xml      # 输入640×640
 # yolov8_model_path: assets/yolov8.xml        # 输入416×416
 # yolov5_model_path: assets/yolov5.xml        # 输入640×640
-# yolo26_model_path: assets/repair_int8_openvino_model/repair.xml
+# yolo26_model_path: assets/test_yolo26_int8_openvino_model/test_yolo26.xml       # 输入640×640
 
 # OpenVINO推理设备：CPU | GPU | AUTO
 # CPU: 使用CPU推理（兼容性最好）
@@ -28,21 +28,24 @@ classify_model: assets/tiny_resnet.onnx
 # AUTO: 自动选择最优设备
 device: GPU
 
+use_cuda_preprocess: true
+
 #####-----TensorRT模型路径-----#####
 # TensorRT引擎文件路径（优先使用，加载速度快）
 yolo11_engine_path: assets/engines/yolo11.engine    # YOLO11引擎
 yolov8_engine_path: assets/engines/yolov8.engine    # YOLOV8引擎
-yolo26_engine_path: assets/engines/yolo26.engine    # YOLO26引擎
+yolo26_engine_path: assets/engines/test_yolo26.engine    # YOLO26引擎
 
 # TensorRT ONNX模型路径（如果engine不存在，会从ONNX构建并保存）
 yolo11_onnx_path: assets/yolo11.onnx                # YOLO11 ONNX
 yolov8_onnx_path: assets/yolov8.onnx                # YOLOV8 ONNX
-yolo26_onnx_path: assets/engines/yolov26.onnx                # YOLO26 ONNX
+yolo26_onnx_path: assets/engines/test_yolo26.onnx                # YOLO26 ONNX
 
 # yolo26 TRT 后处理阈值（低光/运动模糊场景建议降低score阈值）
 yolo26_score_threshold: 0.10
 yolo26_nms_threshold: 0.30
-yolo26_trt_swap_rb: true
+yolo26_trt_swap_rb: false
+yolo26_use_nms: false
 
 # TensorRT精度模式（构建引擎时使用，暂未实现）
 tensorrt_fp16_mode: true    # 是否使用FP16精度（提升速度）
@@ -55,7 +58,7 @@ tensorrt_int8_mode: false   # 是否使用INT8量化（进一步提速）
 use_async_inference: false
 
 # 分类器最小置信度（0.0-1.0）
-min_confidence: 0.1
+min_confidence: 0.6
 
 # 是否启用传统角点微调（仅yolov5使用）
 use_traditional: true
@@ -170,37 +173,39 @@ camera_settings:
 
 #####-----相机标定参数-----#####
 
-# 相机内参矩阵（3×3，行优先）
-# [fx, 0, cx, 0, fy, cy, 0, 0, 1]
-camera_matrix: [2807.679657, 0.000000, 954.251797, 0.000000, 2804.280283, 601.906719, 0.000000, 0.000000, 1.000000]
+camera_matrix: [1575.972347, 0.000000, 943.701703, 0.000000, 1576.696750, 593.061205, 0.000000, 0.000000, 1.000000]
+distort_coeffs: [-0.253254, 0.193990, 0.000312, -0.000487, 0.000000]
+# 相机同理想情况的偏角: yaw0.02 pitch1.94 roll1.40 degree
+# 标定板到世界坐标系原点的水平距离: 4.12 m
+# 标定板同竖直摆放时的偏角: yaw-87.29 pitch7.65 roll-0.51 degree
+R_camera2gimbal: [0.00046423063676173171, 0.033770528223625203, 0.99942950522456209, -0.99970300483287733, 0.024367462669785803, -0.00035901413901253575, -0.02436568525675643, -0.99913251282626891, 0.03377181066266309]
 
-# 相机畸变系数（5个参数）
-# [k1, k2, p1, p2, k3]
-distort_coeffs: [-0.250596, -0.395102, -0.001980, 0.001022, 0.000000]
-
-# # 云台到IMU Body的旋转矩阵（3×3，行优先）
-R_gimbal2imubody: [-1, 0,0,0, -1, 0, 0 , 0, 1]
-# # 相机到云台的旋转矩阵（3×3，行优先，需手眼标定）
-
-# R_camera2gimbal: [0, 0, 1, 0, 1, 0, -1, 0, 0]
-
-# # 相机到云台的平移向量（3个参数，需手眼标定）
-t_camera2gimbal: [0.13160669975045827, 0.10377721766577375, 0.024908271912914642]
+t_camera2gimbal: [-0.034955523715399906, -0.000074403211899371, 0.001248173910106823]
+R_gimbal2imubody:   [1, 0, 0,
+  0, 1, 0,
+  0, 0, 1]    
 
 
-# R_gimbal2imubody: [-1, 0, 0, 0, -1, 0, 0, 0, 1]
+# #####-----CAN协议配置-----#####
+# new_can_quat_id: 0x150        # 四元数姿态帧ID
+# new_can_cmd_id: 0x170         # 自瞄指令帧ID
+# can_interface: "can0"
+# debug_rx: false
+# debug_tx: true
+####-----gimbal参数（仅“直连云台测试程序”使用；当前仅连接 C 板可忽略）-----#####
+com_port: "/dev/ttyACM0"
+baudrate: 328125
+gimbal_protocol: "scm"  # 可选: scm | sp_crc16
+scm_sof: 85               # SOF 字节（0x55 = 85）
+scm_eof: 255              # EOF 字节（0xFF = 255）
+scm_rx_id: 1              # 云台->上位机 帧ID (MCU->Host)
+scm_tx_id: 2              # 上位机->云台 帧ID (Host->MCU)
+scm_angles_in_deg: false  # 角度单位是否使用度（true: 度，false: 弧度）
+yaw_kp: 0
+yaw_kd: 0
+pitch_kp: 0
+pitch_kd: 0
 
-# 相机同理想情况的偏角: yaw5.15 pitch14.77 roll98.12 degree
-R_camera2gimbal: [0.26402379099613538, 0.053009349232717926, 0.96305838176195357, 0.11790986031858512, 0.98922565457675482, -0.086774818737019491, -0.95728193476513534, 0.13646469587814494, 0.25492878250837947]
-# t_camera2gimbal: [0.17099823161645825, -0.060977311538124079, 0.28556976291720942]
-
-
-#####-----CAN协议配置-----#####
-new_can_quat_id: 0x150        # 四元数姿态帧ID
-new_can_cmd_id: 0x170         # 自瞄指令帧ID
-can_interface: "can0"
-debug_rx: false
-debug_tx: true
 
 #####-----轨迹规划器（Planner）参数-----#####
 # 开火阈值（rad）

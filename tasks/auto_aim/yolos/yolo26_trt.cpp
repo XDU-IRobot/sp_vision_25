@@ -6,6 +6,7 @@
 #include <algorithm>
 #include <filesystem>
 #include <fstream>
+#include <numeric>
 #include <stdexcept>
 #include <vector>
 
@@ -256,9 +257,8 @@ void YOLO26_TRT::buildEngineFromONNX(const std::string & onnx_file)
   auto builder = std::unique_ptr<nvinfer1::IBuilder, void(*)(nvinfer1::IBuilder*)>(
     nvinfer1::createInferBuilder(logger_), [](nvinfer1::IBuilder * p) { if (p) delete p; });
 
-  const auto flags = 1U << static_cast<uint32_t>(nvinfer1::NetworkDefinitionCreationFlag::kEXPLICIT_BATCH);
   auto network = std::unique_ptr<nvinfer1::INetworkDefinition, void(*)(nvinfer1::INetworkDefinition*)>(
-    builder->createNetworkV2(flags), [](nvinfer1::INetworkDefinition * p) { if (p) delete p; });
+    builder->createNetworkV2(0), [](nvinfer1::INetworkDefinition * p) { if (p) delete p; });
 
   auto parser = std::unique_ptr<nvonnxparser::IParser, void(*)(nvonnxparser::IParser*)>(
     nvonnxparser::createParser(*network, logger_), [](nvonnxparser::IParser * p) { if (p) delete p; });

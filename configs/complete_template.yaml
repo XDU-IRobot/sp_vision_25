@@ -1,7 +1,7 @@
 
 #####-----基础配置-----#####
 # 敌方颜色：red | blue
-enemy_color: "blue"
+enemy_color: "red"
 
 #####-----神经网络参数-----#####
 # 推理后端选择（必须指定）：tensorrt | openvino
@@ -17,10 +17,10 @@ classify_model: assets/tiny_resnet.onnx
 
 #####-----OpenVINO模型路径-----#####
 # YOLO模型路径（根据yolo_name选择对应模型）
-yolo11_model_path: assets/yolo11.xml      # 输入640×640
-yolov8_model_path: assets/yolov8.xml        # 输入416×416
-yolov5_model_path: assets/yolov5.xml        # 输入640×640
-yolo26_model_path: assets/repair_int8_openvino_model/repair.xml
+# yolo11_model_path: assets/yolo11.xml      # 输入640×640
+# yolov8_model_path: assets/yolov8.xml        # 输入416×416
+# yolov5_model_path: assets/yolov5.xml        # 输入640×640
+# yolo26_model_path: assets/repair_int8_openvino_model/repair.xml
 
 # OpenVINO推理设备：CPU | GPU | AUTO
 # CPU: 使用CPU推理（兼容性最好）
@@ -37,7 +37,12 @@ yolo26_engine_path: assets/engines/yolo26.engine    # YOLO26引擎
 # TensorRT ONNX模型路径（如果engine不存在，会从ONNX构建并保存）
 yolo11_onnx_path: assets/yolo11.onnx                # YOLO11 ONNX
 yolov8_onnx_path: assets/yolov8.onnx                # YOLOV8 ONNX
-yolo26_onnx_path: assets/best.onnx                # YOLO26 ONNX
+yolo26_onnx_path: assets/engines/yolov26.onnx                # YOLO26 ONNX
+
+# yolo26 TRT 后处理阈值（低光/运动模糊场景建议降低score阈值）
+yolo26_score_threshold: 0.10
+yolo26_nms_threshold: 0.30
+yolo26_trt_swap_rb: true
 
 # TensorRT精度模式（构建引擎时使用，暂未实现）
 tensorrt_fp16_mode: true    # 是否使用FP16精度（提升速度）
@@ -50,7 +55,7 @@ tensorrt_int8_mode: false   # 是否使用INT8量化（进一步提速）
 use_async_inference: false
 
 # 分类器最小置信度（0.0-1.0）
-min_confidence: 0.8
+min_confidence: 0.1
 
 # 是否启用传统角点微调（仅yolov5使用）
 use_traditional: true

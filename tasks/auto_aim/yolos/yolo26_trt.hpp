@@ -38,10 +38,11 @@ private:
   std::string save_path_;
   bool debug_;
   bool use_roi_;
+  bool swap_rb_channels_ = false;
 
   const int class_num_ = 16;
-  const float nms_threshold_ = 0.3f;
-  const float score_threshold_ = 0.2f;
+  float nms_threshold_ = 0.3f;
+  float score_threshold_ = 0.2f;
   double min_confidence_;
   double binary_threshold_;
 

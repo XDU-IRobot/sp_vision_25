@@ -70,8 +70,21 @@ int main(int argc, char * argv[])
   auto start_index = cli.get<int>("start-index");
   auto end_index = cli.get<int>("end-index");
 
+  const auto has_explicit_config_arg = [argc, argv]() {
+    for (int i = 1; i < argc; ++i) {
+      const std::string arg = argv[i];
+      if (arg == "-c" || arg == "--config-path") {
+        return true;
+      }
+      if (arg.rfind("-c=", 0) == 0 || arg.rfind("--config-path=", 0) == 0) {
+        return true;
+      }
+    }
+    return false;
+  };
+
   // 兼容用法: ./auto_aim_test configs/xxx.yaml
-  if (!cli.has("config-path")) {
+  if (!has_explicit_config_arg()) {
     const auto has_suffix = [](const std::string & s, const std::string & suffix) {
       return s.size() >= suffix.size() &&
         s.compare(s.size() - suffix.size(), suffix.size(), suffix) == 0;

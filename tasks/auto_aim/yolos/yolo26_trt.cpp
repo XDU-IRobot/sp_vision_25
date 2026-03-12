@@ -18,10 +18,12 @@ namespace auto_aim
 
 namespace
 {
+// TensorRT 对象需要手动 delete，这里用自定义 deleter 交给 unique_ptr 托管。
 auto runtime_deleter_v26 = [](nvinfer1::IRuntime * p) { if (p) delete p; };
 auto engine_deleter_v26 = [](nvinfer1::ICudaEngine * p) { if (p) delete p; };
 auto context_deleter_v26 = [](nvinfer1::IExecutionContext * p) { if (p) delete p; };
 
+// 根据 TensorRT 的数据类型返回单个元素字节数，用于计算显存/内存大小。
 size_t get_dtype_size(nvinfer1::DataType dtype)
 {
   switch (dtype) {
@@ -42,15 +44,33 @@ YOLO26_TRT::YOLO26_TRT(const std::string & config_path, bool debug)
   context_(nullptr, context_deleter_v26),
   detector_(config_path, false)
 {
+  // 读取配置并初始化路径、阈值、ROI、CUDA 资源、TensorRT 引擎。
   auto yaml = YAML::LoadFile(config_path);
 
-  engine_path_ = tools::resolve_path_from_config(
-    config_path, yaml["yolo26_engine_path"].as<std::string>(""));
+  {
+    const auto raw_engine_path = yaml["yolo26_engine_path"].as<std::string>("");
+    if (!raw_engine_path.empty()) {
+      std::filesystem::path p(raw_engine_path);
+      engine_path_ = p.is_absolute() ? p.string() : p.lexically_normal().string();
+    }
+  }
   onnx_path_ = tools::resolve_path_from_config(
     config_path, yaml["yolo26_onnx_path"].as<std::string>(""));
+  const bool engine_exists = !engine_path_.empty() && std::filesystem::exists(engine_path_);
+  const bool onnx_exists = !onnx_path_.empty() && std::filesystem::exists(onnx_path_);
+  tools::logger()->info(
+    "[YOLO26_TRT] model paths: engine='{}' (exists={}), onnx='{}' (exists={})",
+    engine_path_, engine_exists, onnx_path_, onnx_exists);
   device_ = yaml["device"].as<std::string>("GPU");
   binary_threshold_ = yaml["threshold"].as<double>();
   min_confidence_ = yaml["min_confidence"].as<double>();
+  score_threshold_ = yaml["yolo26_score_threshold"].as<float>(0.2f);
+  nms_threshold_ = yaml["yolo26_nms_threshold"].as<float>(0.3f);
+  swap_rb_channels_ = yaml["yolo26_trt_swap_rb"].as<bool>(false);
+  tools::logger()->info(
+    "[YOLO26_TRT] thresholds: score_th={:.3f}, nms_th={:.3f}, min_conf={:.3f}",
+    score_threshold_, nms_threshold_, min_confidence_);
+  tools::logger()->info("[YOLO26_TRT] preprocess: swap_rb_channels={}", swap_rb_channels_);
 
   int x = yaml["roi"]["x"].as<int>();
   int y = yaml["roi"]["y"].as<int>();
@@ -71,16 +91,21 @@ YOLO26_TRT::YOLO26_TRT(const std::string & config_path, bool debug)
     throw std::runtime_error("Failed to create TensorRT runtime");
   }
 
-  if (!engine_path_.empty() && std::filesystem::exists(engine_path_)) {
+  if (engine_exists) {
+    // 优先直接加载已经序列化好的 TensorRT engine，启动更快。
     tools::logger()->info("[YOLO26_TRT] Loading engine from: {}", engine_path_);
     loadEngine(engine_path_);
-  } else if (!onnx_path_.empty() && std::filesystem::exists(onnx_path_)) {
+  } else if (onnx_exists) {
+    // 没有 engine 时，从 ONNX 现场构建 engine，并可选落盘缓存。
     tools::logger()->info("[YOLO26_TRT] Building engine from ONNX: {}", onnx_path_);
     buildEngineFromONNX(onnx_path_);
     if (!engine_path_.empty()) {
       serializeEngine(engine_path_);
     }
   } else {
+    tools::logger()->error(
+      "[YOLO26_TRT] Invalid model paths. engine='{}', onnx='{}'",
+      engine_path_, onnx_path_);
     throw std::runtime_error(
       "No valid model found! Please provide either:\n"
       "  - yolo26_engine_path: path to .engine file\n"
@@ -105,6 +130,7 @@ YOLO26_TRT::YOLO26_TRT(const std::string & config_path, bool debug)
   }
 
   if (input_dims.nbDims == 4 && (input_dims.d[0] <= 0 || input_dims.d[1] <= 0 || input_dims.d[2] <= 0 || input_dims.d[3] <= 0)) {
+    // 动态 shape 模型：在 context 上固定一次推理输入尺寸。
     nvinfer1::Dims4 fixed_input_shape{1, 3, input_h_, input_w_};
     if (!context_->setInputShape(input_name, fixed_input_shape)) {
       throw std::runtime_error("Failed to set dynamic input shape for YOLO26_TRT");
@@ -128,6 +154,7 @@ YOLO26_TRT::YOLO26_TRT(const std::string & config_path, bool debug)
   }
   output_size_bytes_ = output_elements * get_dtype_size(output_dtype_);
 
+  // 自动解析输出布局：支持 [N,rows,stride] / [N,stride,rows] 等形状。
   prepareOutputLayoutFromEngine(output_name);
 
   if (input_dtype_ == nvinfer1::DataType::kFLOAT) {
@@ -162,6 +189,7 @@ YOLO26_TRT::YOLO26_TRT(const std::string & config_path, bool debug)
 
 YOLO26_TRT::~YOLO26_TRT()
 {
+  // 释放显存与 CUDA stream。
   if (buffers_[0]) cudaFree(buffers_[0]);
   if (buffers_[1]) cudaFree(buffers_[1]);
   if (stream_) cudaStreamDestroy(stream_);
@@ -169,6 +197,7 @@ YOLO26_TRT::~YOLO26_TRT()
 
 void YOLO26_TRT::loadEngine(const std::string & engine_file)
 {
+  // 从磁盘读取 engine 二进制并反序列化为 ICudaEngine。
   std::ifstream file(engine_file, std::ios::binary);
   if (!file.good()) {
     throw std::runtime_error("Failed to open engine file: " + engine_file);
@@ -190,6 +219,7 @@ void YOLO26_TRT::loadEngine(const std::string & engine_file)
 
 void YOLO26_TRT::buildEngineFromONNX(const std::string & onnx_file)
 {
+  // TensorRT build 流程：Builder -> Network -> Parser -> Config -> SerializedEngine。
   auto builder = std::unique_ptr<nvinfer1::IBuilder, void(*)(nvinfer1::IBuilder*)>(
     nvinfer1::createInferBuilder(logger_), [](nvinfer1::IBuilder * p) { if (p) delete p; });
 
@@ -209,6 +239,74 @@ void YOLO26_TRT::buildEngineFromONNX(const std::string & onnx_file)
 
   config->setMemoryPoolLimit(nvinfer1::MemoryPoolType::kWORKSPACE, 1ULL << 30);
 
+  auto input_tensor = network->getInput(0);
+  if (!input_tensor) {
+    throw std::runtime_error("Failed to get ONNX input tensor for TensorRT build");
+  }
+
+  auto input_dims = input_tensor->getDimensions();
+  bool has_dynamic_input = false;
+  for (int i = 0; i < input_dims.nbDims; ++i) {
+    if (input_dims.d[i] <= 0) {
+      has_dynamic_input = true;
+      break;
+    }
+  }
+
+  if (has_dynamic_input) {
+    // 若 ONNX 输入含动态维度，为其创建固定范围的 optimization profile。
+    auto profile = builder->createOptimizationProfile();
+    if (!profile) {
+      throw std::runtime_error("Failed to create TensorRT optimization profile");
+    }
+
+    nvinfer1::Dims min_dims = input_dims;
+    nvinfer1::Dims opt_dims = input_dims;
+    nvinfer1::Dims max_dims = input_dims;
+
+    for (int i = 0; i < input_dims.nbDims; ++i) {
+      if (input_dims.d[i] > 0) {
+        min_dims.d[i] = input_dims.d[i];
+        opt_dims.d[i] = input_dims.d[i];
+        max_dims.d[i] = input_dims.d[i];
+        continue;
+      }
+
+      if (i == 0) {
+        min_dims.d[i] = 1;
+        opt_dims.d[i] = 1;
+        max_dims.d[i] = 1;
+      } else if (i == 1) {
+        min_dims.d[i] = 3;
+        opt_dims.d[i] = 3;
+        max_dims.d[i] = 3;
+      } else if (i == 2) {
+        min_dims.d[i] = input_h_;
+        opt_dims.d[i] = input_h_;
+        max_dims.d[i] = input_h_;
+      } else if (i == 3) {
+        min_dims.d[i] = input_w_;
+        opt_dims.d[i] = input_w_;
+        max_dims.d[i] = input_w_;
+      } else {
+        min_dims.d[i] = 1;
+        opt_dims.d[i] = 1;
+        max_dims.d[i] = 1;
+      }
+    }
+
+    const char * input_name = input_tensor->getName();
+    const bool ok_min = profile->setDimensions(input_name, nvinfer1::OptProfileSelector::kMIN, min_dims);
+    const bool ok_opt = profile->setDimensions(input_name, nvinfer1::OptProfileSelector::kOPT, opt_dims);
+    const bool ok_max = profile->setDimensions(input_name, nvinfer1::OptProfileSelector::kMAX, max_dims);
+    if (!ok_min || !ok_opt || !ok_max) {
+      throw std::runtime_error("Failed to set TensorRT optimization profile dimensions");
+    }
+
+    config->addOptimizationProfile(profile);
+    tools::logger()->info("[YOLO26_TRT] Added optimization profile for dynamic ONNX input");
+  }
+
   auto serialized_engine = std::unique_ptr<nvinfer1::IHostMemory, void(*)(nvinfer1::IHostMemory*)>(
     builder->buildSerializedNetwork(*network, *config), [](nvinfer1::IHostMemory * p) { if (p) delete p; });
 
@@ -224,6 +322,7 @@ void YOLO26_TRT::buildEngineFromONNX(const std::string & onnx_file)
 
 void YOLO26_TRT::serializeEngine(const std::string & engine_file)
 {
+  // 将构建好的 engine 序列化到磁盘，减少后续冷启动耗时。
   auto serialized = std::unique_ptr<nvinfer1::IHostMemory, void(*)(nvinfer1::IHostMemory*)>(
     engine_->serialize(), [](nvinfer1::IHostMemory * p) { if (p) delete p; });
 
@@ -232,6 +331,7 @@ void YOLO26_TRT::serializeEngine(const std::string & engine_file)
     return;
   }
 
+  std::filesystem::create_directories(std::filesystem::path(engine_file).parent_path());
   std::ofstream file(engine_file, std::ios::binary);
   if (!file.good()) {
     tools::logger()->warn("[YOLO26_TRT] Failed to open {} for engine serialization", engine_file);
@@ -243,6 +343,8 @@ void YOLO26_TRT::serializeEngine(const std::string & engine_file)
 
 void YOLO26_TRT::prepareOutputLayoutFromEngine(const char * output_name)
 {
+  // 根据输出 tensor 维度推断“候选数 rows”和“每个候选步长 stride”。
+  // stride 支持 14/18/28：分别对应不同导出格式（bbox+cls+kpts）。
   auto output_dims = context_->getTensorShape(output_name);
 
   output_rows_ = 0;
@@ -284,6 +386,7 @@ void YOLO26_TRT::prepareOutputLayoutFromEngine(const char * output_name)
 
 std::list<Armor> YOLO26_TRT::detect(const cv::Mat & raw_img, int frame_count)
 {
+  // 主推理入口：预处理 -> H2D -> TensorRT 推理 -> D2H -> 解析后处理。
   if (raw_img.empty()) {
     return {};
   }
@@ -291,6 +394,7 @@ std::list<Armor> YOLO26_TRT::detect(const cv::Mat & raw_img, int frame_count)
   cv::Mat bgr_img;
   tmp_img_ = raw_img;
   if (use_roi_) {
+    // 开启 ROI 时仅在局部区域检测，后续通过 offset_ 还原回全图坐标。
     bgr_img = raw_img(roi_);
   } else {
     bgr_img = raw_img;
@@ -304,22 +408,27 @@ std::list<Armor> YOLO26_TRT::detect(const cv::Mat & raw_img, int frame_count)
   const int pad_x = (input_w_ - new_w) / 2;
   const int pad_y = (input_h_ - new_h) / 2;
 
-  input_image_.setTo(cv::Scalar(114, 114, 114));
+  // Letterbox：按比例缩放并居中填充到网络输入尺寸。
   cv::resize(
     bgr_img,
     input_image_(cv::Rect(pad_x, pad_y, new_w, new_h)),
     cv::Size(new_w, new_h),
     0, 0,
     cv::INTER_LINEAR);
-  cv::cvtColor(input_image_, input_image_, cv::COLOR_BGR2RGB);
 
   const size_t plane_size = static_cast<size_t>(input_h_) * input_w_;
+  const int channel_map[3] = {
+    swap_rb_channels_ ? 2 : 0,
+    1,
+    swap_rb_channels_ ? 0 : 2
+  };
+  // 按 NCHW 把图像转换到输入缓存，并归一化到 [0,1]。
   if (input_dtype_ == nvinfer1::DataType::kFLOAT) {
     for (int c = 0; c < 3; ++c) {
       for (int h = 0; h < input_h_; ++h) {
         for (int w = 0; w < input_w_; ++w) {
           input_host_float_[c * plane_size + h * input_w_ + w] =
-            input_image_.at<cv::Vec3b>(h, w)[c] / 255.0f;
+            input_image_.at<cv::Vec3b>(h, w)[channel_map[c]] / 255.0f;
         }
       }
     }
@@ -329,7 +438,7 @@ std::list<Armor> YOLO26_TRT::detect(const cv::Mat & raw_img, int frame_count)
       for (int h = 0; h < input_h_; ++h) {
         for (int w = 0; w < input_w_; ++w) {
           input_host_half_[c * plane_size + h * input_w_ + w] =
-            __float2half(input_image_.at<cv::Vec3b>(h, w)[c] / 255.0f);
+            __float2half(input_image_.at<cv::Vec3b>(h, w)[channel_map[c]] / 255.0f);
         }
       }
     }
@@ -349,6 +458,7 @@ std::list<Armor> YOLO26_TRT::detect(const cv::Mat & raw_img, int frame_count)
   cudaStreamSynchronize(stream_);
 
   if (output_dtype_ == nvinfer1::DataType::kHALF) {
+    // 输出若为 FP16，统一转成 FP32 便于后续解析。
     for (size_t i = 0; i < output_host_half_.size(); ++i) {
       output_host_float_[i] = __half2float(output_host_half_[i]);
     }
@@ -357,6 +467,7 @@ std::list<Armor> YOLO26_TRT::detect(const cv::Mat & raw_img, int frame_count)
   const float * parse_ptr = output_host_float_.data();
   std::vector<float> transposed_output;
   if (output_channel_first_) {
+    // 若导出是 [stride, rows]，转置成统一的 [rows, stride] 解析格式。
     transposed_output.resize(static_cast<size_t>(output_rows_) * output_stride_);
     for (int r = 0; r < output_rows_; ++r) {
       for (int c = 0; c < output_stride_; ++c) {
@@ -379,6 +490,7 @@ std::list<Armor> YOLO26_TRT::parse(
   float scale, int pad_x, int pad_y, const float * output_data, int num_rows, int stride,
   const cv::Mat & bgr_img, const cv::Mat & tmp_img, int frame_count)
 {
+  // parse 负责把网络原始输出转成 Armor 列表：阈值筛选 + NMS + 业务规则过滤。
   const int img_width = bgr_img.cols;
   const int img_height = bgr_img.rows;
   const float inv_scale = 1.0f / scale;
@@ -395,8 +507,23 @@ std::list<Armor> YOLO26_TRT::parse(
   boxes.reserve(estimated_valid);
   armors_key_points.reserve(estimated_valid);
 
+  int pass_conf_count = 0;
+  int invalid_box_count = 0;
+  float max_conf_before_threshold = 0.0f;
+  int max_conf_row = -1;
+  float dbg_first_row[8] = {0.0f};
+  bool dbg_has_first_row = false;
+
   for (int r = 0; r < num_rows; ++r) {
     const float * row_ptr = output_data + r * stride;
+    if (!dbg_has_first_row) {
+      const int dbg_cols = std::min(8, stride);
+      for (int k = 0; k < dbg_cols; ++k) {
+        dbg_first_row[k] = row_ptr[k];
+      }
+      dbg_has_first_row = true;
+    }
+
     float conf = 0.0f;
     int cls = 0;
 
@@ -404,6 +531,7 @@ std::list<Armor> YOLO26_TRT::parse(
     int keypoint_start = 6;
 
     if (stride == 14 || stride == 18) {
+      // 格式 A：直接给出 conf、class_id、bbox、4个关键点。
       conf = row_ptr[4];
       cls = static_cast<int>(row_ptr[5]);
       x1 = row_ptr[0];
@@ -411,35 +539,40 @@ std::list<Armor> YOLO26_TRT::parse(
       x2 = row_ptr[2];
       y2 = row_ptr[3];
       keypoint_start = 6;
-    } else if (stride >= 4 + class_num_ + 8) {
+    } else if (stride >= 5 + class_num_ + 8) {
+      // 格式 B：YOLO 风格 [obj_conf + class_probs + kpts]，需要先算最终置信度。
+      const float obj_conf = row_ptr[4];
+      const int cls_start = 5;
       float best_prob = 0.0f;
       int best_cls = 0;
       for (int c = 0; c < class_num_; ++c) {
-        float p = row_ptr[4 + c];
+        float p = row_ptr[cls_start + c];
         if (p > best_prob) {
           best_prob = p;
           best_cls = c;
         }
       }
-      conf = best_prob;
+      conf = obj_conf * best_prob;
       cls = best_cls;
 
-      const float cx = row_ptr[0];
-      const float cy = row_ptr[1];
-      const float w = row_ptr[2];
-      const float h = row_ptr[3];
-      x1 = cx - 0.5f * w;
-      y1 = cy - 0.5f * h;
-      x2 = cx + 0.5f * w;
-      y2 = cy + 0.5f * h;
-      keypoint_start = 4 + class_num_;
+      x1 = row_ptr[0];
+      y1 = row_ptr[1];
+      x2 = row_ptr[2];
+      y2 = row_ptr[3];
+      keypoint_start = 5 + class_num_;
     } else {
       continue;
+    }
+
+    if (conf > max_conf_before_threshold) {
+      max_conf_before_threshold = conf;
+      max_conf_row = r;
     }
 
     if (conf < score_threshold_) {
       continue;
     }
+    pass_conf_count++;
 
     const int box_x1 = std::clamp(static_cast<int>((x1 - pad_x_f) * inv_scale), 0, img_width);
     const int box_y1 = std::clamp(static_cast<int>((y1 - pad_y_f) * inv_scale), 0, img_height);
@@ -448,6 +581,7 @@ std::list<Armor> YOLO26_TRT::parse(
     const int width = box_x2 - box_x1;
     const int height = box_y2 - box_y1;
     if (width <= 0 || height <= 0) {
+      invalid_box_count++;
       continue;
     }
 
@@ -466,6 +600,7 @@ std::list<Armor> YOLO26_TRT::parse(
   }
 
   std::vector<int> indices;
+  // NMS 去除高度重叠框。
   cv::dnn::NMSBoxes(boxes, confidences, score_threshold_, nms_threshold_, indices);
 
   std::list<Armor> armors;
@@ -479,13 +614,56 @@ std::list<Armor> YOLO26_TRT::parse(
     }
   }
 
+  int reject_not_armor_count = 0;
+  int reject_min_conf_count = 0;
+  int reject_type_count = 0;
+
   for (auto it = armors.begin(); it != armors.end();) {
-    if (!check_name(*it) || !check_type(*it)) {
+    // 业务二次过滤：非装甲板类别、低置信度、大小类型不匹配都会剔除。
+    const bool label_ok = (it->name != ArmorName::not_armor);
+    const bool conf_ok = (it->confidence > min_confidence_);
+    const bool type_ok = check_type(*it);
+
+    if (!label_ok || !conf_ok || !type_ok) {
+      if (!label_ok) {
+        reject_not_armor_count++;
+      }
+      if (!conf_ok) {
+        reject_min_conf_count++;
+      }
+      if (label_ok && conf_ok && !type_ok) {
+        reject_type_count++;
+      }
       it = armors.erase(it);
       continue;
     }
     it->center_norm = get_center_norm(tmp_img, it->center);
     ++it;
+  }
+
+  const bool should_log = (frame_count < 20) || (frame_count % 30 == 0) || armors.empty();
+  if (should_log) {
+    tools::logger()->info(
+      "[YOLO26_TRT][DBG] frame={} rows={} stride={} pass_conf={} invalid_box={} nms_keep={} final_keep={} reject_not_armor={} reject_min_conf={} reject_type={} max_conf={:.4f}@row{} score_th={:.3f} min_conf={:.3f}",
+      frame_count, num_rows, stride, pass_conf_count, invalid_box_count,
+      indices.size(), armors.size(), reject_not_armor_count, reject_min_conf_count, reject_type_count,
+      max_conf_before_threshold, max_conf_row,
+      score_threshold_, min_confidence_);
+
+    if (dbg_has_first_row) {
+      tools::logger()->info(
+        "[YOLO26_TRT][DBG] first_row: [{:.4f}, {:.4f}, {:.4f}, {:.4f}, {:.4f}, {:.4f}, {:.4f}, {:.4f}]",
+        dbg_first_row[0], dbg_first_row[1], dbg_first_row[2], dbg_first_row[3],
+        dbg_first_row[4], dbg_first_row[5], dbg_first_row[6], dbg_first_row[7]);
+    }
+
+    int dbg_idx = 0;
+    for (auto armor_it = armors.begin(); armor_it != armors.end() && dbg_idx < 3; ++armor_it, ++dbg_idx) {
+      tools::logger()->info(
+        "[YOLO26_TRT][DBG] keep#{} class_id={} => {} {} conf={:.3f}",
+        dbg_idx, armor_it->class_id,
+        COLORS[armor_it->color], ARMOR_NAMES[armor_it->name], armor_it->confidence);
+    }
   }
 
   if (debug_ && !tmp_img.empty()) {
@@ -502,6 +680,7 @@ bool YOLO26_TRT::check_name(const Armor & armor) const
 
 bool YOLO26_TRT::check_type(const Armor & armor) const
 {
+  // 按大小装甲板约束类别，过滤明显不合理的识别结果。
   return (armor.type == ArmorType::small)
            ? (armor.name != ArmorName::one && armor.name != ArmorName::base)
            : (armor.name != ArmorName::two && armor.name != ArmorName::sentry &&
@@ -515,6 +694,7 @@ cv::Point2f YOLO26_TRT::get_center_norm(const cv::Mat & bgr_img, const cv::Point
 
 void YOLO26_TRT::sort_keypoints(std::vector<cv::Point2f> & keypoints) const
 {
+  // 关键点统一排序为：左上、右上、右下、左下，方便后续几何计算。
   if (keypoints.size() != 4) {
     return;
   }
@@ -542,6 +722,7 @@ void YOLO26_TRT::sort_keypoints(std::vector<cv::Point2f> & keypoints) const
 void YOLO26_TRT::draw_detections(
   const cv::Mat & img, const std::list<Armor> & armors, int frame_count) const
 {
+  // Debug 可视化：显示置信度、颜色、类别、大小。
   cv::Mat detection = img.clone();
   tools::draw_text(detection, fmt::format("[{}]", frame_count), {10, 30}, {255, 255, 255});
 
@@ -558,7 +739,7 @@ void YOLO26_TRT::draw_detections(
   }
 
   cv::resize(detection, detection, {}, 0.5, 0.5);
-  cv::imshow("YOLO26_TRT Detection", detection);
+  cv::imshow("Yolo26_TRT Detection", detection);
 }
 
 }  // namespace auto_aim

@@ -2,6 +2,7 @@
 
 #include <yaml-cpp/yaml.h>
 #include <stdexcept>
+#include "tools/logger.hpp"
 
 // 条件引入OpenVINO实现
 #ifdef ENABLE_OPENVINO
@@ -90,14 +91,17 @@ YOLO::YOLO(const std::string & config_path, bool debug)
   if (use_tensorrt) {
     #ifdef ENABLE_TENSORRT
       if (yolo_name == "yolo11") {
+        tools::logger()->info("[YOLO] backend=tensorrt model=yolo11 impl=YOLO11_TRT config={}", config_path);
         yolo_ = std::make_unique<YOLO11_TRT>(config_path, debug);
         return;
       }
       else if (yolo_name == "yolov8") {
+        tools::logger()->info("[YOLO] backend=tensorrt model=yolov8 impl=YOLOV8_TRT config={}", config_path);
         yolo_ = std::make_unique<YOLOV8_TRT>(config_path, debug);
         return;
       }
       else if (yolo_name == "yolo26") {
+        tools::logger()->info("[YOLO] backend=tensorrt model=yolo26 impl=YOLO26_TRT config={}", config_path);
         yolo_ = std::make_unique<YOLO26_TRT>(config_path, debug);
         return;
       }
@@ -114,18 +118,22 @@ YOLO::YOLO(const std::string & config_path, bool debug)
   else {
     #ifdef ENABLE_OPENVINO
       if (yolo_name == "yolov5") {
+        tools::logger()->info("[YOLO] backend=openvino model=yolov5 impl=YOLOV5 config={}", config_path);
         yolo_ = std::make_unique<YOLOV5>(config_path, debug);
         return;
       }
       else if (yolo_name == "yolov8") {
+        tools::logger()->info("[YOLO] backend=openvino model=yolov8 impl=YOLOV8 config={}", config_path);
         yolo_ = std::make_unique<YOLOV8>(config_path, debug);
         return;
       }
       else if (yolo_name == "yolo11") {
+        tools::logger()->info("[YOLO] backend=openvino model=yolo11 impl=YOLO11 config={}", config_path);
         yolo_ = std::make_unique<YOLO11>(config_path, debug);
         return;
       }
       else if (yolo_name == "yolo26") {
+        tools::logger()->info("[YOLO] backend=openvino model=yolo26 impl=YOLO26 config={}", config_path);
         yolo_ = std::make_unique<YOLO26>(config_path, debug);
         return;
       }

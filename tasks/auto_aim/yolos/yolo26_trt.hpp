@@ -39,7 +39,6 @@ private:
   bool debug_;
   bool use_roi_;
   bool swap_rb_channels_ = false;
-  bool use_nms_ = true;
   bool use_cuda_preprocess_ = false;
 
   const int class_num_ = 16;

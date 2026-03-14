@@ -1,7 +1,6 @@
 #include <chrono>
 #include <memory>
-#include <opencv2/core.hpp>
-#include <opencv2/imgproc.hpp>
+#include <opencv2/opencv.hpp>
 #include <rclcpp/executors.hpp>
 #include <string>
 #include <thread>
@@ -16,6 +15,7 @@
 #include "tasks/auto_aim/tracker.hpp"
 #include "tasks/auto_aim/yolo.hpp"
 #include "tools/exiter.hpp"
+#include "tools/img_tools.hpp"
 #include "tools/logger.hpp"
 #include "tools/math_tools.hpp"
 #include "tools/plotter.hpp"
@@ -87,6 +87,20 @@ int main(int argc, char * argv[])
     Eigen::Vector3d ypr = tools::eulers(solver.R_gimbal2world(), 2, 1, 0);
 
     auto armors = yolo.detect(img);
+    /** 绘制每一帧识别装甲板   */
+    int armor_idx = 0;
+    for (const auto & armor : armors) {
+      if (!armor.points.empty()) {
+        tools::draw_points(img, armor.points, {255, 255, 0}, 2);
+      } else {
+        cv::rectangle(img, armor.box, {255, 255, 0}, 2);
+      }
+      auto label = fmt::format(
+        "#{} {} {:.0f}%", armor_idx, auto_aim::ARMOR_NAMES[armor.name], armor.confidence * 100);
+      auto text_anchor = cv::Point(static_cast<int>(armor.center.x), static_cast<int>(armor.center.y));
+      tools::draw_text(img, label, text_anchor, {255, 255, 0}, 0.6, 2);
+      armor_idx += 1;
+    }
     /** 绘制目标   */
     auto targets = tracker.track(armors, t);
 
@@ -109,6 +123,8 @@ command.pitch = wrap_rad_2pi(command.pitch);
     // cboard.send(command);
     // cboard.send(command);
     gimbal.send_command_scm(command);
+  /// debug
+  tools::draw_text(img, fmt::format("[{}]", tracker.state()), {10, 30}, {255, 255, 255});
 
     nlohmann::json data;
     data["t"] = tools::delta_time(std::chrono::steady_clock::now(), t0);
@@ -150,6 +166,22 @@ command.pitch = wrap_rad_2pi(command.pitch);
       auto target = targets.front();
       // 当前帧target更新后
       std::vector<Eigen::Vector4d> armor_xyza_list = target.armor_xyza_list();
+
+      for (const Eigen::Vector4d & xyza : armor_xyza_list) {
+        auto image_points =
+          solver.reproject_armor(xyza.head(3), xyza[3], target.armor_type, target.name);
+        tools::draw_points(img, image_points, {0, 255, 0});
+      }
+
+      // aimer瞄准位置
+      auto aim_point = aimer.debug_aim_point;
+      Eigen::Vector4d aim_xyza = aim_point.xyza;
+      auto image_points =
+        solver.reproject_armor(aim_xyza.head(3), aim_xyza[3], target.armor_type, target.name);
+      if (aim_point.valid)
+        tools::draw_points(img, image_points, {0, 0, 255});
+      else
+        tools::draw_points(img, image_points, {255, 0, 0});
 
       // 观测器内部数据
       Eigen::VectorXd x = target.ekf_x();
@@ -198,6 +230,13 @@ command.pitch = wrap_rad_2pi(command.pitch);
       data["cmd_shoot"] = command.shoot;
     }
     plotter.plot(data);
+
+    cv::resize(img, img, {}, 0.5, 0.5);  // 显示时缩小图片尺寸
+    //翻转图像
+    // cv::flip(img, img, -1);
+    cv::imshow("reprojection", img);
+    auto key = cv::waitKey(1);
+    if (key == 'q') break;
 
     //处理ros回调
     rclcpp::spin_some(node);

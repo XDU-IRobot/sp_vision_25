@@ -6,7 +6,6 @@
 #include <algorithm>
 #include <filesystem>
 #include <fstream>
-#include <numeric>
 #include <stdexcept>
 #include <vector>
 
@@ -24,29 +23,6 @@ namespace
 auto runtime_deleter_v26 = [](nvinfer1::IRuntime * p) { if (p) delete p; };
 auto engine_deleter_v26 = [](nvinfer1::ICudaEngine * p) { if (p) delete p; };
 auto context_deleter_v26 = [](nvinfer1::IExecutionContext * p) { if (p) delete p; };
-
-void cuda_check(cudaError_t code, const std::string & where)
-{
-  if (code != cudaSuccess) {
-    throw std::runtime_error(
-            "CUDA failure at " + where + ": " + cudaGetErrorString(code) +
-            " (" + std::to_string(static_cast<int>(code)) + ")");
-  }
-}
-
-void cuda_preflight(int device_id)
-{
-  int device_count = 0;
-  cuda_check(cudaGetDeviceCount(&device_count), "cudaGetDeviceCount");
-  if (device_count <= 0) {
-    throw std::runtime_error("No CUDA device available");
-  }
-  if (device_id < 0 || device_id >= device_count) {
-    throw std::runtime_error("Invalid CUDA device id: " + std::to_string(device_id));
-  }
-  cuda_check(cudaSetDevice(device_id), "cudaSetDevice");
-  cuda_check(cudaFree(nullptr), "cudaFree(nullptr) preflight");
-}
 
 // 根据 TensorRT 的数据类型返回单个元素字节数，用于计算显存/内存大小。
 size_t get_dtype_size(nvinfer1::DataType dtype)
@@ -91,7 +67,6 @@ YOLO26_TRT::YOLO26_TRT(const std::string & config_path, bool debug)
   min_confidence_ = yaml["min_confidence"].as<double>();
   score_threshold_ = yaml["yolo26_score_threshold"].as<float>(0.2f);
   nms_threshold_ = yaml["yolo26_nms_threshold"].as<float>(0.3f);
-  use_nms_ = yaml["yolo26_use_nms"].as<bool>(true);
   swap_rb_channels_ = yaml["yolo26_trt_swap_rb"].as<bool>(false);
   use_cuda_preprocess_ = yaml["yolo26_use_cuda_preprocess"].as<bool>(false);
   tools::logger()->info(
@@ -99,7 +74,6 @@ YOLO26_TRT::YOLO26_TRT(const std::string & config_path, bool debug)
     score_threshold_, nms_threshold_, min_confidence_);
   tools::logger()->info("[YOLO26_TRT] preprocess: swap_rb_channels={}", swap_rb_channels_);
   tools::logger()->info("[YOLO26_TRT] preprocess: use_cuda_preprocess={}", use_cuda_preprocess_);
-  tools::logger()->info("[YOLO26_TRT] postprocess: use_nms={}", use_nms_);
 
   int x = yaml["roi"]["x"].as<int>();
   int y = yaml["roi"]["y"].as<int>();
@@ -112,8 +86,8 @@ YOLO26_TRT::YOLO26_TRT(const std::string & config_path, bool debug)
   save_path_ = "imgs";
   std::filesystem::create_directory(save_path_);
 
-  cuda_preflight(0);
-  cuda_check(cudaStreamCreate(&stream_), "cudaStreamCreate");
+  cudaSetDevice(0);
+  cudaStreamCreate(&stream_);
 
   runtime_.reset(nvinfer1::createInferRuntime(logger_));
   if (!runtime_) {
@@ -203,12 +177,8 @@ YOLO26_TRT::YOLO26_TRT(const std::string & config_path, bool debug)
     throw std::runtime_error("YOLO26_TRT only supports FP32/FP16 output tensors");
   }
 
-  cuda_check(
-    cudaMalloc(reinterpret_cast<void **>(&buffers_[0]), input_size_bytes_),
-    "cudaMalloc(input)");
-  cuda_check(
-    cudaMalloc(reinterpret_cast<void **>(&buffers_[1]), output_size_bytes_),
-    "cudaMalloc(output)");
+  cudaMalloc(reinterpret_cast<void **>(&buffers_[0]), input_size_bytes_);
+  cudaMalloc(reinterpret_cast<void **>(&buffers_[1]), output_size_bytes_);
 
   context_->setTensorAddress(input_name, buffers_[0]);
   context_->setTensorAddress(output_name, buffers_[1]);
@@ -257,8 +227,9 @@ void YOLO26_TRT::buildEngineFromONNX(const std::string & onnx_file)
   auto builder = std::unique_ptr<nvinfer1::IBuilder, void(*)(nvinfer1::IBuilder*)>(
     nvinfer1::createInferBuilder(logger_), [](nvinfer1::IBuilder * p) { if (p) delete p; });
 
+  const auto flags = 1U << static_cast<uint32_t>(nvinfer1::NetworkDefinitionCreationFlag::kEXPLICIT_BATCH);
   auto network = std::unique_ptr<nvinfer1::INetworkDefinition, void(*)(nvinfer1::INetworkDefinition*)>(
-    builder->createNetworkV2(0), [](nvinfer1::INetworkDefinition * p) { if (p) delete p; });
+    builder->createNetworkV2(flags), [](nvinfer1::INetworkDefinition * p) { if (p) delete p; });
 
   auto parser = std::unique_ptr<nvonnxparser::IParser, void(*)(nvonnxparser::IParser*)>(
     nvonnxparser::createParser(*network, logger_), [](nvonnxparser::IParser * p) { if (p) delete p; });
@@ -454,15 +425,11 @@ std::list<Armor> YOLO26_TRT::detect(const cv::Mat & raw_img, int frame_count)
         cudaFree(gpu_img_buffer_);
         gpu_img_buffer_ = nullptr;
       }
-      cuda_check(
-        cudaMalloc(reinterpret_cast<void **>(&gpu_img_buffer_), img_size),
-        "cudaMalloc(gpu_img_buffer)");
+      cudaMalloc(reinterpret_cast<void **>(&gpu_img_buffer_), img_size);
       gpu_img_buffer_bytes_ = img_size;
     }
 
-    cuda_check(
-      cudaMemcpyAsync(gpu_img_buffer_, src_contiguous.data, img_size, cudaMemcpyHostToDevice, stream_),
-      "cudaMemcpyAsync(H2D,raw_image)");
+    cudaMemcpyAsync(gpu_img_buffer_, src_contiguous.data, img_size, cudaMemcpyHostToDevice, stream_);
     cuda_preprocess_letterbox(
       gpu_img_buffer_, src_contiguous.cols, src_contiguous.rows,
       reinterpret_cast<float *>(buffers_[0]), input_w_, input_h_, stream_);
@@ -494,9 +461,7 @@ std::list<Armor> YOLO26_TRT::detect(const cv::Mat & raw_img, int frame_count)
         }
       }
     }
-    cuda_check(
-      cudaMemcpyAsync(buffers_[0], input_host_float_.data(), input_size_bytes_, cudaMemcpyHostToDevice, stream_),
-      "cudaMemcpyAsync(H2D,input,float)");
+    cudaMemcpyAsync(buffers_[0], input_host_float_.data(), input_size_bytes_, cudaMemcpyHostToDevice, stream_);
   } else {
     for (int c = 0; c < 3; ++c) {
       for (int h = 0; h < input_h_; ++h) {
@@ -506,9 +471,7 @@ std::list<Armor> YOLO26_TRT::detect(const cv::Mat & raw_img, int frame_count)
         }
       }
     }
-    cuda_check(
-      cudaMemcpyAsync(buffers_[0], input_host_half_.data(), input_size_bytes_, cudaMemcpyHostToDevice, stream_),
-      "cudaMemcpyAsync(H2D,input,half)");
+    cudaMemcpyAsync(buffers_[0], input_host_half_.data(), input_size_bytes_, cudaMemcpyHostToDevice, stream_);
   }
 
   if (!context_->enqueueV3(stream_)) {
@@ -517,15 +480,11 @@ std::list<Armor> YOLO26_TRT::detect(const cv::Mat & raw_img, int frame_count)
   }
 
   if (output_dtype_ == nvinfer1::DataType::kFLOAT) {
-    cuda_check(
-      cudaMemcpyAsync(output_host_float_.data(), buffers_[1], output_size_bytes_, cudaMemcpyDeviceToHost, stream_),
-      "cudaMemcpyAsync(D2H,output,float)");
+    cudaMemcpyAsync(output_host_float_.data(), buffers_[1], output_size_bytes_, cudaMemcpyDeviceToHost, stream_);
   } else {
-    cuda_check(
-      cudaMemcpyAsync(output_host_half_.data(), buffers_[1], output_size_bytes_, cudaMemcpyDeviceToHost, stream_),
-      "cudaMemcpyAsync(D2H,output,half)");
+    cudaMemcpyAsync(output_host_half_.data(), buffers_[1], output_size_bytes_, cudaMemcpyDeviceToHost, stream_);
   }
-  cuda_check(cudaStreamSynchronize(stream_), "cudaStreamSynchronize");
+  cudaStreamSynchronize(stream_);
 
   if (output_dtype_ == nvinfer1::DataType::kHALF) {
     // 输出若为 FP16，统一转成 FP32 便于后续解析。
@@ -670,13 +629,8 @@ std::list<Armor> YOLO26_TRT::parse(
   }
 
   std::vector<int> indices;
-  // NMS 去除高度重叠框（可配置开关）。
-  if (use_nms_) {
-    cv::dnn::NMSBoxes(boxes, confidences, score_threshold_, nms_threshold_, indices);
-  } else {
-    indices.resize(boxes.size());
-    std::iota(indices.begin(), indices.end(), 0);
-  }
+  // NMS 去除高度重叠框。
+  cv::dnn::NMSBoxes(boxes, confidences, score_threshold_, nms_threshold_, indices);
 
   std::list<Armor> armors;
   for (int i : indices) {

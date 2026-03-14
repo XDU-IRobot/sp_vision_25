@@ -231,10 +231,13 @@ command.pitch = wrap_rad_2pi(command.pitch);
     }
     plotter.plot(data);
 
-    cv::resize(img, img, {}, 0.5, 0.5);  // 显示时缩小图片尺寸
+    cv::Mat vis = img.clone();
+    cv::resize(vis, vis, {}, 0.5, 0.5);  // 显示时缩小图片尺寸
     //翻转图像
-    // cv::flip(img, img, -1);
-    cv::imshow("reprojection", img);
+    // cv::flip(vis, vis, -1);
+    recorder.record(vis.clone(), q, t);
+    //cv::imshow("reprojection", vis);
+    
     auto key = cv::waitKey(1);
     if (key == 'q') break;
 

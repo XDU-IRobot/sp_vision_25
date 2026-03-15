@@ -156,9 +156,9 @@ debug: true
 camera_settings:
   width: 1920                    # 图像宽度
   height: 1200                   # 图像高度
-  exposure: 2000                 # 曝光时间（微秒）
+  exposure: 8000                 # 曝光时间（微秒）
   auto_exposure: false           # 是否自动曝光
-  gain: 4                       # 增益值
+  gain: 24                       # 增益值
   fps: 168                       # 目标帧率
   auto_white_balance: true       # 是否自动白平衡
   rgain: 0.0                     # R通道增益（手动白平衡时使用）

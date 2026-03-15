@@ -43,12 +43,12 @@ Target::Target(
   
   if (armor_num == 3 && P0_dig.size() == 13) {
     x0.resize(13);
-    x0 << center_x, 0, center_y, 0, center_z, 0, ypr[0], 0, r, 0, 0, 0, 0;
-    
-    // 确保 P0 也是 13x13
+    // 13D: x vx y vy z0 vz a w r l h z1 z2（z1/z2 改为绝对高度）
+    x0 << center_x, 0, center_y, 0, center_z, 0, ypr[0], 0, r, 0, 0, center_z, center_z;
+
     P0 = P0_dig.asDiagonal();
-    
-    tools::logger()->info(" Target(13D): r={:.4f}, x0[8]={:.4f}", r, x0[8]);
+
+    tools::logger()->info(" Target(13D): r={:.4f}, z0={:.4f}", r, x0[4]);
   } else {
     x0.resize(11);
     x0 << center_x, 0, center_y, 0, center_z, 0, ypr[0], 0, r, 0, 0;
@@ -205,44 +205,45 @@ void Target::update(const Armor & armor)
   // 装甲板匹配
   int id;
   if(armor_num_ == 3 && ekf_.x.size() >= 13) {
-    double h1_variance = ekf_.P(11, 11);
-  double h2_variance = ekf_.P(12, 12);
-  
-  bool h_converged = (h1_variance < 0.01) && (h2_variance < 0.01) && 
-                     (std::abs(ekf_.x[11]) > 0.03 || std::abs(ekf_.x[12]) > 0.03);
-  double z_obs = armor.xyz_in_world[2];
-  int height_matched_id = match_armor_id(z_obs); 
-  // 在±1范围内综合评估
-  std::vector<Eigen::Vector4d> xyza_list = armor_xyza_list();
-  double min_error = 1e10;
-  int final_id = height_matched_id;
-  
-  for (int offset = -1; offset <= 1; offset++) {
-    int check_id = (height_matched_id + offset + armor_num_) % armor_num_;
-    const auto & xyza = xyza_list[check_id];
-    
-    double angle_error = std::abs(tools::limit_rad(armor.ypr_in_world[0] - xyza[3]));
-    double height_error = std::abs(z_obs - xyza[2]) * (h_converged ? 2.0 : 0.5);
-    
-    double total_error = angle_error + height_error;
-    
-    if (total_error < min_error) {
-      min_error = total_error;
-      final_id = check_id;
+    double z0_var = ekf_.P(4, 4);
+    double z1_var = ekf_.P(11, 11);
+    double z2_var = ekf_.P(12, 12);
+
+    bool z_converged = (z0_var < 0.01) && (z1_var < 0.01) && (z2_var < 0.01) &&
+                       (std::abs(ekf_.x[11] - ekf_.x[4]) > 0.03 ||
+                        std::abs(ekf_.x[12] - ekf_.x[4]) > 0.03);
+
+    double z_obs = armor.xyz_in_world[2];
+    int height_matched_id = match_armor_id(z_obs);
+    // 在±1范围内综合评估
+    std::vector<Eigen::Vector4d> xyza_list = armor_xyza_list();
+    double min_error = 1e10;
+    int final_id = height_matched_id;
+
+    for (int offset = -1; offset <= 1; offset++) {
+      int check_id = (height_matched_id + offset + armor_num_) % armor_num_;
+      const auto & xyza = xyza_list[check_id];
+
+      double angle_error = std::abs(tools::limit_rad(armor.ypr_in_world[0] - xyza[3]));
+      double height_error = std::abs(z_obs - xyza[2]) * (z_converged ? 2.0 : 0.5);
+
+      double total_error = angle_error + height_error;
+
+      if (total_error < min_error) {
+        min_error = total_error;
+        final_id = check_id;
+      }
     }
-  }
-  
-  // 跳变检测
-  if (final_id != 0) jumped = true;
-  if (final_id != last_id) is_switch_ = true;
-  else is_switch_ = false;
-  if (is_switch_) switch_count_++;
-  
-  last_id = final_id;
-  update_count_++;
-  
-  // EKF 更新
-  update_ypda(armor, final_id);
+
+    if (final_id != 0) jumped = true;
+    if (final_id != last_id) is_switch_ = true;
+    else is_switch_ = false;
+    if (is_switch_) switch_count_++;
+
+    last_id = final_id;
+    update_count_++;
+
+    update_ypda(armor, final_id);
   }else{
   auto min_angle_error = 1e10;
   const std::vector<Eigen::Vector4d> & xyza_list = armor_xyza_list();
@@ -291,9 +292,9 @@ void Target::update(const Armor & armor)
 }
 int Target::match_armor_id(double z_obs) const {
   // 计算观测高度与各装甲板预测高度的差值
-  double z0 = ekf_.x[4];                     // 装甲板0的预测高度
-  double z1 = ekf_.x[4] + ekf_.x[11];       // 装甲板1的预测高度
-  double z2 = ekf_.x[4] + ekf_.x[12];       // 装甲板2的预测高度
+  double z0 = ekf_.x[4];   // 装甲板0的预测高度
+  double z1 = ekf_.x[11];  // 装甲板1的预测高度（绝对值）
+  double z2 = ekf_.x[12];  // 装甲板2的预测高度（绝对值）
 
   double diff0 = std::abs(z_obs - z0);
   double diff1 = std::abs(z_obs - z1);
@@ -319,19 +320,19 @@ void Target::update_ypda(const Armor & armor, int id)
 
   //测量过程噪声偏差的方差
   Eigen::MatrixXd R = R_dig.asDiagonal();
-  
-  if(armor_num_ == 3 && ekf_.x.size() >= 13){
+
+  if (armor_num_ == 3 && ekf_.x.size() >= 13) {
     double z_obs = armor.xyz_in_world[2];
     double z_pred = h_armor_xyz(ekf_.x, id)[2];
     constexpr double alpha = 0.2;  // 低通滤波衰减因子
     double z_smoothed = alpha * z_obs + (1 - alpha) * z_pred;
-    //根据观测残差放大测量噪声
+    // 根据观测残差放大测量噪声
     double dz = std::abs(z_smoothed - z_pred);
-    double r_z_scale = 1.0 + std::min(dz / 0.2, 3.0);  //噪声随残差线性增加
-    Eigen::VectorXd R_dig{
-    {4e-3, 4e-3, (log(std::abs(delta_angle) + 1) + 1) * r_z_scale,
-    (log(std::abs(armor.ypd_in_world[2]) + 1) / 200 + 9e-2) * r_z_scale}};
-
+    double r_z_scale = 1.0 + std::min(dz / 0.2, 3.0);  // 噪声随残差线性增加
+    Eigen::VectorXd R_dig_scaled{
+      {4e-3, 4e-3, (log(std::abs(delta_angle) + 1) + 1) * r_z_scale,
+       (log(std::abs(armor.ypd_in_world[2]) + 1) / 200 + 9e-2) * r_z_scale}};
+    R = R_dig_scaled.asDiagonal();
   }
   // 定义非线性转换函数h: x -> z
   auto h = [&](const Eigen::VectorXd & x) -> Eigen::Vector4d {
@@ -407,14 +408,7 @@ Eigen::Vector3d Target::h_armor_xyz(const Eigen::VectorXd & x, int id) const
     auto r = x[8];
     auto armor_x = x[0] - r * std::cos(angle);
     auto armor_y = x[2] - r * std::sin(angle);
-    double armor_z;
-    if (id == 0){
-      armor_z = x[4];
-    }else if(id == 1){
-      armor_z = x[4] + x[11];
-    }else {
-      armor_z = x[4] + x[12];
-    }
+    double armor_z = (id == 0) ? x[4] : (id == 1 ? x[11] : x[12]);
     return {armor_x, armor_y, armor_z};
   }
   auto use_l_h = (armor_num_ == 4) && (id == 1 || id == 3);
@@ -437,14 +431,15 @@ Eigen::MatrixXd Target::h_jacobian(const Eigen::VectorXd & x, int id) const
 
     auto dx_dr = -std::cos(angle);
     auto dy_dr = -std::sin(angle);
-    double dz_dh1 = (id == 1) ? 1.0 : 0.0;
-    double dz_dh2 = (id == 2) ? 1.0 : 0.0;
+    double dz_dz0 = (id == 0) ? 1.0 : 0.0;
+    double dz_dz1 = (id == 1) ? 1.0 : 0.0;
+    double dz_dz2 = (id == 2) ? 1.0 : 0.0;
 
     // clang-format off
     Eigen::MatrixXd H_armor_xyza{
       {1, 0, 0, 0, 0, 0, dx_da, 0, dx_dr,     0,     0,     0,     0},
       {0, 0, 1, 0, 0, 0, dy_da, 0, dy_dr,     0,     0,     0,     0},
-      {0, 0, 0, 0, 1, 0,     0, 0,     0,     0,     0, dz_dh1, dz_dh2},
+      {0, 0, 0, 0, dz_dz0, 0,     0, 0,     0,     0,     0, dz_dz1, dz_dz2},
       {0, 0, 0, 0, 0, 0,     1, 0,     0,     0,     0,     0,     0}
     };
     // clang-format on

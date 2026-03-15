@@ -196,6 +196,7 @@ void Target::predict(double dt)
     return x_prior;
   };
 
+  ekf_.x[5] *= 0.8; // 预测前轻微衰减速度，增加稳定性
   ekf_.predict(F, Q, f);
 }
 
@@ -318,7 +319,20 @@ void Target::update_ypda(const Armor & armor, int id)
 
   //测量过程噪声偏差的方差
   Eigen::MatrixXd R = R_dig.asDiagonal();
+  
+  if(armor_num_ == 3 && ekf_.x.size() >= 13){
+    double z_obs = armor.xyz_in_world[2];
+    double z_pred = h_armor_xyz(ekf_.x, id)[2];
+    constexpr double alpha = 0.2;  // 低通滤波衰减因子
+    double z_smoothed = alpha * z_obs + (1 - alpha) * z_pred;
+    //根据观测残差放大测量噪声
+    double dz = std::abs(z_smoothed - z_pred);
+    double r_z_scale = 1.0 + std::min(dz / 0.2, 3.0);  //噪声随残差线性增加
+    Eigen::VectorXd R_dig{
+    {4e-3, 4e-3, (log(std::abs(delta_angle) + 1) + 1) * r_z_scale,
+    (log(std::abs(armor.ypd_in_world[2]) + 1) / 200 + 9e-2) * r_z_scale}};
 
+  }
   // 定义非线性转换函数h: x -> z
   auto h = [&](const Eigen::VectorXd & x) -> Eigen::Vector4d {
     Eigen::VectorXd xyz = h_armor_xyz(x, id);

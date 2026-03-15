@@ -144,7 +144,7 @@ camera_name: "daheng"
 
 # 相机基础参数
 exposure_ms: 2.1        # 曝光时间（毫秒）
-gain: 24                # 增益
+gain: 4                # 增益  24
 
 # 相机VID:PID（用于识别特定相机）
 vid_pid: "2ba2:4d55"    # 大恒相机的VID:PID
@@ -158,7 +158,7 @@ camera_settings:
   height: 1200                   # 图像高度
   exposure: 2000                 # 曝光时间（微秒）
   auto_exposure: false           # 是否自动曝光
-  gain: 24                       # 增益值
+  gain: 4                       # 增益值
   fps: 168                       # 目标帧率
   auto_white_balance: true       # 是否自动白平衡
   rgain: 0.0                     # R通道增益（手动白平衡时使用）

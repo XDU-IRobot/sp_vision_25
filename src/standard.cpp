@@ -3,6 +3,7 @@
 #include <thread>
 #include <nlohmann/json.hpp>
 #include <opencv2/opencv.hpp>
+#include <cstdlib>  // for setenv
 
 // ROS2 headers (仅在 ROS2 可用时编译，用于可视化)
 #ifdef AMENT_CMAKE_FOUND
@@ -33,6 +34,23 @@ const std::string keys =
 
 int main(int argc, char * argv[])
 {
+  // 🚀 关键性能优化：全局线程控制
+  // vtune分析发现88个线程抢16个核心，导致严重性能下降
+  // - cv::cvtColor的Bayer转RGB触发TBB并行：61.660s (10.9%)
+  // - 线程调度开销（__sched_yield）：94.800s (16.7%)
+  // - Spin Time浪费：99.970s
+
+  // 1. 强制OpenCV单线程（避免cvtColor创建大量线程）
+  cv::setNumThreads(1);
+
+  // 2. 限制TBB全局线程池（OpenVINO和OpenCV共用）
+  setenv("TBB_NUM_THREADS", "4", 1);  // NUC有16核，4线程足够
+
+  // 3. 限制OpenMP线程数（某些OpenCV编译可能使用）
+  setenv("OMP_NUM_THREADS", "4", 1);
+
+  tools::logger()->info("[Performance] Thread limits: OpenCV=1, TBB=4, OMP=4");
+
   tools::Exiter exiter;
   tools::Plotter plotter;
   tools::Recorder recorder;
@@ -88,27 +106,120 @@ int main(int argc, char * argv[])
   uint64_t frame_id_last =0;
   int64_t trigger_imu_count = 0;
 
+  // 📊 相机帧率测量变量
+  std::chrono::steady_clock::time_point camera_last_frame_time;
+  std::chrono::steady_clock::time_point camera_current_frame_time;
+  double camera_fps_instant = 0.0;     // 瞬时帧率
+  double camera_fps_avg = 0.0;         // 平均帧率
+  int camera_frame_count = 0;          // 帧计数
+  std::chrono::steady_clock::time_point fps_measure_start; // 平均帧率测量开始时间
+  bool fps_measure_started = false;
+
+  // 初始化默认命令（第一帧使用）
+  io::Command default_command;
+  default_command.yaw = 0.0;
+  default_command.pitch = 0.0;
+  default_command.control = false;
+  default_command.shoot = false;
+
   while (!exiter.exit()) {
+    auto loop_start = std::chrono::steady_clock::now();  // 🔍 性能监控：循环开始
+
+    // 🎯 关键修改：先发送命令，触发相机曝光，然后再读取图像
+    // 这样确保电控板收到命令后，才会发出硬触发信号让相机曝光
+    static bool first_loop = true;
+    if (first_loop) {
+      // 第一帧发送默认命令
+      cboard.send(default_command);
+      tools::logger()->info("[SYNC] 发送默认命令，等待相机触发");
+      first_loop = false;
+    }
+
     camera.read(img, t);
 
+    // 📊 相机帧率测量
+    camera_current_frame_time = std::chrono::steady_clock::now();
+    if (!fps_measure_started) {
+      // 初始化帧率测量
+      camera_last_frame_time = camera_current_frame_time;
+      fps_measure_start = camera_current_frame_time;
+      fps_measure_started = true;
+      camera_frame_count = 0;
+    } else {
+      // 计算瞬时帧率（基于相邻两帧的时间间隔）
+      auto frame_interval = std::chrono::duration<double>(camera_current_frame_time - camera_last_frame_time).count();
+      if (frame_interval > 0) {
+        camera_fps_instant = 1.0 / frame_interval;
+      }
+
+      // 计算平均帧率（基于总时间和总帧数）
+      camera_frame_count++;
+      auto total_time = std::chrono::duration<double>(camera_current_frame_time - fps_measure_start).count();
+      if (total_time > 0) {
+        camera_fps_avg = camera_frame_count / total_time;
+      }
+
+      // 更新上一帧时间
+      camera_last_frame_time = camera_current_frame_time;
+
+      // 每50帧打印一次帧率统计
+      static int fps_log_counter = 0;
+      if (++fps_log_counter % 50 == 0) {
+        tools::logger()->info(
+          "📊 [CAMERA FPS] 瞬时帧率={:.1f}fps, 平均帧率={:.1f}fps, 总帧数={}, 运行时间={:.1f}s",
+          camera_fps_instant, camera_fps_avg, camera_frame_count, total_time);
+      }
+    }
+
       // ==================== 基于 count 硬同步（使用环形数组） ====================
-      // 核心思想：相机由MCU硬触发,每来一帧图像，IMU计数器+10
-      static const int64_t frame_id_to_imu_offset = 0;  // 🔧 手动调试参数
+      // 核心思想：相机由MCU硬触发,每来一帧图像对应一个IMU计数（0-15循环）
+      // 映射关系：frame_id % 16 = imu_count
+      // MCU发送的imu_count是4位二进制，范围0-15
+      static const int64_t frame_id_to_imu_offset = 0;  // 🔧 手动调试参数（微调偏移）
 
       static bool first_frame = true;
 
       frame_id = camera.get_last_frame_id();  // 获取相机帧号
       if(frame_id-frame_id_last!=0){
-      trigger_imu_count = 0;
-      if (trigger_imu_count < 0) trigger_imu_count += 10000;
+      // ✅ 修复：根据frame_id计算对应的IMU计数（0-15循环）
+      trigger_imu_count = (frame_id + frame_id_to_imu_offset) % 16;
+      if (trigger_imu_count < 0) trigger_imu_count += 16;
+
+      // 🔍 检查frame_id是否跳帧
+      if (frame_id - frame_id_last > 1) {
+        tools::logger()->warn("[SYNC] ⚠️ 相机跳帧！frame_id: {} -> {} (跳过{}帧)",
+          frame_id_last, frame_id, frame_id - frame_id_last - 1);
+      }
+
       //使用环形数组O(1)查询IMU数据
-      auto imu_result = cboard.get_imu_from_ring_buffer(0);
+      auto imu_result = cboard.get_imu_from_ring_buffer(trigger_imu_count);
 
       if (imu_result.valid) {
         // 环形数组查询成功
         q = imu_result.q;  // 四元数
         t = imu_result.timestamp;
-        std::cout<<q<<std::endl;
+
+        // 🔍 计算帧间隔和跳帧情况
+        static auto last_t = t;
+        static uint64_t last_valid_frame_id = 0;
+        auto frame_interval_ms = std::chrono::duration<double, std::milli>(t - last_t).count();
+        uint64_t frame_gap = frame_id - last_valid_frame_id;
+
+        // 相机理论帧率 = 1000 / (实际间隔ms / 实际帧数差)
+        double camera_theoretical_fps = frame_gap * 1000.0 / frame_interval_ms;
+
+        last_t = t;
+        last_valid_frame_id = frame_id;
+
+        // 🔍 同步调试日志（每50帧打印一次）
+        static int sync_log_counter = 0;
+        if (++sync_log_counter % 50 == 0) {
+          tools::logger()->info("[SYNC] ✅ frame_id={}, trigger_imu_count={}, 间隔={:.1f}ms, 跳过{}帧, 相机理论帧率≈{:.0f}fps",
+            frame_id, trigger_imu_count, frame_interval_ms, frame_gap - 1, camera_theoretical_fps);
+        }
+
+        // ✅ 在获取到有效IMU数据后立即设置solver，确保姿态同步
+        solver.set_R_gimbal2world(q);
 
 #ifdef AMENT_CMAKE_FOUND
         // 发布动态TF: world -> gimbal（使用MCU四元数）
@@ -119,7 +230,9 @@ int main(int argc, char * argv[])
         visualizer->publish_dynamic_tf("world", "gimbal", q, zero_trans, ros_time);
 #endif
       } else {
-
+        // 🔍 同步调试：IMU数据无效（可能是时序问题或环形缓冲区被覆盖）
+        tools::logger()->warn("[SYNC] ❌ frame_id={}, trigger_imu_count={}, IMU数据无效（可能还未到达或已被覆盖）",
+          frame_id, trigger_imu_count);
       }
     mode = cboard.mode;
     frame_id_last=frame_id;
@@ -129,11 +242,13 @@ int main(int argc, char * argv[])
       last_mode = mode;
     }
     // recorder.record(img, q, t);
-    solver.set_R_gimbal2world(q);
     Eigen::Vector3d ypr = tools::eulers(solver.R_gimbal2world(), 2, 1, 0);
 
+    auto t1 = std::chrono::steady_clock::now();  // 🔍 性能监控
     auto armors = detector.detect(img);
+    auto t2 = std::chrono::steady_clock::now();
     auto targets = tracker.track(armors, t);
+    auto t3 = std::chrono::steady_clock::now();
 
     // 调试：打印 armors 和 targets 数量
     fmt::print("[DEBUG] armors={}, targets={}\n", armors.size(), targets.size());
@@ -177,17 +292,57 @@ int main(int argc, char * argv[])
     plot_data["mcu_yaw"] = ypr[0] * 180.0 / M_PI;
     plot_data["mcu_pitch"] = ypr[1] * 180.0 / M_PI;
     plot_data["mcu_roll"] = ypr[2] * 180.0 / M_PI;
+    // 电控的四元数（从MCU获取）
+    plot_data["mcu_q_w"] = q.w();
+    plot_data["mcu_q_x"] = q.x();
+    plot_data["mcu_q_y"] = q.y();
+    plot_data["mcu_q_z"] = q.z();
     plotter.plot(plot_data);
 
+    // 🎯 关键：将 send 移到循环开头
+    // 这样下一次循环时，会先发送这个命令，然后才读取相机
+    // 形成闭环：发送命令 → 电控触发相机 → 读取图像 → 处理 → 发送下一条命令
     cboard.send(command);
-    
+
+    // 绘制识别与预测结果
+    if (!targets.empty()) {
+      auto target = targets.front();
+
+      // 绘制跟踪到的所有装甲板位置（绿色）
+      std::vector<Eigen::Vector4d> armor_xyza_list = target.armor_xyza_list();
+      for (const Eigen::Vector4d & xyza : armor_xyza_list) {
+        auto image_points =
+          solver.reproject_armor(xyza.head(3), xyza[3], target.armor_type, target.name);
+        tools::draw_points(img, image_points, {0, 255, 0});
+      }
+
+      // 绘制预测的瞄准位置（红色）
+      if (aimer.debug_aim_point.valid) {
+        Eigen::Vector4d aim_xyza = aimer.debug_aim_point.xyza;
+        auto image_points =
+          solver.reproject_armor(aim_xyza.head(3), aim_xyza[3], target.armor_type, target.name);
+        tools::draw_points(img, image_points, {0, 0, 255});
+      }
+    }
+
     cv::resize(img, img, {}, 0.5, 0.5);  // 显示时缩小图片尺寸
     // 相机输出为 RGB 格式，imshow 需要 BGR 格式
     cv::Mat img_bgr;
     cv::cvtColor(img, img_bgr, cv::COLOR_RGB2BGR);
     cv::imshow("reprojection", img_bgr);
-    auto key = cv::waitKey(1);  
+    auto key = cv::waitKey(1);
     if (key == 'q') break;
+
+    // 🔍 性能监控：打印各环节耗时
+    auto loop_end = std::chrono::steady_clock::now();
+    static int perf_counter = 0;
+    if (++perf_counter % 50 == 0) {
+      auto detect_ms = std::chrono::duration<double, std::milli>(t2 - t1).count();
+      auto track_ms = std::chrono::duration<double, std::milli>(t3 - t2).count();
+      auto total_ms = std::chrono::duration<double, std::milli>(loop_end - loop_start).count();
+      tools::logger()->info("[PERF] 总耗时={:.1f}ms (检测={:.1f}ms, 跟踪={:.1f}ms), FPS={:.1f}",
+        total_ms, detect_ms, track_ms, 1000.0 / total_ms);
+    }
   }
   
   // 清理 ROS2

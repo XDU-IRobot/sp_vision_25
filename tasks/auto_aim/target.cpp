@@ -99,7 +99,7 @@ void Target::predict(double dt)
     v2 = 0.1;  // 前哨站角加速度方差
   } else {
     v1 = 100;  // 加速度方差
-    v2 = 400;  // 角加速度方差
+    v2 = 64;  // 角加速度方差
   }
   auto a = dt * dt * dt * dt / 4;
   auto b = dt * dt * dt / 2;
@@ -192,7 +192,7 @@ void Target::update_ypda(const Armor & armor, int id)
   auto center_yaw = std::atan2(armor.xyz_in_world[1], armor.xyz_in_world[0]);
   auto delta_angle = tools::limit_rad(armor.ypr_in_world[0] - center_yaw);
   Eigen::VectorXd R_dig{
-    {4e-3, 4e-3, log(std::abs(delta_angle) + 1) + 1,
+    {4e-1, 4e-1, log(std::abs(delta_angle) + 1) + 1,
      log(std::abs(armor.ypd_in_world[2]) + 1) / 200 + 9e-2}};
 
   //测量过程噪声偏差的方差

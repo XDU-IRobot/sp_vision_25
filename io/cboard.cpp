@@ -160,12 +160,13 @@ void CBoard::callback(const can_frame & frame)
       // 恢复 mode
       mode = static_cast<Mode>(mode_bits);
 
-      // 恢复 imu_count（低4位）/*
-      uint16_t imu_count_low = imu_bits%10;
+      // 恢复 imu_count（低4位，范围0-15）
+      // 注意：MCU发送的是0-15，不要对10取余！
+      uint16_t imu_count_low = imu_bits;  // 直接使用，范围0-15
 
       //  解析 byte7 的子弹速度
-      bullet_speed = static_cast<double>(frame.data[7]) * 32.0 / 255.0;
-
+      // bullet_speed = static_cast<double>(frame.data[7]) * 32.0 / 255.0;
+       bullet_speed = 14.0;  // 固定值，电控侧不再发送，保持与旧协议一致
       imu_ring_buffer_[imu_count_low].q = q;
       imu_ring_buffer_[imu_count_low].timestamp = timestamp;
       imu_ring_buffer_[imu_count_low].imu_count = imu_count_low;
@@ -176,7 +177,7 @@ void CBoard::callback(const can_frame & frame)
       imu_data.q = q;
       imu_data.timestamp = timestamp;
       imu_data.imu_count = imu_count_low;
-      imu_data.cycle_count = imu_count_low % 10;
+      imu_data.cycle_count = imu_count_low;  // cycle_count与imu_count相同，范围0-15
       queue_.push(imu_data);
 
       mcu_online_.store(true, std::memory_order_relaxed);

@@ -39,6 +39,7 @@ private:
   int max_exp_, min_exp_;
   bool debug_;
   std::string vid_pid_;
+  std::string pixel_format_config_;  // 配置文件指定的 Bayer 格式
 
   // 硬触发相关参数
   bool trigger_enable_;          // 是否启用硬触发
@@ -50,8 +51,10 @@ private:
   bool quit_, ok_;
   std::thread capture_thread_;
   std::thread daemon_thread_;
-  tools::ThreadSafeQueue<CameraData> queue_;
+  // 🔧 启用PopWhenFull=true：队列满时自动丢弃旧帧，保留最新帧
+  tools::ThreadSafeQueue<CameraData, true> queue_;
   uint64_t last_frame_id_;  // 🆕 最后读取的帧ID
+  int bayer_format_index_;  // 🆕 保存相机实际使用的 Bayer 格式索引 (0=RG, 1=GR, 2=GB, 3=BG)
 
   void open();
   void try_open();

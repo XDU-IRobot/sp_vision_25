@@ -83,7 +83,7 @@ int main(int argc, char * argv[])
     }
   }
 
-  auto_aim::YOLO yolo(config_path);  // 关闭debug模式
+  auto_aim::YOLO yolo(config_path,true);  // 关闭debug模式
   auto_aim::Solver solver(config_path);
   auto_aim::Tracker tracker(config_path, solver);
   auto_aim::Aimer aimer(config_path);
@@ -229,39 +229,39 @@ int main(int argc, char * argv[])
     if (!armors.empty()) {
       const auto & armor = armors.front();
 
-      // 1. 绘制检测框（白色，粗线）
-      tools::draw_points(img, armor.points, {255, 255, 255}, 2);
-      tools::draw_text(img, "Detection", armor.points[0] - cv::Point2f(0, 10), {255, 255, 255});
+      // // 1. 绘制检测框（白色，粗线）
+      // tools::draw_points(img, armor.points, {255, 255, 255}, 2);
+      // tools::draw_text(img, "Detection", armor.points[0] - cv::Point2f(0, 10), {255, 255, 255});
 
-      // 2. 绘制原始PnP重投影（橙色）
-      auto reproject_raw = solver.reproject_armor(
-        armor.xyz_in_world, armor.yaw_raw, armor.type, armor.name);
-      // tools::draw_points(img, reproject_raw, {0, 165, 255});  // 橙色
-      // tools::draw_text(img, "PnP Raw", reproject_raw[0] - cv::Point2f(0, 25), {0, 165, 255});
+      // // 2. 绘制原始PnP重投影（橙色）
+      // auto reproject_raw = solver.reproject_armor(
+      //   armor.xyz_in_world, armor.yaw_raw, armor.type, armor.name);
+      // // tools::draw_points(img, reproject_raw, {0, 165, 255});  // 橙色
+      // // tools::draw_text(img, "PnP Raw", reproject_raw[0] - cv::Point2f(0, 25), {0, 165, 255});
 
-      // 3. 绘制优化后重投影
-      auto reproject_opt = solver.reproject_armor(
-        armor.xyz_in_world, armor.ypr_in_world[0], armor.type, armor.name);
-      tools::draw_points(img, reproject_opt, {0, 255, 0});  
-      tools::draw_text(img, "PnP Optimized", reproject_opt[0] - cv::Point2f(0, 40), {0, 255, 0});
+      // // 3. 绘制优化后重投影
+      // auto reproject_opt = solver.reproject_armor(
+      //   armor.xyz_in_world, armor.ypr_in_world[0], armor.type, armor.name);
+      // tools::draw_points(img, reproject_opt, {0, 255, 0});  
+      // tools::draw_text(img, "PnP Optimized", reproject_opt[0] - cv::Point2f(0, 40), {0, 255, 0});
 
-      // 4. 绘制误差连线（检测点→重投影点）
-      for (int i = 0; i < 4; i++) {
-        // 检测→优化重投影
-        cv::line(img, armor.points[i], reproject_opt[i], {0, 0, 255}, 1, cv::LINE_AA);
-      }
+      // // 4. 绘制误差连线（检测点→重投影点）
+      // for (int i = 0; i < 4; i++) {
+      //   // 检测→优化重投影
+      //   cv::line(img, armor.points[i], reproject_opt[i], {0, 0, 255}, 1, cv::LINE_AA);
+      // }
 
-      // 5. 在图像上显示误差数值
-      double error_raw = 0.0, error_opt = 0.0;
-      for (int i = 0; i < 4; i++) {
-        error_raw += cv::norm(armor.points[i] - reproject_raw[i]);
-        error_opt += cv::norm(armor.points[i] - reproject_opt[i]);
-      }
+      // // 5. 在图像上显示误差数值
+      // double error_raw = 0.0, error_opt = 0.0;
+      // for (int i = 0; i < 4; i++) {
+      //   error_raw += cv::norm(armor.points[i] - reproject_raw[i]);
+      //   error_opt += cv::norm(armor.points[i] - reproject_opt[i]);
+      // }
 
-      tools::draw_text(
-        img,
-        fmt::format("Reproj Error: Raw={:.1f}px, Opt={:.1f}px", error_raw, error_opt),
-        {10, 120}, {255, 255, 0});
+      // tools::draw_text(
+      //   img,
+      //   fmt::format("Reproj Error: Raw={:.1f}px, Opt={:.1f}px", error_raw, error_opt),
+      //   {10, 120}, {255, 255, 0});
     }
 
     // 装甲板原始观测数据
@@ -335,20 +335,20 @@ int main(int argc, char * argv[])
 
       std::vector<Eigen::Vector4d> armor_xyza_list;
 
-      // // 当前帧target更新后
-      // armor_xyza_list = target.armor_xyza_list();
-      // for (const Eigen::Vector4d & xyza : armor_xyza_list) {
-      //   auto image_points =
-      //     solver.reproject_armor(xyza.head(3), xyza[3], target.armor_type, target.name);
-      //   tools::draw_points(img, image_points, {0, 255, 0});
-      // }
+      // 当前帧target更新后
+      armor_xyza_list = target.armor_xyza_list();
+      for (const Eigen::Vector4d & xyza : armor_xyza_list) {
+        auto image_points =
+          solver.reproject_armor(xyza.head(3), xyza[3], target.armor_type, target.name);
+        tools::draw_points(img, image_points, {0, 255, 0});
+      }
 
-      // // aimer瞄准位置
-      // auto aim_point = aimer.debug_aim_point;
-      // Eigen::Vector4d aim_xyza = aim_point.xyza;
-      // auto image_points =
-      //   solver.reproject_armor(aim_xyza.head(3), aim_xyza[3], target.armor_type, target.name);
-      // if (aim_point.valid) tools::draw_points(img, image_points, {0, 0, 255});
+      // aimer瞄准位置
+      auto aim_point = aimer.debug_aim_point;
+      Eigen::Vector4d aim_xyza = aim_point.xyza;
+      auto image_points =
+        solver.reproject_armor(aim_xyza.head(3), aim_xyza[3], target.armor_type, target.name);
+      if (aim_point.valid) tools::draw_points(img, image_points, {0, 0, 255});
 
 
       // 观测器内部数据

@@ -62,7 +62,8 @@ private:
   tools::ThreadSafeQueue<IMUData> queue_;
 
   // 🆕 环形数组：用于高效存储和查询IMU数据
-  static constexpr size_t IMU_RING_BUFFER_SIZE = 10;
+  // MCU发送的imu_count范围是0-15（4位），所以环形数组大小为16
+  static constexpr size_t IMU_RING_BUFFER_SIZE = 16;
 
   struct IMUFrame {
     uint16_t imu_count;

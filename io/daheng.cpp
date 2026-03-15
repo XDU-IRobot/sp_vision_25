@@ -2,6 +2,7 @@
 
 #include <stdexcept>
 #include <cstring>
+#include <opencv2/core.hpp>
 
 #include "tools/logger.hpp"
 #include "tools/yaml.hpp"
@@ -15,7 +16,7 @@ Daheng::Daheng(const std::string & config_path)
   payload_size_(0),
   quit_(false),
   ok_(false),
-  queue_(1)
+  queue_(5)
 {
   // 从配置文件读取参数
   auto yaml = tools::load(config_path);
@@ -64,6 +65,11 @@ Daheng::Daheng(const std::string & config_path)
     max_exp_ = 3000;
     min_exp_ = 200;
   }
+
+  // 🚀 关键优化：彻底禁用OpenCV多线程，避免Bayer转RGB时创建大量线程
+  // 这是vtune分析发现的最大性能瓶颈：cv::cvtColor内部的TBB并行导致88个线程抢16个核心
+  cv::setNumThreads(1);
+  tools::logger()->info("[Daheng] OpenCV threads set to 1 to prevent thread explosion");
 
   try_open();
 
@@ -184,9 +190,13 @@ void Daheng::open()
   // 启动采集线程
   capture_thread_ = std::thread{[this] {
     tools::logger()->info("Daheng capture thread started");
-    
+
+    // 🚀 关键优化：在采集线程中也强制禁用OpenCV多线程
+    // 防止cvtColor触发TBB并行创建大量线程（vtune显示88个线程抢16核心）
+    cv::setNumThreads(1);
+
     unsigned char * image_buffer = new unsigned char[payload_size_];
-    
+
     // 预分配输出图像，避免每帧分配内存
     cv::Mat rgb_img(height_, width_, CV_8UC3);
     

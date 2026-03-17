@@ -230,9 +230,12 @@ command.pitch = wrap_rad_2pi(command.pitch);
       data["cmd_shoot"] = command.shoot;
     }
     plotter.plot(data);
-    auto armor_xyza_list = targets.front().armor_xyza_list();
-    auto x = targets.front().ekf_x();
-    Eigen::Vector4d xyza_for_overlay = armor_xyza_list[targets.front().last_id % armor_xyza_list.size()];
+
+    if (!targets.empty()) {
+      auto armor_xyza_list = targets.front().armor_xyza_list();
+      auto x = targets.front().ekf_x();
+      Eigen::Vector4d xyza_for_overlay =
+        armor_xyza_list[targets.front().last_id % armor_xyza_list.size()];
       Eigen::Vector3d ypd = tools::xyz2ypd(xyza_for_overlay.head<3>());
       double distance = ypd[2];
       std::vector<std::string> overlay_lines{
@@ -243,16 +246,18 @@ command.pitch = wrap_rad_2pi(command.pitch);
           data["residual_pitch"].get<double>(), data["residual_distance"].get<double>()),
         fmt::format("nis/nees: {:.2f} / {:.2f}", data["nis"].get<double>(),
           data["nees"].get<double>())};
-      // 绘制调试数据
-      for(auto line : overlay_lines){
-        tools::draw_text(img, line, {10, 50}, {255, 255, 0});
+      int y_offset = 50;
+      for (const auto & line : overlay_lines) {
+        tools::draw_text(img, line, {10, y_offset}, {255, 255, 0});
+        y_offset += 20;
       }
+    }
     cv::Mat vis = img.clone();
     cv::resize(vis, vis, {}, 0.5, 0.5);  // 显示时缩小图片尺寸
     //翻转图像
     // cv::flip(vis, vis, -1);
     recorder.record(vis.clone(), q, t);
-    //cv::imshow("reprojection", vis);
+    cv::imshow("reprojection", vis);
     
     auto key = cv::waitKey(1);
     if (key == 'q') break;

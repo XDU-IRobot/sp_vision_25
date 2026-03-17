@@ -133,8 +133,8 @@ void Target::predict(double dt)
             0,      0,      0,      0,      0,      0,      0,      0, 0, 0, 0,    0,    0,
             0,      0,      0,      0,      0,      0,      0,      0, 0, 0, 0,    0,    0,
             0,      0,      0,      0,      0,      0,      0,      0, 0, 0, 0,    0,    0,
-            0,      0,      0,      0,      0,      0,      0,      0, 0, 0, 0, 1e-6,    0,  // h1微小噪声
-            0,      0,      0,      0,      0,      0,      0,      0, 0, 0, 0,    0, 1e-6;  // h2微小噪声
+            0,      0,      0,      0,      0,      0,      0,      0, 0, 0, 0, 1e-5,    0,  // z1 微小过程噪声
+            0,      0,      0,      0,      0,      0,      0,      0, 0, 0, 0,    0, 1e-5;  // z2 微小过程噪声
   auto f = [&](const Eigen::VectorXd & x) -> Eigen::VectorXd {
       Eigen::VectorXd x_prior = F * x;
       x_prior[6] = tools::limit_rad(x_prior[6]);
@@ -196,7 +196,7 @@ void Target::predict(double dt)
     return x_prior;
   };
 
-  ekf_.x[5] *= 0.8; // 预测前轻微衰减速度，增加稳定性
+  ekf_.x[5] *= 0.6; // 预测前轻微衰减速度，增加稳定性
   ekf_.predict(F, Q, f);
 }
 
@@ -314,6 +314,8 @@ void Target::update_ypda(const Armor & armor, int id)
   // Eigen::VectorXd R_dig{{4e-3, 4e-3, 1, 9e-2}};
   auto center_yaw = std::atan2(armor.xyz_in_world[1], armor.xyz_in_world[0]);
   auto delta_angle = tools::limit_rad(armor.ypr_in_world[0] - center_yaw);
+  double yaw_resid = std::abs(delta_angle);
+  double r_yaw_scale = 1.0 + std::min(yaw_resid / 0.15, 3.0);  // 残差越大，yaw 噪声越大
   Eigen::VectorXd R_dig{
     {4e-3, 4e-3, log(std::abs(delta_angle) + 1) + 1,
      log(std::abs(armor.ypd_in_world[2]) + 1) / 200 + 9e-2}};
@@ -324,11 +326,14 @@ void Target::update_ypda(const Armor & armor, int id)
   if (armor_num_ == 3 && ekf_.x.size() >= 13) {
     double z_obs = armor.xyz_in_world[2];
     double z_pred = h_armor_xyz(ekf_.x, id)[2];
-    constexpr double alpha = 0.2;  // 低通滤波衰减因子
+    constexpr double alpha = 0.1;  // 低通滤波衰减因子
     double z_smoothed = alpha * z_obs + (1 - alpha) * z_pred;
     // 根据观测残差放大测量噪声
     double dz = std::abs(z_smoothed - z_pred);
     double r_z_scale = 1.0 + std::min(dz / 0.2, 3.0);  // 噪声随残差线性增加
+    // 基线放大：yaw 通道×1.5，距离/高度通道×2.0
+    const double base_yaw_scale = 1.5;
+    const double base_z_scale = 2.0;
     Eigen::VectorXd R_dig_scaled{
       {4e-3, 4e-3, (log(std::abs(delta_angle) + 1) + 1) * r_z_scale,
        (log(std::abs(armor.ypd_in_world[2]) + 1) / 200 + 9e-2) * r_z_scale}};

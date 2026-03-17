@@ -326,16 +326,13 @@ void Target::update_ypda(const Armor & armor, int id)
   if (armor_num_ == 3 && ekf_.x.size() >= 13) {
     double z_obs = armor.xyz_in_world[2];
     double z_pred = h_armor_xyz(ekf_.x, id)[2];
-    constexpr double alpha = 0.1;  // 低通滤波衰减因子
+    constexpr double alpha = 0.25;  // 低通滤波衰减因子，加快向观测靠拢
     double z_smoothed = alpha * z_obs + (1 - alpha) * z_pred;
-    // 根据观测残差放大测量噪声
+    // 让观测在z方向更有话语权：不再放大测量噪声
     double dz = std::abs(z_smoothed - z_pred);
-    double r_z_scale = 1.0 + std::min(dz / 0.2, 3.0);  // 噪声随残差线性增加
-    // 基线放大：yaw 通道×1.5，距离/高度通道×2.0
-    const double base_yaw_scale = 1.5;
-    const double base_z_scale = 2.0;
+    double r_z_scale = 1.0;  // 固定为1，避免残差过大时放弃观测
     Eigen::VectorXd R_dig_scaled{
-      {4e-3, 4e-3, (log(std::abs(delta_angle) + 1) + 1) * r_z_scale,
+      {4e-3 * r_yaw_scale, 4e-3 * r_yaw_scale, (log(std::abs(delta_angle) + 1) + 1) * r_z_scale,
        (log(std::abs(armor.ypd_in_world[2]) + 1) / 200 + 9e-2) * r_z_scale}};
     R = R_dig_scaled.asDiagonal();
   }

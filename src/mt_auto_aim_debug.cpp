@@ -152,6 +152,24 @@ int main(int argc, char * argv[])
       data["nis_fail"] = target.ekf().data.at("nis_fail");
       data["nees_fail"] = target.ekf().data.at("nees_fail");
       data["recent_nis_failures"] = target.ekf().data.at("recent_nis_failures");
+
+      Eigen::Vector4d xyza_for_overlay = armor_xyza_list[target.last_id % armor_xyza_list.size()];
+      Eigen::Vector3d ypd = tools::xyz2ypd(xyza_for_overlay.head<3>());
+      double distance = ypd[2];
+      std::vector<std::string> overlay_lines{
+        fmt::format("dist: {:.2f} m", distance),
+        fmt::format("z/vz: {:.2f} / {:.2f}", x[4], x[5]),
+        fmt::format("yaw/w: {:.1f} deg / {:.2f}", x[6] * 57.3, x[7]),
+        fmt::format("res(y/p/d): {:.3f} {:.3f} {:.3f}", data["residual_yaw"].get<double>(),
+          data["residual_pitch"].get<double>(), data["residual_distance"].get<double>()),
+        fmt::format("nis/nees: {:.2f} / {:.2f}", data["nis"].get<double>(),
+          data["nees"].get<double>())};
+
+      int y_offset = 50;
+      for (const auto & line : overlay_lines) {
+        tools::draw_text(img, line, {10, y_offset}, {255, 255, 0});
+        y_offset += 20;
+      }
     }
 
     // 云台响应情况

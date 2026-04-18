@@ -4,6 +4,7 @@
 #include <yaml-cpp/yaml.h>
 
 #include <algorithm>
+#include <chrono>
 #include <filesystem>
 #include <fstream>
 #include <stdexcept>
@@ -69,11 +70,18 @@ YOLO26_TRT::YOLO26_TRT(const std::string & config_path, bool debug)
   nms_threshold_ = yaml["yolo26_nms_threshold"].as<float>(0.3f);
   swap_rb_channels_ = yaml["yolo26_trt_swap_rb"].as<bool>(false);
   use_cuda_preprocess_ = yaml["yolo26_use_cuda_preprocess"].as<bool>(false);
+  use_async_inference_ = yaml["use_async_inference"].as<bool>(false);
+  if (use_async_inference_ && use_cuda_preprocess_) {
+    tools::logger()->warn(
+      "[YOLO26_TRT] Async inference is disabled when CUDA preprocess is enabled in current implementation");
+    use_async_inference_ = false;
+  }
   tools::logger()->info(
     "[YOLO26_TRT] thresholds: score_th={:.3f}, nms_th={:.3f}, min_conf={:.3f}",
     score_threshold_, nms_threshold_, min_confidence_);
   tools::logger()->info("[YOLO26_TRT] preprocess: swap_rb_channels={}", swap_rb_channels_);
   tools::logger()->info("[YOLO26_TRT] preprocess: use_cuda_preprocess={}", use_cuda_preprocess_);
+  tools::logger()->info("[YOLO26_TRT] inference: use_async_inference={}", use_async_inference_);
 
   int x = yaml["roi"]["x"].as<int>();
   int y = yaml["roi"]["y"].as<int>();
@@ -395,6 +403,141 @@ std::list<Armor> YOLO26_TRT::detect(const cv::Mat & raw_img, int frame_count)
     return {};
   }
 
+  if (use_async_inference_) {
+    const auto t_total_start = std::chrono::high_resolution_clock::now();
+    const auto t_preprocess_start = t_total_start;
+
+    cv::Mat bgr_img;
+    tmp_img_ = raw_img;
+    if (use_roi_) {
+      bgr_img = raw_img(roi_);
+    } else {
+      bgr_img = raw_img;
+    }
+
+    const int orig_w = bgr_img.cols;
+    const int orig_h = bgr_img.rows;
+    const float scale = std::min(static_cast<float>(input_w_) / orig_w, static_cast<float>(input_h_) / orig_h);
+    const int new_w = static_cast<int>(orig_w * scale);
+    const int new_h = static_cast<int>(orig_h * scale);
+    const int pad_x = (input_w_ - new_w) / 2;
+    const int pad_y = (input_h_ - new_h) / 2;
+
+    input_image_.setTo(cv::Scalar(114, 114, 114));
+    cv::resize(
+      bgr_img,
+      input_image_(cv::Rect(pad_x, pad_y, new_w, new_h)),
+      cv::Size(new_w, new_h),
+      0, 0,
+      cv::INTER_LINEAR);
+
+    const size_t plane_size = static_cast<size_t>(input_h_) * input_w_;
+    const int channel_map[3] = {
+      swap_rb_channels_ ? 2 : 0,
+      1,
+      swap_rb_channels_ ? 0 : 2
+    };
+    if (input_dtype_ == nvinfer1::DataType::kFLOAT) {
+      for (int c = 0; c < 3; ++c) {
+        for (int h = 0; h < input_h_; ++h) {
+          for (int w = 0; w < input_w_; ++w) {
+            input_host_float_[c * plane_size + h * input_w_ + w] =
+              input_image_.at<cv::Vec3b>(h, w)[channel_map[c]] / 255.0f;
+          }
+        }
+      }
+    } else {
+      for (int c = 0; c < 3; ++c) {
+        for (int h = 0; h < input_h_; ++h) {
+          for (int w = 0; w < input_w_; ++w) {
+            input_host_half_[c * plane_size + h * input_w_ + w] =
+              __float2half(input_image_.at<cv::Vec3b>(h, w)[channel_map[c]] / 255.0f);
+          }
+        }
+      }
+    }
+
+    const auto t_preprocess_end = std::chrono::high_resolution_clock::now();
+    const auto duration_preprocess = std::chrono::duration_cast<std::chrono::microseconds>(
+      t_preprocess_end - t_preprocess_start).count();
+
+    std::list<Armor> ready_result;
+    bool has_ready_result = false;
+
+    if (pending_inference_) {
+      cudaStreamSynchronize(stream_);
+
+      if (output_dtype_ == nvinfer1::DataType::kHALF) {
+        for (size_t i = 0; i < output_host_half_.size(); ++i) {
+          output_host_float_[i] = __half2float(output_host_half_[i]);
+        }
+      }
+
+      const float * parse_ptr = output_host_float_.data();
+      std::vector<float> transposed_output;
+      if (output_channel_first_) {
+        transposed_output.resize(static_cast<size_t>(output_rows_) * output_stride_);
+        for (int r = 0; r < output_rows_; ++r) {
+          for (int c = 0; c < output_stride_; ++c) {
+            transposed_output[r * output_stride_ + c] = parse_ptr[c * output_rows_ + r];
+          }
+        }
+        parse_ptr = transposed_output.data();
+      }
+
+      ready_result = parse(
+        pending_scale_, pending_pad_x_, pending_pad_y_, parse_ptr,
+        output_rows_, output_stride_, pending_bgr_img_, pending_tmp_img_, pending_frame_count_);
+      has_ready_result = true;
+      pending_inference_ = false;
+    }
+
+    if (input_dtype_ == nvinfer1::DataType::kFLOAT) {
+      cudaMemcpyAsync(buffers_[0], input_host_float_.data(), input_size_bytes_, cudaMemcpyHostToDevice, stream_);
+    } else {
+      cudaMemcpyAsync(buffers_[0], input_host_half_.data(), input_size_bytes_, cudaMemcpyHostToDevice, stream_);
+    }
+
+    if (!context_->enqueueV3(stream_)) {
+      tools::logger()->error("[YOLO26_TRT] enqueueV3 failed");
+      return has_ready_result ? ready_result : std::list<Armor>{};
+    }
+
+    if (output_dtype_ == nvinfer1::DataType::kFLOAT) {
+      cudaMemcpyAsync(output_host_float_.data(), buffers_[1], output_size_bytes_, cudaMemcpyDeviceToHost, stream_);
+    } else {
+      cudaMemcpyAsync(output_host_half_.data(), buffers_[1], output_size_bytes_, cudaMemcpyDeviceToHost, stream_);
+    }
+
+    pending_scale_ = scale;
+    pending_pad_x_ = pad_x;
+    pending_pad_y_ = pad_y;
+    pending_frame_count_ = frame_count;
+    pending_bgr_img_ = bgr_img.clone();
+    pending_tmp_img_ = tmp_img_.clone();
+    pending_inference_ = true;
+
+    const auto t_total_end = std::chrono::high_resolution_clock::now();
+    const auto duration_total = std::chrono::duration_cast<std::chrono::microseconds>(
+      t_total_end - t_total_start).count();
+
+    if (debug_) {
+      tools::logger()->info(
+        "[YOLO26_TRT][ASYNC] pre={:.3f} ms, host_total={:.3f} ms, ready_result={}",
+        duration_preprocess / 1000.0,
+        duration_total / 1000.0,
+        has_ready_result);
+    }
+
+    if (has_ready_result) {
+      return ready_result;
+    }
+    return {};
+  }
+
+  const auto t_total_start = std::chrono::high_resolution_clock::now();
+  const auto t_preprocess_start = t_total_start;
+
   cv::Mat bgr_img;
   tmp_img_ = raw_img;
   if (use_roi_) {
@@ -474,6 +617,12 @@ std::list<Armor> YOLO26_TRT::detect(const cv::Mat & raw_img, int frame_count)
     cudaMemcpyAsync(buffers_[0], input_host_half_.data(), input_size_bytes_, cudaMemcpyHostToDevice, stream_);
   }
 
+  const auto t_preprocess_end = std::chrono::high_resolution_clock::now();
+  const auto duration_preprocess = std::chrono::duration_cast<std::chrono::microseconds>(
+    t_preprocess_end - t_preprocess_start).count();
+
+  const auto t_infer_start = t_preprocess_end;
+
   if (!context_->enqueueV3(stream_)) {
     tools::logger()->error("[YOLO26_TRT] enqueueV3 failed");
     return {};
@@ -485,6 +634,12 @@ std::list<Armor> YOLO26_TRT::detect(const cv::Mat & raw_img, int frame_count)
     cudaMemcpyAsync(output_host_half_.data(), buffers_[1], output_size_bytes_, cudaMemcpyDeviceToHost, stream_);
   }
   cudaStreamSynchronize(stream_);
+
+  const auto t_infer_end = std::chrono::high_resolution_clock::now();
+  const auto duration_infer = std::chrono::duration_cast<std::chrono::microseconds>(
+    t_infer_end - t_infer_start).count();
+
+  const auto t_postprocess_start = t_infer_end;
 
   if (output_dtype_ == nvinfer1::DataType::kHALF) {
     // 输出若为 FP16，统一转成 FP32 便于后续解析。
@@ -505,8 +660,25 @@ std::list<Armor> YOLO26_TRT::detect(const cv::Mat & raw_img, int frame_count)
     }
     parse_ptr = transposed_output.data();
   }
+  auto result = parse(
+    scale, pad_x, pad_y, parse_ptr, output_rows_, output_stride_, bgr_img, tmp_img_, frame_count);
 
-  return parse(scale, pad_x, pad_y, parse_ptr, output_rows_, output_stride_, bgr_img, tmp_img_, frame_count);
+  const auto t_postprocess_end = std::chrono::high_resolution_clock::now();
+  const auto duration_postprocess = std::chrono::duration_cast<std::chrono::microseconds>(
+    t_postprocess_end - t_postprocess_start).count();
+  const auto duration_total = std::chrono::duration_cast<std::chrono::microseconds>(
+    t_postprocess_end - t_total_start).count();
+
+  if (debug_) {
+    tools::logger()->info(
+      "[YOLO26_TRT][TIME] pre={:.3f} ms, infer={:.3f} ms, post={:.3f} ms, total={:.3f} ms",
+      duration_preprocess / 1000.0,
+      duration_infer / 1000.0,
+      duration_postprocess / 1000.0,
+      duration_total / 1000.0);
+  }
+
+  return result;
 }
 
 std::list<Armor> YOLO26_TRT::postprocess(
@@ -670,7 +842,8 @@ std::list<Armor> YOLO26_TRT::parse(
     ++it;
   }
 
-  const bool should_log = (frame_count < 20) || (frame_count % 30 == 0) || armors.empty();
+  bool should_log = (frame_count < 20) || (frame_count % 30 == 0) || armors.empty();
+  should_log = false;
   if (should_log) {
     tools::logger()->info(
       "[YOLO26_TRT][DBG] frame={} rows={} stride={} pass_conf={} invalid_box={} nms_keep={} final_keep={} reject_not_armor={} reject_min_conf={} reject_type={} max_conf={:.4f}@row{} score_th={:.3f} min_conf={:.3f}",

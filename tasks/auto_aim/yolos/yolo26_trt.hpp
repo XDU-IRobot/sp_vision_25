@@ -40,6 +40,8 @@ private:
   bool use_roi_;
   bool swap_rb_channels_ = false;
   bool use_cuda_preprocess_ = false;
+  bool use_async_inference_ = false;
+  bool pending_inference_ = false;
 
   const int class_num_ = 16;
   float nms_threshold_ = 0.3f;
@@ -77,6 +79,12 @@ private:
   cv::Rect roi_;
   cv::Point2f offset_;
   cv::Mat tmp_img_;
+  float pending_scale_ = 1.0f;
+  int pending_pad_x_ = 0;
+  int pending_pad_y_ = 0;
+  int pending_frame_count_ = -1;
+  cv::Mat pending_bgr_img_;
+  cv::Mat pending_tmp_img_;
   Detector detector_;
 
   bool check_name(const Armor & armor) const;

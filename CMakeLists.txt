@@ -252,6 +252,10 @@ add_executable(usbcamera_test tests/usbcamera_test.cpp)
 add_executable(handeye_test tests/handeye_test.cpp)
 add_executable(dm_test tests/dm_test.cpp)
 
+if(TensorRT_FOUND)
+  add_executable(yolo26_trt_benchmark tests/yolo26_trt_benchmark.cpp)
+endif()
+
 target_link_libraries(auto_aim_test fmt::fmt yaml-cpp tools io auto_aim ${OpenCV_LIBS})
 target_link_libraries(camera_detect_test fmt::fmt yaml-cpp tools auto_aim io ${OpenCV_LIBS})
 
@@ -278,6 +282,10 @@ target_link_libraries(usbcamera_detect_test fmt::fmt yaml-cpp tools io auto_aim 
 target_link_libraries(usbcamera_test fmt::fmt yaml-cpp tools io ${OpenCV_LIBS})
 target_link_libraries(handeye_test fmt::fmt yaml-cpp tools io auto_aim ${OpenCV_LIBS})
 target_link_libraries(dm_test fmt::fmt yaml-cpp tools io ${OpenCV_LIBS})
+
+if(TensorRT_FOUND)
+  target_link_libraries(yolo26_trt_benchmark fmt::fmt yaml-cpp tools io auto_aim ${OpenCV_LIBS})
+endif()
 
 add_executable(gimbal_test tests/gimbal_test.cpp)
 target_link_libraries(gimbal_test fmt::fmt yaml-cpp auto_aim tools io ${OpenCV_LIBS})

@@ -327,10 +327,10 @@ void Gimbal::send_command_scm(io::Command command) {
 
   try {
     serial_.write(reinterpret_cast<uint8_t *>(&frame), sizeof(frame));
-    tools::logger()->info(
-        "[Gimbal][SCM] tx command: mode={}, yaw={}, pitch={}, system_timer={}",
-        static_cast<int>(aimbot_state), static_cast<float>(out_yaw),
-        static_cast<float>(out_pitch), static_cast<float>(system_timer));
+    // tools::logger()->info(
+    //     "[Gimbal][SCM] tx command: mode={}, yaw={}, pitch={}, system_timer={}",
+    //     static_cast<int>(aimbot_state), static_cast<float>(out_yaw),
+    //     static_cast<float>(out_pitch), static_cast<float>(system_timer));
   } catch (const std::exception &e) {
     tools::logger()->warn("[Gimbal][SCM] Failed to write serial: {}", e.what());
   }
@@ -395,7 +395,7 @@ bool Gimbal::parse_scm_rx() {
   state_.yaw_vel = 0;
   state_.pitch = 0;
   state_.pitch_vel = 0;
-  state_.bullet_speed = 0;
+  state_.bullet_speed = rx.bullet_speed;
   state_.bullet_count = 0;
 
   switch (rx.mode) {

@@ -4,6 +4,7 @@
 #include <Eigen/Geometry>
 #include <atomic>
 #include <chrono>
+#include <cmath>
 #include <cstdint>
 #include <mutex>
 #include <string>
@@ -127,9 +128,15 @@ typedef struct __attribute__((packed)) {
   // 自瞄数据
   float Pitch;
   float Yaw;
-  // 自瞄目标角速度
-  float TargetPitchSpeed;
-  float TargetYawSpeed;
+  float PitchSpeed;        // pitch速度
+  float YawSpeed;          // yaw速度
+  float PitchAcceSpeed;    // pitch加速度
+  float YawAcceSpeed;      // yaw加速度
+  float PitchAngSpeed;     // pitch角速度
+  float YawAngSpeed;       // yaw角速度
+
+  float TargetPitchSpeed;  // 目标pitch速度
+  float TargetYawSpeed;    // 目标yaw速度
   // 时间戳
   float SystemTimer;
   // 包尾
@@ -146,6 +153,7 @@ typedef struct __attribute__((packed)) {
   float q1;
   float q2;
   float q3;
+  float bullet_speed;
   uint8_t robot_id;
   uint8_t mode;
   // 包尾

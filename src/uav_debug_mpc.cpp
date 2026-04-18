@@ -1,0 +1,297 @@
+#include <chrono>
+#include <fmt/core.h>
+#include <memory>
+#include <opencv2/opencv.hpp>
+#include <rclcpp/executors.hpp>
+#include <sensor_msgs/msg/image.hpp>
+#include <string>
+#include <thread>
+#include <rclcpp/rclcpp.hpp>
+
+#include "io/camera.hpp"
+#include "io/dm_imu/dm_imu.hpp"
+#include "planner.hpp"
+#include "tasks/auto_aim/detector.hpp"
+#include "tasks/auto_aim/solver.hpp"
+#include "tasks/auto_aim/tracker.hpp"
+#include "tasks/auto_aim/yolo.hpp"
+#include "tools/exiter.hpp"
+#include "tools/img_tools.hpp"
+#include "tools/logger.hpp"
+#include "tools/math_tools.hpp"
+#include "tools/plotter.hpp"
+#include "tools/recorder.hpp"
+#include "io/gimbal/gimbal.hpp"
+
+const std::string keys =
+  "{help h usage ? |                  | 输出命令行参数说明}"
+  "{@config-path   | configs/uav.yaml | yaml配置文件路径 }";
+
+using namespace std::chrono_literals;
+
+int main(int argc, char * argv[])
+{
+  //初始化ros2
+  rclcpp::init(argc, argv);
+  auto node = std::make_shared<rclcpp::Node>("uav_debug");
+  //auto image_pub = node->create_publisher<sensor_msgs::msg::Image>("reprojection", 10);
+
+
+  cv::CommandLineParser cli(argc, argv, keys);
+  auto config_path = cli.get<std::string>("@config-path");
+  if (cli.has("help") || !cli.has("@config-path")) {
+    cli.printMessage();
+    rclcpp::shutdown(); // 关闭ros2
+    return 0;
+  }
+
+  tools::Exiter exiter;
+  tools::Plotter plotter;
+  tools::Recorder recorder;
+
+  io::Camera camera(config_path);
+  // io::CBoard cboard(config_path);
+  io::Gimbal gimbal(config_path);
+
+  auto_aim::Solver solver(config_path);
+  auto_aim::YOLO yolo(config_path);
+  auto_aim::Tracker tracker(config_path, solver);
+  auto_aim::Planner planner(config_path);
+
+  cv::Mat img;
+  Eigen::Quaterniond q;
+  std::chrono::steady_clock::time_point t;
+
+  // auto mode = io::Mode::idle;
+  auto mode = io::GimbalMode::IDLE;
+  // auto last_mode = io::Mode::idle;
+  auto last_mode = io::GimbalMode::IDLE;
+
+  auto t0 = std::chrono::steady_clock::now();
+
+  while (!exiter.exit() && rclcpp::ok()) {
+    rclcpp::spin_some(node);
+    camera.read(img, t);
+    // q = cboard.imu_at(t - 1ms);
+    q = gimbal.q(t);
+    // mode = cboard.mode;
+    mode = gimbal.mode();
+    // recorder.record(img, q, t);
+    if (last_mode != mode) {
+      // tools::logger()->info("Switch to {}", io::MODES[mode]);
+      last_mode = mode;
+    }
+
+    /// 自瞄
+    solver.set_R_gimbal2world(q);
+
+    Eigen::Vector3d ypr = tools::eulers(solver.R_gimbal2world(), 2, 1, 0);
+
+    auto armors = yolo.detect(img);
+    /** 绘制每一帧识别装甲板   */
+    int armor_idx = 0;
+    for (const auto & armor : armors) {
+      if (!armor.points.empty()) {
+        tools::draw_points(img, armor.points, {255, 255, 0}, 2);
+      } else {
+        cv::rectangle(img, armor.box, {255, 255, 0}, 2);
+      }
+      auto label = fmt::format(
+        "#{} {} {:.0f}%", armor_idx, auto_aim::ARMOR_NAMES[armor.name], armor.confidence * 100);
+      auto text_anchor = cv::Point(static_cast<int>(armor.center.x), static_cast<int>(armor.center.y));
+      tools::draw_text(img, label, text_anchor, {255, 255, 0}, 0.6, 2);
+      armor_idx += 1;
+    }
+    /** 绘制目标   */
+    auto targets = tracker.track(armors, t);
+    auto target  = targets.front();
+    double bullet_speed = gimbal.state().bullet_speed;
+    auto plan = planner.plan(target, bullet_speed);
+    
+    //yaw,pitch范围为[-180,180],故需要增大180度
+    auto wrap_rad_2pi = [](double rad) {
+  double wrapped = std::fmod(rad, 2 * M_PI);
+  if (wrapped < 0) wrapped += 2 * M_PI;
+  return wrapped;
+};
+// command.yaw = -command.yaw;
+// command.yaw = command.yaw+M_PI;
+// command.pitch = -command.pitch;
+// command.pitch = command.pitch-M_PI;
+// command.yaw = wrap_rad_2pi(command.yaw);
+// command.pitch = wrap_rad_2pi(command.pitch);
+    // cboard.send(command);
+    // cboard.send(command);
+    //gimbal.send_command_scm(command);
+    gimbal.send(
+        plan.control, plan.fire, plan.yaw, plan.yaw_vel, plan.yaw_acc, plan.pitch, plan.pitch_vel,
+        plan.pitch_acc);  //todo: 直接发送MPC的输出
+  /// debug
+  tools::draw_text(img, fmt::format("[{}]", tracker.state()), {10, 30}, {255, 255, 255});
+
+    nlohmann::json data;
+    data["t"] = tools::delta_time(std::chrono::steady_clock::now(), t0);
+
+    // 装甲板原始观测数据
+    data["armor_num"] = armors.size();
+    if (!armors.empty()) {
+      auto min_x = 1e10;
+      auto & armor = armors.front();
+      for (auto & a : armors) {
+        if (a.center.x < min_x) {
+          min_x = a.center.x;
+          armor = a;
+        }
+      }  //always left
+      solver.solve(armor);
+      //armor.name是字符串，转换为特定数字
+      int name_send  =0;
+      if (armor.name == auto_aim::ArmorName::outpost)
+      {
+        name_send = 18;
+      }
+      
+      data["armor_name"] = name_send;
+      // data["armor_x"] = armor.xyz_in_world[0];
+      // data["armor_y"] = armor.xyz_in_world[1];
+      // data["armor_yaw"] = armor.ypr_in_world[0] * 57.3;
+      // data["armor_yaw_raw"] = armor.yaw_raw * 57.3;
+      data["cmd_pose"]["position"] = { {"x", 0}, {"y", 0}, {"z", 0} };
+      data["cmd_pose"]["orientation"] = {
+      {"x", std::sin(plan.yaw/2) * std::cos(plan.pitch/2)},
+      {"y", std::sin(plan.pitch/2)},
+      {"z", 0},
+      {"w", std::cos(plan.yaw/2) * std::cos(plan.pitch/2)}
+     };
+    }
+
+    if (!targets.empty()) {
+      auto target = targets.front();
+      // 当前帧target更新后
+      std::vector<Eigen::Vector4d> armor_xyza_list = target.armor_xyza_list();
+
+      for (const Eigen::Vector4d & xyza : armor_xyza_list) {
+        auto image_points =
+          solver.reproject_armor(xyza.head(3), xyza[3], target.armor_type, target.name);
+        tools::draw_points(img, image_points, {0, 255, 0});
+      }
+
+      // todo: planner瞄准位置
+      // auto aim_point = planner.debug_aim_point;
+      Eigen::Vector4d aim_xyza = planner.debug_xyza;
+      auto image_points =
+        solver.reproject_armor(aim_xyza.head(3), aim_xyza[3], target.armor_type, target.name);
+      // if (aim_point.valid)
+      //   tools::draw_points(img, image_points, {0, 0, 255});
+      // else
+      //   tools::draw_points(img, image_points, {255, 0, 0});
+      tools::draw_points(img, image_points, {0, 0, 255});
+      
+
+      // 观测器内部数据
+      Eigen::VectorXd x = target.ekf_x();
+      data["x"] = x[0];
+      data["vx"] = x[1];
+      data["y"] = x[2];
+      data["vy"] = x[3];
+      data["z"] = x[4];
+      data["vz"] = x[5];
+      data["a"] = x[6] * 57.3;
+      data["w"] = x[7];
+      data["r"] = x[8];
+      data["l"] = x[9];
+      data["h"] = x[10];
+      data["last_id"] = target.last_id;
+      // data["state"] = tracker.state();
+      // 卡方检验数据
+      data["residual_yaw"] = target.ekf().data.at("residual_yaw");
+      data["residual_pitch"] = target.ekf().data.at("residual_pitch");
+      data["residual_distance"] = target.ekf().data.at("residual_distance");
+      data["residual_angle"] = target.ekf().data.at("residual_angle");
+      data["nis"] = target.ekf().data.at("nis");
+      data["nees"] = target.ekf().data.at("nees");
+      data["nis_fail"] = target.ekf().data.at("nis_fail");
+      data["nees_fail"] = target.ekf().data.at("nees_fail");
+      data["recent_nis_failures"] = target.ekf().data.at("recent_nis_failures");
+      // data["aim_z"] = aimer.debug_aim_point.xyza[2];
+      data["xyza_list[0]_z"] = armor_xyza_list[0][2];
+      data["xyza_list[1]_z"] = armor_xyza_list[1][2];
+      data["xyza_list[2]_z"] = armor_xyza_list[2][2];
+      // data["height_id"] = 
+      if (x.size() == 13) {
+    data["h1"] = x[11];  // 装甲板1相对于装甲板0的高度差
+    data["h2"] = x[12];  // 装甲板2相对于装甲板0的高度差
+  }
+    }
+
+    // 云台响应情况
+    data["gimbal_yaw"] = ypr[0]*57.3;
+    data["gimbal_pitch"] = ypr[1] * 57.3;
+    // data["bullet_speed"] = cboard.bullet_speed;
+    data["bullet_speed"] = 10;
+    if (plan.control) {
+      // 加2π
+      data["cmd_yaw"] = plan.yaw*57.3;
+      data["cmd_pitch"] = plan.pitch ;
+      data["cmd_shoot"] = plan.fire;  
+    }
+    plotter.plot(data);
+
+    if (!targets.empty()) {
+      auto armor_xyza_list = targets.front().armor_xyza_list();
+      auto x = targets.front().ekf_x();
+      Eigen::Vector4d xyza_for_overlay =
+        armor_xyza_list[targets.front().last_id % armor_xyza_list.size()];
+      Eigen::Vector3d ypd = tools::xyz2ypd(xyza_for_overlay.head<3>());
+      double distance = ypd[2];
+      std::vector<std::string> overlay_lines{
+        fmt::format("dist: {:.2f} m", distance),
+        fmt::format("z/vz: {:.2f} / {:.2f}", x[4], x[5]),
+        fmt::format("yaw/w: {:.1f} deg / {:.2f}", x[6] * 57.3, x[7]),
+        fmt::format("res(y/p/d): {:.3f} {:.3f} {:.3f}", data["residual_yaw"].get<double>(),
+          data["residual_pitch"].get<double>(), data["residual_distance"].get<double>()),
+        fmt::format("nis/nees: {:.2f} / {:.2f}", data["nis"].get<double>(),
+          data["nees"].get<double>())};
+        auto mode = plan.fire; 
+        overlay_lines.push_back(fmt::format("mode: {}", mode));
+      int y_offset = 50;
+      for (const auto & line : overlay_lines) {
+        tools::draw_text(img, line, {10, y_offset}, {255, 255, 0});
+        y_offset += 20;
+      }
+    }
+    cv::Mat vis = img.clone();
+    cv::resize(vis, vis, {}, 0.5, 0.5);  // 显示时缩小图片尺寸
+    //翻转图像
+    // cv::flip(vis, vis, -1);
+    recorder.record(vis.clone(), q, t);
+    cv::imshow("reprojection", vis);
+
+    // if (!vis.empty()) {
+    //   cv::Mat publish_img = vis;
+    //   if (!publish_img.isContinuous()) {
+    //     publish_img = publish_img.clone();
+    //   }
+
+    //   sensor_msgs::msg::Image msg;
+    //   msg.header.stamp = node->now();
+    //   msg.header.frame_id = "camera";
+    //   msg.height = static_cast<uint32_t>(publish_img.rows);
+    //   msg.width = static_cast<uint32_t>(publish_img.cols);
+    //   msg.encoding = "bgr8";
+    //   msg.is_bigendian = false;
+    //   msg.step = static_cast<sensor_msgs::msg::Image::_step_type>(publish_img.step);
+    //   msg.data.assign(publish_img.datastart, publish_img.dataend);
+    //   image_pub->publish(msg);
+    // }
+    
+    auto key = cv::waitKey(1);
+    if (key == 'q') break;
+
+    //处理ros回调
+    rclcpp::spin_some(node);
+  }
+
+  rclcpp::shutdown(); // 关闭ros2
+  return 0;
+}

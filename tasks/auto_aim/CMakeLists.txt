@@ -36,6 +36,7 @@ if(TensorRT_FOUND)
     # CUDA 语言已在主 CMakeLists.txt 中启用，这里只需添加源文件
     if(CUDA_NVCC_EXECUTABLE)
         list(APPEND YOLO_SOURCES
+            classifier_trt.cpp
             yolos/tensorrt_logger.cpp
             yolos/yolov8_trt.cpp
             yolos/yolo11_trt.cpp

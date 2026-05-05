@@ -28,7 +28,7 @@ Gimbal::Gimbal(const std::string &config_path) {
   }
   // 读取波特率（优先使用 gimbal_baudrate，其次回退到顶层 baudrate），缺省为
   // 115200
-  uint32_t baudrate = 328125;
+  uint32_t baudrate = 328125; // 115200;
   try {
     if (yaml["gimbal_baudrate"]) {
       baudrate = yaml["gimbal_baudrate"].as<uint32_t>();
@@ -320,6 +320,10 @@ void Gimbal::send_command_scm(io::Command command) {
   frame.Yaw = out_yaw;
   frame.TargetPitchSpeed = 0.0f;
   frame.TargetYawSpeed = 0.0f;
+  frame.PitchAcceSpeed = 0.0f;
+  frame.YawAcceSpeed = 0.0f;
+  frame.PitchAngSpeed = 0.0f;
+  frame.YawAngSpeed = 0.0f;
   frame.SystemTimer = static_cast<uint32_t>(
       std::chrono::duration_cast<std::chrono::milliseconds>(
           std::chrono::steady_clock::now() - start_tp_).count());
@@ -327,13 +331,15 @@ void Gimbal::send_command_scm(io::Command command) {
 
   try {
     serial_.write(reinterpret_cast<uint8_t *>(&frame), sizeof(frame));
-    // tools::logger()->info(
-    //     "[Gimbal][SCM] tx command: mode={}, yaw={}, pitch={}, system_timer={}",
-    //     static_cast<int>(aimbot_state), static_cast<float>(out_yaw),
-    //     static_cast<float>(out_pitch), static_cast<float>(system_timer));
+    tools::logger()->info(
+        "[Gimbal][SCM] tx command: mode={}, yaw={}, pitch={}, system_timer={}",
+        static_cast<int>(aimbot_state), static_cast<float>(out_yaw),
+        static_cast<float>(out_pitch), static_cast<float>(system_timer));
   } catch (const std::exception &e) {
     tools::logger()->warn("[Gimbal][SCM] Failed to write serial: {}", e.what());
   }
+}
+void Gimbal::send_command_scm_can(io::Command command) {
 }
 
 bool Gimbal::parse_scm_rx() {

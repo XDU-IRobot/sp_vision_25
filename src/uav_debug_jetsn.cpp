@@ -1,7 +1,9 @@
 #include <chrono>
+#include <fmt/core.h>
 #include <memory>
 #include <opencv2/opencv.hpp>
 #include <rclcpp/executors.hpp>
+#include <sensor_msgs/msg/image.hpp>
 #include <string>
 #include <thread>
 #include <rclcpp/rclcpp.hpp>
@@ -20,7 +22,8 @@
 #include "tools/math_tools.hpp"
 #include "tools/plotter.hpp"
 #include "tools/recorder.hpp"
-#include "io/gimbal/gimbal.hpp"
+// #include "io/gimbal/gimbal.hpp"
+#include "io/gimbal/gimbal_fdcan.hpp"
 
 const std::string keys =
   "{help h usage ? |                  | 输出命令行参数说明}"
@@ -33,6 +36,7 @@ int main(int argc, char * argv[])
   //初始化ros2
   rclcpp::init(argc, argv);
   auto node = std::make_shared<rclcpp::Node>("uav_debug");
+  //auto image_pub = node->create_publisher<sensor_msgs::msg::Image>("reprojection", 10);
 
 
   cv::CommandLineParser cli(argc, argv, keys);
@@ -49,10 +53,11 @@ int main(int argc, char * argv[])
 
   io::Camera camera(config_path);
   // io::CBoard cboard(config_path);
-  io::Gimbal gimbal(config_path);
+  //io::Gimbal gimbal(config_path);
 
   auto_aim::Solver solver(config_path);
-  auto_aim::YOLO yolo(config_path);
+  auto_aim::Detector detector(config_path);
+  //auto_aim::YOLO yolo(config_path);
   auto_aim::Tracker tracker(config_path, solver);
   auto_aim::Aimer aimer(config_path);
   auto_aim::Shooter shooter(config_path);
@@ -71,10 +76,13 @@ int main(int argc, char * argv[])
   while (!exiter.exit() && rclcpp::ok()) {
     rclcpp::spin_some(node);
     camera.read(img, t);
-    // q = cboard.imu_at(t - 1ms);
-    q = gimbal.q(t);
+    //q = cboard.imu_at(t - 1ms);
+    //q = gimbal.q(t);
+    // q设置为0
+    q = Eigen::Quaterniond::Identity();
     // mode = cboard.mode;
-    mode = gimbal.mode();
+    //mode = gimbal.mode();
+    mode = io::GimbalMode::AUTO_AIM;
     // recorder.record(img, q, t);
     if (last_mode != mode) {
       // tools::logger()->info("Switch to {}", io::MODES[mode]);
@@ -86,7 +94,10 @@ int main(int argc, char * argv[])
 
     Eigen::Vector3d ypr = tools::eulers(solver.R_gimbal2world(), 2, 1, 0);
 
-    auto armors = yolo.detect(img);
+    //auto armors = yolo.detect(img);
+    auto armors = detector.detect(img);
+
+     /** 绘制每一帧识别装甲板   */
     /** 绘制每一帧识别装甲板   */
     int armor_idx = 0;
     for (const auto & armor : armors) {
@@ -105,7 +116,7 @@ int main(int argc, char * argv[])
     auto targets = tracker.track(armors, t);
 
     // auto command = aimer.aim(targets, t, cboard.bullet_speed);
-    auto command = aimer.aim(targets, t, 19.5);
+    auto command = aimer.aim(targets, t, 22.5);
 
     command.shoot = shooter.shoot(command, aimer, targets, ypr);
     //yaw,pitch范围为[-180,180],故需要增大180度
@@ -118,11 +129,15 @@ int main(int argc, char * argv[])
 // command.yaw = command.yaw+M_PI;
 // command.pitch = -command.pitch;
 // command.pitch = command.pitch-M_PI;
-command.yaw = wrap_rad_2pi(command.yaw);
-command.pitch = wrap_rad_2pi(command.pitch);
+//command.yaw = wrap_rad_2pi(command.yaw);
+//command.yaw = command.yaw-M_PI*2;
+command.pitch = -command.pitch;
+//command.pitch = 0;
+
+//command.pitch = wrap_rad_2pi(command.pitch);
     // cboard.send(command);
     // cboard.send(command);
-    gimbal.send_command_scm(command);
+    //gimbal.send_command_scm(command);
   /// debug
   tools::draw_text(img, fmt::format("[{}]", tracker.state()), {10, 30}, {255, 255, 255});
 
@@ -220,12 +235,13 @@ command.pitch = wrap_rad_2pi(command.pitch);
     }
 
     // 云台响应情况
-    data["gimbal_yaw"] = ypr[0] * 57.3;
-    data["gimbal_pitch"] = ypr[1] * 57.3;
+    data["gimbal_yaw"] = ypr[0];
+    data["gimbal_pitch"] = -ypr[1] ;
     // data["bullet_speed"] = cboard.bullet_speed;
     data["bullet_speed"] = 10;
     if (command.control) {
-      data["cmd_yaw"] = command.yaw ;
+      // 加2π
+      data["cmd_yaw"] = command.yaw;
       data["cmd_pitch"] = command.pitch ;
       data["cmd_shoot"] = command.shoot;
     }
@@ -246,6 +262,8 @@ command.pitch = wrap_rad_2pi(command.pitch);
           data["residual_pitch"].get<double>(), data["residual_distance"].get<double>()),
         fmt::format("nis/nees: {:.2f} / {:.2f}", data["nis"].get<double>(),
           data["nees"].get<double>())};
+        auto mode = command.shoot; 
+        overlay_lines.push_back(fmt::format("mode: {}", mode));
       int y_offset = 50;
       for (const auto & line : overlay_lines) {
         tools::draw_text(img, line, {10, y_offset}, {255, 255, 0});
@@ -258,6 +276,24 @@ command.pitch = wrap_rad_2pi(command.pitch);
     // cv::flip(vis, vis, -1);
     recorder.record(vis.clone(), q, t);
     cv::imshow("reprojection", vis);
+
+    // if (!vis.empty()) {
+    //   cv::Mat publish_img = vis;
+    //   if (!publish_img.isContinuous()) {
+    //     publish_img = publish_img.clone();
+    //   }
+
+    //   sensor_msgs::msg::Image msg;
+    //   msg.header.stamp = node->now();
+    //   msg.header.frame_id = "camera";
+    //   msg.height = static_cast<uint32_t>(publish_img.rows);
+    //   msg.width = static_cast<uint32_t>(publish_img.cols);
+    //   msg.encoding = "bgr8";
+    //   msg.is_bigendian = false;
+    //   msg.step = static_cast<sensor_msgs::msg::Image::_step_type>(publish_img.step);
+    //   msg.data.assign(publish_img.datastart, publish_img.dataend);
+    //   image_pub->publish(msg);
+    // }
     
     auto key = cv::waitKey(1);
     if (key == 'q') break;

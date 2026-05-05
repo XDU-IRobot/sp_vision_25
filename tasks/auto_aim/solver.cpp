@@ -61,6 +61,17 @@ void Solver::set_R_gimbal2world(const Eigen::Quaterniond & q)
 {
   Eigen::Matrix3d R_imubody2imuabs = q.toRotationMatrix();
   R_gimbal2world_ = R_gimbal2imubody_.transpose() * R_imubody2imuabs * R_gimbal2imubody_;
+  //Eigen::Vector3d ypr = tools::eulers(R_imubody2imuabs, 2, 1, 0);
+  // ypr[1] = -ypr[1];
+
+  // Eigen::Matrix3d R_imubody2imuabs_fixed =
+  //   Eigen::AngleAxisd(ypr[0], Eigen::Vector3d::UnitZ()).toRotationMatrix() *
+  //   Eigen::AngleAxisd(ypr[1], Eigen::Vector3d::UnitY()).toRotationMatrix() *
+  //   Eigen::AngleAxisd(ypr[2], Eigen::Vector3d::UnitX()).toRotationMatrix();
+
+  // R_gimbal2world_ =
+  //   R_gimbal2imubody_.transpose() * R_imubody2imuabs_fixed * R_gimbal2imubody_;
+    
 }
 
 //solvePnP（获得姿态）

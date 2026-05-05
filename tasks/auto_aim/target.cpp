@@ -116,7 +116,7 @@ void Target::predict(double dt)
        0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  1,  0,
        0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  1;
   double v1, v2;
-  v1 =10; v2 =0.1;
+  v1 =100; v2 =1;
   auto a = dt * dt * dt * dt / 4;
   auto b = dt * dt * dt / 2;
   auto c = dt * dt;

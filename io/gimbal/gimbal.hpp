@@ -14,7 +14,7 @@
 #include "serial/serial.h"
 #include "tools/thread_safe_queue.hpp"
 #include "io/command.hpp"
-
+#include <librm.hpp>
 namespace io {
 struct __attribute__((packed)) GimbalToVision {
   uint8_t head[2] = {'S', 'P'};
@@ -78,6 +78,7 @@ public:
   void send(io::VisionToGimbal VisionToGimbal);
 
   void send_command_scm(io::Command command);
+  void send_command_scm_can(io::Command command);
 
 private:
   serial::Serial serial_;

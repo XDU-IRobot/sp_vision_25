@@ -13,6 +13,7 @@ add_library(io STATIC
     cboard.cpp
     dm_imu/dm_imu.cpp
     gimbal/gimbal.cpp
+    gimbal/gimbal_fdcan.cpp
 )
 # target_include_directories(io PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})
 

@@ -12,7 +12,8 @@ namespace auto_aim
 {
 Detector::Detector(const std::string & config_path, bool debug)
 :
-#ifdef ENABLE_OPENVINO
+//#ifdef ENABLE_OPENVINO 
+#ifdef ENABLE_TENSORRT
   classifier_(config_path),
 #endif
   debug_(debug)
@@ -76,7 +77,8 @@ std::list<Armor> Detector::detect(const cv::Mat & bgr_img, int frame_count)
       if (!check_geometry(armor)) continue;
 
       armor.pattern = get_pattern(bgr_img, armor);
-#ifdef ENABLE_OPENVINO
+//#ifdef ENABLE_OPENVINO
+#ifdef ENABLE_TENSORRT
       classifier_.classify(armor);
 #endif
       if (!check_name(armor)) continue;

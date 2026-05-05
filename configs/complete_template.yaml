@@ -14,12 +14,13 @@ yolo_name: yolo26
 
 # 数字/字迹分类器模型路径
 classify_model: assets/tiny_resnet.onnx
+classify_engine_path: assets/tiny_resnet.engine
 
 #####-----OpenVINO模型路径-----#####
 # YOLO模型路径（根据yolo_name选择对应模型）
 # yolo11_model_path: assets/yolo11.xml      # 输入640×640
-# yolov8_model_path: assets/yolov8.xml        # 输入416×416
-# yolov5_model_path: assets/yolov5.xml        # 输入640×640
+yolov8_model_path: assets/yolov8.xml        # 输入416×416
+yolov5_model_path: assets/yolov5.xml        # 输入640×640
 # yolo26_model_path: assets/test_yolo26_int8_openvino_model/test_yolo26.xml       # 输入640×640
 
 # OpenVINO推理设备：CPU | GPU | AUTO
@@ -34,7 +35,7 @@ use_cuda_preprocess: true
 # TensorRT引擎文件路径（优先使用，加载速度快）
 yolo11_engine_path: assets/engines/yolo11.engine    # YOLO11引擎
 yolov8_engine_path: assets/engines/yolov8.engine    # YOLOV8引擎
-yolo26_engine_path: assets/engines/test_yolo26_jetson.engine    # YOLO26引擎
+yolo26_engine_path: assets/engines/test_yolo26.engine    # YOLO26引擎
 
 # TensorRT ONNX模型路径（如果engine不存在，会从ONNX构建并保存）
 yolo11_onnx_path: assets/yolo11.onnx                # YOLO11 ONNX
@@ -79,7 +80,7 @@ use_roi: true
 
 #####-----传统检测方法参数-----#####
 # 注意：仅在use_traditional=true时使用
-threshold: 150                         # 二值化阈值（0-255）
+threshold: 150                         # 二值化阈值（0-255）150
 max_angle_error: 45                    # 灯条最大倾角误差（度）
 min_lightbar_ratio: 1.5                # 灯条高宽比下限
 max_lightbar_ratio: 20                 # 灯条高宽比上限
@@ -101,8 +102,8 @@ outpost_max_temp_lost_count: 100
 
 #####-----Aimer（瞄准器）参数-----#####
 # 瞄准角度偏置（用于快速校准）
-yaw_offset: 1       # 偏航角偏置（度）
-pitch_offset: -2    # 俯仰角偏置（度）
+yaw_offset: 0       # 偏航角偏置（度）
+pitch_offset: -1.7    # 俯仰角偏置（度）
 
 # 小陀螺目标瞄准参数
 comming_angle: 70     # 装甲板出现角度（度）
@@ -113,8 +114,8 @@ leaving_angle: 20     # 装甲板离开角度（度）
 actuation_delay_ms: 0
 min_spin_speed: 2 # rad/s
 decision_speed: 12 # rad/s
-high_speed_delay_time: 0.073 # s 0.045
-low_speed_delay_time: 0.073 # s  0.045
+high_speed_delay_time: 0.05 # s 0.045   0.073
+low_speed_delay_time: 0.05 # s  0.045
 #####-----Shooter（开火控制）参数-----#####
 # 射击容差（度）
 first_tolerance: 1.2      # 近距离射击容差
@@ -143,31 +144,37 @@ debug: true
 camera_settings:
   width: 1920                    # 图像宽度
   height: 1200                   # 图像高度
-  exposure: 8000                 # 曝光时间（微秒）
-  auto_exposure: false           # 是否自动曝光
-  gain: 24                       # 增益值
+  exposure: 3000                 # 曝光时间（微秒）
+  auto_exposure: true           # 是否自动曝光
+  gain: 24                   # 增益值
   fps: 168                       # 目标帧率
   auto_white_balance: true       # 是否自动白平衡
   rgain: 0.0                     # R通道增益（手动白平衡时使用）
   bgain: 0.0                     # B通道增益
   ggain: 0.0                     # G通道增益
   time_offset: 45500000          # 时间戳偏移
-  auto_exp_change: false         # 是否允许自动曝光变化
+  auto_exp_change: true         # 是否允许自动曝光变化
   max_exp: 3000                  # 最大曝光时间
   min_exp: 200                   # 最小曝光时间
   pixel_format: BayerRG8         # 像素格式
 
 
 #####-----相机标定参数-----#####
-
-camera_matrix: [1575.972347, 0.000000, 943.701703, 0.000000, 1576.696750, 593.061205, 0.000000, 0.000000, 1.000000]
-distort_coeffs: [-0.253254, 0.193990, 0.000312, -0.000487, 0.000000]
+# 老云台
+#camera_matrix: [1575.972347, 0.000000, 943.701703, 0.000000, 1576.696750, 593.061205, 0.000000, 0.000000, 1.000000]
+#distort_coeffs: [-0.253254, 0.193990, 0.000312, -0.000487, 0.000000]
+distort_coeffs: [-0.375227, 0.697012, 0.001761, 0.000622, 0.000000]
+camera_matrix: [2829.900069, 0.000000, 991.485939, 0.000000 ,2831.416719, 581.264713, 0.000000, 0.000000, 1.000000]
 # 相机同理想情况的偏角: yaw0.02 pitch1.94 roll1.40 degree
 # 标定板到世界坐标系原点的水平距离: 4.12 m
 # 标定板同竖直摆放时的偏角: yaw-87.29 pitch7.65 roll-0.51 degree
-R_camera2gimbal: [0.00046423063676173171, 0.033770528223625203, 0.99942950522456209, -0.99970300483287733, 0.024367462669785803, -0.00035901413901253575, -0.02436568525675643, -0.99913251282626891, 0.03377181066266309]
 
-t_camera2gimbal: [-0.034955523715399906, -0.000074403211899371, 0.001248173910106823]
+R_camera2gimbal: [0,0,1,
+ -1,0,0,
+  0,-1,0]
+
+#t_camera2gimbal: [-0.034955523715399906, -0.000074403211899371, 0.001248173910106823]
+t_camera2gimbal: [-0.221481869, 0.003857163, -0.037747091 ]
 R_gimbal2imubody:   [1, 0, 0,
   0, 1, 0,
   0, 0, 1]    
@@ -181,7 +188,7 @@ R_gimbal2imubody:   [1, 0, 0,
 # debug_tx: true
 ####-----gimbal参数（仅“直连云台测试程序”使用；当前仅连接 C 板可忽略）-----#####
 com_port: "/dev/ttyACM0"
-baudrate: 328125
+baudrate: 115200  #328125
 gimbal_protocol: "scm"  # 可选: scm | sp_crc16
 scm_sof: 85               # SOF 字节（0x55 = 85）
 scm_eof: 255              # EOF 字节（0xFF = 255）
@@ -197,3 +204,14 @@ pitch_kd: 0
 #####-----轨迹规划器（Planner）参数-----#####
 # 开火阈值（rad）
 fire_thresh: 0.0035
+# 纵向： 90mm 横向65mm
+#####-----planner-----#####
+fire_thresh: 0.0035
+
+max_yaw_acc: 50
+Q_yaw: [9e6, 0]
+R_yaw: [1]
+
+max_pitch_acc: 100
+Q_pitch: [9e6, 0]
+R_pitch: [1]

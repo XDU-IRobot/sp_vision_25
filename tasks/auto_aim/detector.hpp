@@ -7,10 +7,12 @@
 #include <vector>
 
 #include "armor.hpp"
-#ifdef ENABLE_OPENVINO
-#include "classifier.hpp"
+// #ifdef ENABLE_OPENVINO
+// #include "classifier.hpp"
+// #endif
+#ifdef ENABLE_TENSORRT
+#include "classifier_trt.hpp"
 #endif
-
 namespace auto_aim
 {
 
@@ -26,8 +28,12 @@ public:
   friend class YOLOV8;
 
 private:
-#ifdef ENABLE_OPENVINO
-  Classifier classifier_;
+// #ifdef ENABLE_OPENVINO
+//   Classifier classifier_;
+// #endif
+
+#ifdef ENABLE_TENSORRT
+  TrtClassifier classifier_;
 #endif
 
   double threshold_;

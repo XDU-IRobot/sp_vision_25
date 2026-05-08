@@ -30,13 +30,41 @@ const std::string keys =
   "{@config-path   | configs/uav.yaml | yaml配置文件路径 }";
 
 using namespace std::chrono_literals;
+namespace {
+void publish_image(
+  const rclcpp::Publisher<sensor_msgs::msg::Image>::SharedPtr & publisher,
+  const rclcpp::Time & stamp,
+  const cv::Mat & bgr_frame,
+  const std::string & frame_id)
+{
+  if (!publisher || bgr_frame.empty()) {
+    return;
+  }
 
+  cv::Mat publish_img = bgr_frame;
+  if (!publish_img.isContinuous()) {
+    publish_img = publish_img.clone();
+  }
+
+  sensor_msgs::msg::Image msg;
+  msg.header.stamp = stamp;
+  msg.header.frame_id = frame_id;
+  msg.height = static_cast<uint32_t>(publish_img.rows);
+  msg.width = static_cast<uint32_t>(publish_img.cols);
+  msg.encoding = "bgr8";
+  msg.is_bigendian = false;
+  msg.step = static_cast<sensor_msgs::msg::Image::_step_type>(publish_img.step);
+  msg.data.assign(publish_img.datastart, publish_img.dataend);
+
+  publisher->publish(msg);
+}
+}  // namespace
 int main(int argc, char * argv[])
 {
   //初始化ros2
   rclcpp::init(argc, argv);
   auto node = std::make_shared<rclcpp::Node>("uav_debug");
-  //auto image_pub = node->create_publisher<sensor_msgs::msg::Image>("reprojection", 10);
+  auto image_pub = node->create_publisher<sensor_msgs::msg::Image>("/uav/image", 10);
 
 
   cv::CommandLineParser cli(argc, argv, keys);
@@ -275,25 +303,9 @@ command.pitch = -command.pitch;
     //翻转图像
     // cv::flip(vis, vis, -1);
     recorder.record(vis.clone(), q, t);
-    cv::imshow("reprojection", vis);
+    //cv::imshow("reprojection", vis);
 
-    // if (!vis.empty()) {
-    //   cv::Mat publish_img = vis;
-    //   if (!publish_img.isContinuous()) {
-    //     publish_img = publish_img.clone();
-    //   }
-
-    //   sensor_msgs::msg::Image msg;
-    //   msg.header.stamp = node->now();
-    //   msg.header.frame_id = "camera";
-    //   msg.height = static_cast<uint32_t>(publish_img.rows);
-    //   msg.width = static_cast<uint32_t>(publish_img.cols);
-    //   msg.encoding = "bgr8";
-    //   msg.is_bigendian = false;
-    //   msg.step = static_cast<sensor_msgs::msg::Image::_step_type>(publish_img.step);
-    //   msg.data.assign(publish_img.datastart, publish_img.dataend);
-    //   image_pub->publish(msg);
-    // }
+    publish_image(image_pub, node->now(), vis, "uav_camera");
     
     auto key = cv::waitKey(1);
     if (key == 'q') break;

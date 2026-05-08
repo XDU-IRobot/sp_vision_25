@@ -1,7 +1,7 @@
 
 #####-----基础配置-----#####
 # 敌方颜色：red | blue
-enemy_color: "blue"
+enemy_color: "red"
 
 #####-----神经网络参数-----#####
 # 推理后端选择（必须指定）：tensorrt | openvino
@@ -144,8 +144,8 @@ debug: true
 camera_settings:
   width: 1920                    # 图像宽度
   height: 1200                   # 图像高度
-  exposure: 3000                 # 曝光时间（微秒）
-  auto_exposure: true           # 是否自动曝光
+  exposure: 4000                 # 曝光时间（微秒）
+  auto_exposure: false           # 是否自动曝光
   gain: 24                   # 增益值
   fps: 168                       # 目标帧率
   auto_white_balance: true       # 是否自动白平衡

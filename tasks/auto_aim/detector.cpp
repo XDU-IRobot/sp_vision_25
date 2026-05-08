@@ -170,7 +170,7 @@ bool Detector::detect(Armor & armor, const cv::Mat & bgr_img)
   // 进行二值化
   cv::Mat binary_img;
   cv::threshold(gray_img, binary_img, threshold_, 255, cv::THRESH_BINARY);
-  cv::imshow("binary_img", binary_img);
+  //cv::imshow("binary_img", binary_img);
   // 获取轮廓点
   std::vector<std::vector<cv::Point>> contours;
   cv::findContours(binary_img, contours, cv::RETR_EXTERNAL, cv::CHAIN_APPROX_NONE);
@@ -388,7 +388,7 @@ void Detector::show_result(
   cv::resize(detection, detection, {}, 0.5, 0.5);     // 显示时缩小图片尺寸
 
   // cv::imshow("threshold", binary_img2);
-  cv::imshow("detection", detection);
+  //cv::imshow("detection", detection);
 }
 
 void Detector::lightbar_points_corrector(Lightbar & lightbar, const cv::Mat & gray_img) const

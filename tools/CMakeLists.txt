@@ -10,6 +10,7 @@ set(TOOLS_SOURCES
     plotter.cpp
     trajectory.cpp
     recorder.cpp
+    debug_recorder.cpp
     logger.cpp
     pid.cpp
     crc.cpp
@@ -37,5 +38,17 @@ if(rclcpp_FOUND AND tf2_ros_FOUND AND geometry_msgs_FOUND AND visualization_msgs
     )
 endif()
 
+if(rclcpp_FOUND AND sensor_msgs_FOUND AND std_msgs_FOUND)
+    target_compile_definitions(tools PUBLIC TOOLS_HAS_ROS2_DEBUG_RECORDER)
+
+    ament_target_dependencies(tools PUBLIC
+        rclcpp
+        sensor_msgs
+        std_msgs
+    )
+
+    message(STATUS "[Tools] ROS2 DebugRecorder enabled")
+endif()
+
 # 链接fmt库以解决undefined reference错误
-target_link_libraries(tools PUBLIC fmt::fmt)
+target_link_libraries(tools PUBLIC fmt::fmt nlohmann_json::nlohmann_json)

@@ -43,8 +43,8 @@ Target::Target(
   
   if (armor_num == 3 && P0_dig.size() == 13) {
     x0.resize(13);
-    // 13D: x vx y vy z0 vz a w r l h z1 z2（z1/z2 改为绝对高度）
-    x0 << center_x, 0, center_y, 0, center_z, 0, ypr[0], 0, r, 0, 0, center_z, center_z;
+    // 13D: x vx y vy z0 vz a w r l h z1 z2（z1/z2 改为绝对高度）/ z1,z2 是装甲板1/2相对于装甲板0的高度差
+    x0 << center_x, 0, center_y, 0, center_z, 0, ypr[0], 0, r, 0, 0, 0, 0;
 
     P0 = P0_dig.asDiagonal();
 
@@ -133,8 +133,8 @@ void Target::predict(double dt)
             0,      0,      0,      0,      0,      0,      0,      0, 0, 0, 0,    0,    0,
             0,      0,      0,      0,      0,      0,      0,      0, 0, 0, 0,    0,    0,
             0,      0,      0,      0,      0,      0,      0,      0, 0, 0, 0,    0,    0,
-            0,      0,      0,      0,      0,      0,      0,      0, 0, 0, 0, 5e-4,    0,  // z1 微小过程噪声
-            0,      0,      0,      0,      0,      0,      0,      0, 0, 0, 0,    0, 5e-4;  // z2 微小过程噪声
+            0,      0,      0,      0,      0,      0,      0,      0, 0, 0, 0,    0,    0,  // z1 微小过程噪声 5e-4
+            0,      0,      0,      0,      0,      0,      0,      0, 0, 0, 0,    0,    0;  // z2 微小过程噪声
   auto f = [&](const Eigen::VectorXd & x) -> Eigen::VectorXd {
       Eigen::VectorXd x_prior = F * x;
       x_prior[6] = tools::limit_rad(x_prior[6]);
@@ -168,7 +168,7 @@ void Target::predict(double dt)
   // https://github.com/rlabbe/Kalman-and-Bayesian-Filters-in-Python/blob/master/07-Kalman-Filter-Math.ipynb
   double v1, v2;
   v1 = 100;  // 加速度方差
-  v2 = 400;  // 角加速度方差
+  v2 = 20;  // 角加速度方差 400
   auto a = dt * dt * dt * dt / 4;
   auto b = dt * dt * dt / 2;
   auto c = dt * dt;
@@ -293,8 +293,8 @@ void Target::update(const Armor & armor)
 int Target::match_armor_id(double z_obs) const {
   // 计算观测高度与各装甲板预测高度的差值
   double z0 = ekf_.x[4];   // 装甲板0的预测高度
-  double z1 = ekf_.x[11];  // 装甲板1的预测高度（绝对值）
-  double z2 = ekf_.x[12];  // 装甲板2的预测高度（绝对值）
+  double z1 = ekf_.x[4] + ekf_.x[11];  // 装甲板0加h1
+  double z2 = ekf_.x[4] + ekf_.x[12];  // 装甲板0加h2
 
   double diff0 = std::abs(z_obs - z0);
   double diff1 = std::abs(z_obs - z1);
@@ -410,7 +410,7 @@ Eigen::Vector3d Target::h_armor_xyz(const Eigen::VectorXd & x, int id) const
     auto r = x[8];
     auto armor_x = x[0] - r * std::cos(angle);
     auto armor_y = x[2] - r * std::sin(angle);
-    double armor_z = (id == 0) ? x[4] : (id == 1 ? x[11] : x[12]);
+    double armor_z = (id == 0) ? x[4] : (id == 1 ? x[4] + x[11] : x[4] + x[12]);
     return {armor_x, armor_y, armor_z};
   }
   auto use_l_h = (armor_num_ == 4) && (id == 1 || id == 3);
@@ -434,14 +434,14 @@ Eigen::MatrixXd Target::h_jacobian(const Eigen::VectorXd & x, int id) const
     auto dx_dr = -std::cos(angle);
     auto dy_dr = -std::sin(angle);
     double dz_dz0 = (id == 0) ? 1.0 : 0.0;
-    double dz_dz1 = (id == 1) ? 1.0 : 0.0;
-    double dz_dz2 = (id == 2) ? 1.0 : 0.0;
+    double dz_dh1 = (id == 1) ? 1.0 : 0.0;
+    double dz_dh2 = (id == 2) ? 1.0 : 0.0;
 
     // clang-format off
     Eigen::MatrixXd H_armor_xyza{
       {1, 0, 0, 0, 0, 0, dx_da, 0, dx_dr,     0,     0,     0,     0},
       {0, 0, 1, 0, 0, 0, dy_da, 0, dy_dr,     0,     0,     0,     0},
-      {0, 0, 0, 0, dz_dz0, 0,     0, 0,     0,     0,     0, dz_dz1, dz_dz2},
+      {0, 0, 0, 0, dz_dz0, 0,     0, 0,     0,     0,     0, dz_dh1, dz_dh2},
       {0, 0, 0, 0, 0, 0,     1, 0,     0,     0,     0,     0,     0}
     };
     // clang-format on

@@ -50,7 +50,11 @@ private:
   Eigen::Matrix3d R_camera2gimbal_;
   Eigen::Vector3d t_camera2gimbal_;
   Eigen::Matrix3d R_gimbal2world_;
-
+  Eigen::Vector3d t_gimbal2world_;
+  double camera_pitch ;  //相机相对 gimbal 的俯仰角 ，单位弧度
+  double camera_yaw ;    //相机相对 gimbal 的偏航角，单位弧度
+  double camera_roll ;   //相机相对 gimbal 的滚转角，单位
+  
   void optimize_yaw(Armor & armor) const;
 
   double armor_reprojection_error(const Armor & armor, double yaw, const double & inclined) const;

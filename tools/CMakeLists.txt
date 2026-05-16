@@ -8,6 +8,7 @@ set(TOOLS_SOURCES
     img_tools.cpp
     math_tools.cpp
     plotter.cpp
+    plot_record.cpp
     trajectory.cpp
     recorder.cpp
     debug_recorder.cpp

@@ -3,6 +3,7 @@
 #include <fmt/chrono.h>
 #include <yaml-cpp/yaml.h>
 
+#include <cmath>
 #include <filesystem>
 
 #include "tools/img_tools.hpp"
@@ -184,7 +185,7 @@ bool Detector::detect(Armor & armor, const cv::Mat & bgr_img)
     if (!check_geometry(lightbar)) continue;
 
     lightbar.color = get_color(bgr_img, contour);
-    // lightbar_points_corrector(lightbar, gray_img); //关闭PCA
+    lightbar_points_corrector(lightbar, gray_img);
     lightbars.emplace_back(lightbar);
     lightbar_id += 1;
   }
@@ -391,7 +392,7 @@ void Detector::show_result(
   //cv::imshow("detection", detection);
 }
 
-void Detector::lightbar_points_corrector(Lightbar & lightbar, const cv::Mat & gray_img) const
+bool Detector::lightbar_points_corrector(Lightbar & lightbar, const cv::Mat & gray_img) const
 {
   // 配置参数
   constexpr float MAX_BRIGHTNESS = 25;  // 归一化最大亮度值
@@ -408,6 +409,7 @@ void Detector::lightbar_points_corrector(Lightbar & lightbar, const cv::Mat & gr
 
   // 边界约束
   roi_box &= cv::Rect(0, 0, gray_img.cols, gray_img.rows);
+  if (roi_box.empty()) return false;
 
   // 归一化ROI
   cv::Mat roi = gray_img(roi_box);
@@ -417,6 +419,7 @@ void Detector::lightbar_points_corrector(Lightbar & lightbar, const cv::Mat & gr
 
   // 计算质心
   const cv::Moments moments = cv::moments(roi);
+  if (std::abs(moments.m00) < 1e-6) return false;
   const cv::Point2f centroid(
     moments.m10 / moments.m00 + roi_box.x, moments.m01 / moments.m00 + roi_box.y);
 
@@ -430,11 +433,14 @@ void Detector::lightbar_points_corrector(Lightbar & lightbar, const cv::Mat & gr
       }
     }
   }
+  if (points.size() < 2) return false;
 
   // PCA计算对称轴方向
   cv::PCA pca(cv::Mat(points).reshape(1), cv::Mat(), cv::PCA::DATA_AS_ROW);
   cv::Point2f axis(pca.eigenvectors.at<float>(0, 0), pca.eigenvectors.at<float>(0, 1));
-  axis /= cv::norm(axis);
+  const float axis_norm = cv::norm(axis);
+  if (axis_norm < 1e-6) return false;
+  axis /= axis_norm;
   if (axis.y > 0) axis = -axis;  // 统一方向
 
   const auto find_corner = [&](int direction) -> cv::Point2f {
@@ -467,8 +473,14 @@ void Detector::lightbar_points_corrector(Lightbar & lightbar, const cv::Mat & gr
           break;
         }
 
-        // 计算亮度差（使用双线性插值提升精度）
-        const auto prev_val = gray_img.at<uchar>(cv::Point2i(cur_point - cv::Point2f(dx, dy)));
+        const cv::Point2f prev_point = cur_point - cv::Point2f(dx, dy);
+        if (
+          prev_point.x < 0 || prev_point.x >= gray_img.cols || prev_point.y < 0 ||
+          prev_point.y >= gray_img.rows) {
+          continue;
+        }
+
+        const auto prev_val = gray_img.at<uchar>(cv::Point2i(prev_point));
         const auto cur_val = gray_img.at<uchar>(cv::Point2i(cur_point));
         const float diff = prev_val - cur_val;
 
@@ -492,8 +504,19 @@ void Detector::lightbar_points_corrector(Lightbar & lightbar, const cv::Mat & gr
   };
 
   // 并行检测顶部和底部
-  lightbar.top = find_corner(1);
-  lightbar.bottom = find_corner(-1);
+  const auto top = find_corner(1);
+  const auto bottom = find_corner(-1);
+  if (top.x < 0 || bottom.x < 0) return false;
+
+  lightbar.top = top;
+  lightbar.bottom = bottom;
+  lightbar.top2bottom = lightbar.bottom - lightbar.top;
+  lightbar.points = {lightbar.top, lightbar.bottom};
+  lightbar.angle = std::atan2(lightbar.top2bottom.y, lightbar.top2bottom.x);
+  lightbar.angle_error = std::abs(lightbar.angle - CV_PI / 2);
+  lightbar.length = cv::norm(lightbar.top2bottom);
+  lightbar.ratio = lightbar.length / lightbar.width;
+  return check_geometry(lightbar);
 }
 
 }  // namespace auto_aim

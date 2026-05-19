@@ -142,26 +142,46 @@ void Gimbal::send(io::VisionToGimbal VisionToGimbal) {
 void Gimbal::send(bool control, bool fire, float yaw, float yaw_vel,
                   float yaw_acc, float pitch, float pitch_vel,
                   float pitch_acc) {
-  if (use_scm_) {
-    send_scm(control, fire, yaw, yaw_vel, yaw_acc, pitch, pitch_vel, pitch_acc);
-    return;
-  }
-  tx_data_.mode = control ? (fire ? 2 : 1) : 0;
-  tx_data_.yaw = yaw;
-  tx_data_.yaw_vel = yaw_vel;
-  tx_data_.yaw_acc = yaw_acc;
-  tx_data_.pitch = pitch;
-  tx_data_.pitch_vel = pitch_vel;
-  tx_data_.pitch_acc = pitch_acc;
-  tx_data_.crc16 = tools::get_crc16(reinterpret_cast<uint8_t *>(&tx_data_),
-                                    sizeof(tx_data_) - sizeof(tx_data_.crc16));
+ uint8_t aimbot_state = 0; // 0:不控 2:控不火 4:控且火
+  if (control)
+    aimbot_state = fire ? 4 : 2;
+  uint8_t aimbot_target = fire;   //0: 不开火 1: 开火
+  float out_yaw = yaw;
+  float out_pitch = pitch;
+  float system_timer =
+      std::chrono::duration<float>(std::chrono::steady_clock::now() - start_tp_)
+          .count();
+
+  AimbotFrame_SCM_t frame{};
+  frame.SOF = 0x55;
+  // frame.ID = 0x02;
+  frame.ID = scm_tx_id_;
+  frame.AimbotState = aimbot_state;
+  frame.AimbotTarget = aimbot_target;
+  frame.Pitch = out_pitch;
+  frame.Yaw = out_yaw;
+  frame.TargetPitchSpeed = 0.0f;
+  frame.TargetYawSpeed = 0.0f;
+  frame.PitchAcceSpeed = pitch_acc;
+  frame.YawAcceSpeed = yaw_acc;
+  frame.PitchAngSpeed = 0.0f;
+  frame.YawAngSpeed = 0.0f;
+  frame.PitchSpeed = pitch_vel;
+  frame.YawSpeed = yaw_vel;
+  frame.SystemTimer = static_cast<uint32_t>(
+      std::chrono::duration_cast<std::chrono::milliseconds>(
+          std::chrono::steady_clock::now() - start_tp_).count());
+  frame.EOF = 0xFF;
 
   try {
-    serial_.write(reinterpret_cast<uint8_t *>(&tx_data_), sizeof(tx_data_));
+    serial_.write(reinterpret_cast<uint8_t *>(&frame), sizeof(frame));
+    tools::logger()->info(
+        "[Gimbal][SCM] tx command: mode={}, yaw={}, pitch={}, system_timer={}",
+        static_cast<int>(aimbot_state), static_cast<float>(out_yaw),
+        static_cast<float>(out_pitch), static_cast<float>(system_timer));
   } catch (const std::exception &e) {
-    tools::logger()->warn("[Gimbal] Failed to write serial: {}", e.what());
-  }
-}
+    tools::logger()->warn("[Gimbal][SCM] Failed to write serial: {}", e.what());
+}}
 
 bool Gimbal::read(uint8_t *buffer, size_t size) {
   try {

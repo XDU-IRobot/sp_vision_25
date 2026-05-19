@@ -14,6 +14,7 @@
 
 // 条件引入TensorRT实现
 #ifdef ENABLE_TENSORRT
+#include "Point4model.hpp"
 #include "yolos/yolo11_trt.hpp"
 #include "yolos/yolo26_trt.hpp"
 #include "yolos/yolov8_trt.hpp"
@@ -105,11 +106,16 @@ YOLO::YOLO(const std::string & config_path, bool debug)
         yolo_ = std::make_unique<YOLO26_TRT>(config_path, debug);
         return;
       }
+      else if (yolo_name == "point4") {
+        tools::logger()->info("[YOLO] backend=tensorrt model=point4 impl=Point4ModelTRT config={}", config_path);
+        yolo_ = std::make_unique<Point4ModelTRT>(config_path, debug);
+        return;
+      }
 
       throw std::runtime_error(
         "=== TensorRT Model Not Supported ===\n"
         "Model '" + yolo_name + "' is not supported with TensorRT backend!\n"
-        "TensorRT supports: yolo11, yolov8, yolo26\n"
+        "TensorRT supports: yolo11, yolov8, yolo26, point4\n"
       );
     #endif
   }

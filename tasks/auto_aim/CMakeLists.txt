@@ -7,6 +7,7 @@ set(AUTO_AIM_SOURCES
     solver.cpp
     aimer.cpp
     target.cpp
+    fp_target.cpp
     tracker.cpp
     voter.cpp
     shooter.cpp
@@ -36,6 +37,7 @@ if(TensorRT_FOUND)
     # CUDA 语言已在主 CMakeLists.txt 中启用，这里只需添加源文件
     if(CUDA_NVCC_EXECUTABLE)
         list(APPEND YOLO_SOURCES
+            Point4model.cpp
             classifier_trt.cpp
             yolos/tensorrt_logger.cpp
             yolos/yolov8_trt.cpp

@@ -55,6 +55,7 @@ int main(int argc, char * argv[])
 
   auto_aim::Solver solver(config_path);
   auto_aim::YOLO yolo(config_path);
+  //auto_aim::Detector detector(config_path, true);
   auto_aim::Tracker tracker(config_path, solver);
   auto_aim::Planner planner(config_path);
 
@@ -72,8 +73,12 @@ int main(int argc, char * argv[])
   while (!exiter.exit() && rclcpp::ok()) {
     rclcpp::spin_some(node);
     camera.read(img, t);
+    if (img.empty()) {
+      tools::logger()->warn("[uav_debug_mpc] Empty image from camera, skip this frame.");
+      continue;
+    }
     // q = cboard.imu_at(t - 1ms);
-    q = gimbal.q(t);
+    q = gimbal.q(t-1ms);
     // mode = cboard.mode;
     mode = gimbal.mode();
     // recorder.record(img, q, t);
@@ -104,9 +109,17 @@ int main(int argc, char * argv[])
     }
     /** 绘制目标   */
     auto targets = tracker.track(armors, t);
-    auto target  = targets.front();
-    double bullet_speed = gimbal.state().bullet_speed;
-    auto plan = planner.plan(target, bullet_speed);
+    auto_aim::Plan plan{};
+    if (!targets.empty()) {
+      auto target = targets.front();
+      double bullet_speed = gimbal.state().bullet_speed;
+      plan = planner.plan(target, bullet_speed);
+      gimbal.send(
+        plan.control, plan.fire, plan.yaw, plan.yaw_vel, plan.yaw_acc, -plan.pitch, -plan.pitch_vel,
+        -plan.pitch_acc);  //todo: 直接发送MPC的输出
+    } else {
+      gimbal.send(false, false, 0, 0, 0, 0, 0, 0);
+    }
     
     //yaw,pitch范围为[-180,180],故需要增大180度
     auto wrap_rad_2pi = [](double rad) {
@@ -123,9 +136,6 @@ int main(int argc, char * argv[])
     // cboard.send(command);
     // cboard.send(command);
     //gimbal.send_command_scm(command);
-    gimbal.send(
-        plan.control, plan.fire, plan.yaw, plan.yaw_vel, plan.yaw_acc, plan.pitch, plan.pitch_vel,
-        plan.pitch_acc);  //todo: 直接发送MPC的输出
   /// debug
   tools::draw_text(img, fmt::format("[{}]", tracker.state()), {10, 30}, {255, 255, 255});
 
@@ -176,15 +186,9 @@ int main(int argc, char * argv[])
         tools::draw_points(img, image_points, {0, 255, 0});
       }
 
-      // todo: planner瞄准位置
-      // auto aim_point = planner.debug_aim_point;
-      Eigen::Vector4d aim_xyza = planner.debug_xyza;
+      Eigen::Vector4d aim_xyza = planner.debug_fire_xyza;
       auto image_points =
         solver.reproject_armor(aim_xyza.head(3), aim_xyza[3], target.armor_type, target.name);
-      // if (aim_point.valid)
-      //   tools::draw_points(img, image_points, {0, 0, 255});
-      // else
-      //   tools::draw_points(img, image_points, {255, 0, 0});
       tools::draw_points(img, image_points, {0, 0, 255});
       
 
@@ -222,6 +226,15 @@ int main(int argc, char * argv[])
     data["h1"] = x[11];  // 装甲板1相对于装甲板0的高度差
     data["h2"] = x[12];  // 装甲板2相对于装甲板0的高度差
   }
+      // planner内部数据
+      data["plan_control"] = plan.control;
+      data["plan_fire"] = plan.fire;
+      data["plan_yaw"] = plan.yaw*57.3;
+      data["plan_pitch"] = plan.pitch*57.3;
+      data["plan_yaw_vel"] = plan.yaw_vel;
+      data["plan_pitch_vel"] = plan.pitch_vel;
+      data["plan_yaw_acc"] = plan.yaw_acc;
+      data["plan_pitch_acc"] = plan.pitch_acc;
     }
 
     // 云台响应情况
@@ -231,7 +244,7 @@ int main(int argc, char * argv[])
     data["bullet_speed"] = 10;
     if (plan.control) {
       // 加2π
-      data["cmd_yaw"] = plan.yaw*57.3;
+      data["cmd_yaw"] = plan.yaw;
       data["cmd_pitch"] = plan.pitch ;
       data["cmd_shoot"] = plan.fire;  
     }

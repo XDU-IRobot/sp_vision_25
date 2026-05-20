@@ -4,6 +4,7 @@ cmake_minimum_required(VERSION 3.16)
 set(TOOLS_SOURCES
     exiter.cpp
     extended_kalman_filter.cpp
+    errState_extended_kalman.cpp
     ransac_sine_fitter.cpp
     img_tools.cpp
     math_tools.cpp

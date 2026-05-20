@@ -54,15 +54,36 @@ std::list<Armor> Detector::detect(const cv::Mat & bgr_img, int frame_count)
   // 获取灯条
   std::size_t lightbar_id = 0;
   std::list<Lightbar> lightbars;
+  cv::Mat debug_lightbar_img;
+  if (debug_) {
+    debug_lightbar_img = bgr_img.clone();
+  }
   for (const auto & contour : contours) {
     auto rotated_rect = cv::minAreaRect(contour);
     auto lightbar = Lightbar(rotated_rect, lightbar_id);
-
     if (!check_geometry(lightbar)) continue;
 
+    const auto raw_lightbar = lightbar;
+    const auto raw_points = lightbar.points;
+    lightbar.raw_points = raw_points;
+    const bool corrected = lightbar_points_corrector(lightbar, gray_img);
+    if (!corrected) {
+      lightbar = raw_lightbar;
+    }
+
     lightbar.color = get_color(bgr_img, contour);
+    if (debug_) {
+      tools::draw_points(debug_lightbar_img, raw_points, {255, 255, 0}, 2);
+      if (corrected) {
+        tools::draw_points(debug_lightbar_img, lightbar.points, {0, 0, 255}, 2);
+      }
+    }
     lightbars.emplace_back(lightbar);
     lightbar_id += 1;
+  }
+
+  if (debug_) {
+    cv::imshow("lightbar_correction", debug_lightbar_img);
   }
 
   // 将灯条从左到右排序
@@ -185,7 +206,14 @@ bool Detector::detect(Armor & armor, const cv::Mat & bgr_img)
     if (!check_geometry(lightbar)) continue;
 
     lightbar.color = get_color(bgr_img, contour);
-    lightbar_points_corrector(lightbar, gray_img);
+    const auto raw_points = lightbar.points;
+    const bool corrected = lightbar_points_corrector(lightbar, gray_img);
+    if (debug_) {
+      tools::draw_points(armor_roi, raw_points, {255, 255, 0}, 2);
+      if (corrected) {
+        tools::draw_points(armor_roi, lightbar.points, {0, 0, 255}, 2);
+      }
+    }
     lightbars.emplace_back(lightbar);
     lightbar_id += 1;
   }
@@ -372,6 +400,9 @@ void Detector::show_result(
       "{:.1f} {:.1f} {:.1f} {}", lightbar.angle_error * 57.3, lightbar.ratio, lightbar.length,
       COLORS[lightbar.color]);
     tools::draw_text(detection, info, lightbar.top, {0, 255, 255});
+    if (!lightbar.raw_points.empty()) {
+      tools::draw_points(detection, lightbar.raw_points, {255, 255, 0}, 2);
+    }
     tools::draw_points(detection, lightbar.points, {0, 255, 255}, 3);
   }
 

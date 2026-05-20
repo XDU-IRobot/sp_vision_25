@@ -12,6 +12,9 @@ namespace auto_aim
 {
 Planner::Planner(const std::string & config_path)
 {
+  debug_xyza.setZero();
+  debug_fire_xyza.setZero();
+
   auto yaml = tools::load(config_path);
   yaw_offset_ = tools::read<double>(yaml, "yaw_offset") / 57.3;
   pitch_offset_ = tools::read<double>(yaml, "pitch_offset") / 57.3;
@@ -164,25 +167,33 @@ void Planner::setup_pitch_solver(const std::string & config_path)
 
 Eigen::Matrix<double, 2, 1> Planner::aim(const Target & target, double bullet_speed)
 {
-  Eigen::Vector3d xyz;
-  double yaw;
-  auto min_dist = 1e10;
-
-  for (auto & xyza : target.armor_xyza_list()) {
-    auto dist = xyza.head<2>().norm();
-    if (dist < min_dist) {
-      min_dist = dist;
-      xyz = xyza.head<3>();
-      yaw = xyza[3];
-    }
-  }
-  debug_xyza = Eigen::Vector4d(xyz.x(), xyz.y(), xyz.z(), yaw);
+  auto xyza = select_nearest_armor_xyza(target);
+  auto xyz = xyza.head<3>();
+  auto yaw = xyza[3];
+  auto min_dist = xyza.head<2>().norm();
+  debug_xyza = xyza;
 
   auto azim = std::atan2(xyz.y(), xyz.x());
   auto bullet_traj = tools::Trajectory(bullet_speed, min_dist, xyz.z());
   if (bullet_traj.unsolvable) throw std::runtime_error("Unsolvable bullet trajectory!");
 
   return {tools::limit_rad(azim + yaw_offset_), -bullet_traj.pitch - pitch_offset_};
+}
+
+Eigen::Vector4d Planner::select_nearest_armor_xyza(const Target & target) const
+{
+  Eigen::Vector4d nearest_xyza = Eigen::Vector4d::Zero();
+  auto min_dist = 1e10;
+
+  for (const auto & xyza : target.armor_xyza_list()) {
+    auto dist = xyza.head<2>().norm();
+    if (dist < min_dist) {
+      min_dist = dist;
+      nearest_xyza = xyza;
+    }
+  }
+
+  return nearest_xyza;
 }
 
 Trajectory Planner::get_trajectory(Target & target, double yaw0, double bullet_speed)
@@ -194,18 +205,25 @@ Trajectory Planner::get_trajectory(Target & target, double yaw0, double bullet_s
 
   target.predict(DT);  // [0] = -HALF_HORIZON * DT -> [HHALF_HORIZON] = 0
   auto yaw_pitch = aim(target, bullet_speed);
+  auto yaw_pitch_xyza = debug_xyza;
 
   for (int i = 0; i < HORIZON; i++) {
+    const auto current_xyza = yaw_pitch_xyza;
     target.predict(DT);
     auto yaw_pitch_next = aim(target, bullet_speed);
+    auto yaw_pitch_next_xyza = debug_xyza;
 
     auto yaw_vel = tools::limit_rad(yaw_pitch_next(0) - yaw_pitch_last(0)) / (2 * DT);
     auto pitch_vel = (yaw_pitch_next(1) - yaw_pitch_last(1)) / (2 * DT);
 
     traj.col(i) << tools::limit_rad(yaw_pitch(0) - yaw0), yaw_vel, yaw_pitch(1), pitch_vel;
+    if (i == HALF_HORIZON) {
+      debug_fire_xyza = current_xyza;
+    }
 
     yaw_pitch_last = yaw_pitch;
     yaw_pitch = yaw_pitch_next;
+    yaw_pitch_xyza = yaw_pitch_next_xyza;
   }
 
   return traj;

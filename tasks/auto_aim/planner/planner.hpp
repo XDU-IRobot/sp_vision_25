@@ -14,7 +14,7 @@ constexpr double DT = 0.01;
 constexpr int HALF_HORIZON = 50;
 constexpr int HORIZON = HALF_HORIZON * 2;
 
-using Trajectory = Eigen::Matrix<double, 4, HORIZON>;  // yaw, yaw_vel, pitch, pitch_vel
+using Trajectory = Eigen::Matrix<double, 4, HORIZON>;  // yaw/yaw_vel, pitch/pitch_vel; pitch up is positive
 
 struct Plan
 {
@@ -34,6 +34,7 @@ class Planner
 {
 public:
   Eigen::Vector4d debug_xyza;
+  Eigen::Vector4d debug_fire_xyza;
   Planner(const std::string & config_path);
 
   Plan plan(Target target, double bullet_speed);
@@ -53,6 +54,7 @@ private:
   void setup_pitch_solver(const std::string & config_path);
 
   Eigen::Matrix<double, 2, 1> aim(const Target & target, double bullet_speed);
+  Eigen::Vector4d select_nearest_armor_xyza(const Target & target) const;
   Trajectory get_trajectory(Target & target, double yaw0, double bullet_speed);
 };
 

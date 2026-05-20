@@ -22,6 +22,7 @@ Lightbar::Lightbar(const cv::RotatedRect & rotated_rect, std::size_t id)
 
   points.emplace_back(top);
   points.emplace_back(bottom);
+  raw_points = points;
 
   width = cv::norm(corners[0] - corners[1]);
   angle = std::atan2(top2bottom.y, top2bottom.x);

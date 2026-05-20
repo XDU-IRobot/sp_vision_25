@@ -111,11 +111,16 @@ YOLO::YOLO(const std::string & config_path, bool debug)
         yolo_ = std::make_unique<Point4ModelTRT>(config_path, debug);
         return;
       }
+      else if (yolo_name == "point4_2parse" || yolo_name == "point4_2prase" || yolo_name == "ponit4_2prase") {
+        tools::logger()->info("[YOLO] backend=tensorrt model={} impl=Point4Model2ParseTRT config={}", yolo_name, config_path);
+        yolo_ = std::make_unique<Point4Model2ParseTRT>(config_path, debug);
+        return;
+      }
 
       throw std::runtime_error(
         "=== TensorRT Model Not Supported ===\n"
         "Model '" + yolo_name + "' is not supported with TensorRT backend!\n"
-        "TensorRT supports: yolo11, yolov8, yolo26, point4\n"
+        "TensorRT supports: yolo11, yolov8, yolo26, point4, point4_2parse\n"
       );
     #endif
   }

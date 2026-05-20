@@ -33,7 +33,7 @@ public:
   std::list<Armor> postprocess(
     double scale, cv::Mat & output, const cv::Mat & bgr_img, int frame_count) override;
 
-private:
+protected:
   struct Detection
   {
     int color_id;
@@ -50,7 +50,11 @@ private:
   std::unique_ptr<nvinfer1::IExecutionContext, void (*)(nvinfer1::IExecutionContext *)> context_;
 
   cudaStream_t stream_ = nullptr;
+  cudaEvent_t infer_start_event_ = nullptr;
+  cudaEvent_t infer_end_event_ = nullptr;
   void * buffers_[2] = {nullptr, nullptr};
+  unsigned char * gpu_img_buffer_ = nullptr;
+  size_t gpu_img_buffer_bytes_ = 0;
 
   std::string engine_path_;
   std::string onnx_path_;
@@ -59,6 +63,7 @@ private:
   bool use_roi_ = false;
   bool use_traditional_ = false;
   bool keep_ratio_ = true;
+  bool use_cuda_preprocess_ = false;
   bool filter_enemy_color_ = false;
   bool swap_color_id_ = false;
   int detect_color_ = -1;
@@ -87,6 +92,7 @@ private:
   float score_threshold_ = 0.65f;
   float nms_threshold_ = 0.45f;
   double min_confidence_ = 0.0;
+  float last_gpu_infer_ms_ = 0.0f;
 
   void load_engine(const std::string & engine_file);
   void build_engine_from_onnx(const std::string & onnx_file);
@@ -94,7 +100,7 @@ private:
   void prepare_tensor_layouts(const char * input_name, const char * output_name);
   void preprocess(
     const cv::Mat & bgr_img, float & x_scale, float & y_scale, int & resized_w, int & resized_h);
-  std::list<Armor> parse(
+  virtual std::list<Armor> parse(
     const float * output_data, int rows, int stride, float x_scale, float y_scale,
     const cv::Mat & raw_img, int frame_count);
 
@@ -105,6 +111,20 @@ private:
 
   static double sigmoid(double x);
   static size_t dtype_size(nvinfer1::DataType dtype);
+};
+
+class Point4Model2ParseTRT : public Point4ModelTRT
+{
+public:
+  using Point4ModelTRT::Point4ModelTRT;
+
+  std::list<Armor> postprocess(
+    double scale, cv::Mat & output, const cv::Mat & bgr_img, int frame_count) override;
+
+protected:
+  std::list<Armor> parse(
+    const float * output_data, int rows, int stride, float x_scale, float y_scale,
+    const cv::Mat & raw_img, int frame_count) override;
 };
 
 }  // namespace auto_aim

@@ -15,6 +15,7 @@
 #include "tools/img_tools.hpp"
 #include "tools/logger.hpp"
 #include "tools/path.hpp"
+#include "tasks/auto_aim/yolos/point4_preprocess.hpp"
 
 namespace auto_aim
 {
@@ -23,6 +24,13 @@ namespace
 auto runtime_deleter_point4 = [](nvinfer1::IRuntime * p) { if (p) delete p; };
 auto engine_deleter_point4 = [](nvinfer1::ICudaEngine * p) { if (p) delete p; };
 auto context_deleter_point4 = [](nvinfer1::IExecutionContext * p) { if (p) delete p; };
+
+double elapsed_ms_point4(
+  const std::chrono::steady_clock::time_point & start,
+  const std::chrono::steady_clock::time_point & end = std::chrono::steady_clock::now())
+{
+  return std::chrono::duration<double, std::milli>(end - start).count();
+}
 }  // namespace
 
 Point4ModelTRT::Point4ModelTRT(const std::string & config_path, bool debug)
@@ -43,6 +51,7 @@ Point4ModelTRT::Point4ModelTRT(const std::string & config_path, bool debug)
   nms_threshold_ = yaml["point4_nms_threshold"].as<float>(0.45f);
   min_confidence_ = yaml["min_confidence"].as<double>(score_threshold_);
   keep_ratio_ = yaml["point4_keep_ratio"].as<bool>(true);
+  use_cuda_preprocess_ = yaml["point4_use_cuda_preprocess"].as<bool>(false);
   filter_enemy_color_ = yaml["point4_filter_enemy_color"].as<bool>(true);
   swap_color_id_ = yaml["point4_swap_color_id"].as<bool>(false);
   use_traditional_ = yaml["use_traditional"].as<bool>(false);
@@ -64,6 +73,8 @@ Point4ModelTRT::Point4ModelTRT(const std::string & config_path, bool debug)
 
   cudaSetDevice(0);
   cudaStreamCreate(&stream_);
+  cudaEventCreate(&infer_start_event_);
+  cudaEventCreate(&infer_end_event_);
 
   runtime_.reset(nvinfer1::createInferRuntime(logger_));
   if (!runtime_) {
@@ -157,15 +168,19 @@ Point4ModelTRT::Point4ModelTRT(const std::string & config_path, bool debug)
   context_->setTensorAddress(output_name, buffers_[1]);
 
   tools::logger()->info(
-    "[Point4ModelTRT] initialized input={}x{} layout={} output rows={} stride={} score_th={:.2f}",
+    "[Point4ModelTRT] initialized input={}x{} layout={} output rows={} stride={} score_th={:.2f} "
+    "cuda_preprocess={}",
     input_w_, input_h_, input_nhwc_ ? "NHWC" : "NCHW", output_rows_, output_stride_,
-    score_threshold_);
+    score_threshold_, use_cuda_preprocess_);
 }
 
 Point4ModelTRT::~Point4ModelTRT()
 {
   if (buffers_[0]) cudaFree(buffers_[0]);
   if (buffers_[1]) cudaFree(buffers_[1]);
+  if (gpu_img_buffer_) cudaFree(gpu_img_buffer_);
+  if (infer_start_event_) cudaEventDestroy(infer_start_event_);
+  if (infer_end_event_) cudaEventDestroy(infer_end_event_);
   if (stream_) cudaStreamDestroy(stream_);
 }
 
@@ -348,11 +363,13 @@ void Point4ModelTRT::preprocess(
 
 std::list<Armor> Point4ModelTRT::detect(const cv::Mat & raw_img, int frame_count)
 {
+  const auto detect_start = std::chrono::steady_clock::now();
   if (raw_img.empty()) {
     tools::logger()->warn("[Point4ModelTRT] Empty image");
     return {};
   }
 
+  const auto roi_start = std::chrono::steady_clock::now();
   cv::Mat bgr_img;
   if (use_roi_) {
     if (roi_.width == -1) roi_.width = raw_img.cols - roi_.x;
@@ -363,37 +380,91 @@ std::list<Armor> Point4ModelTRT::detect(const cv::Mat & raw_img, int frame_count
     bgr_img = raw_img;
   }
   tmp_img_ = raw_img;
+  const double roi_ms = elapsed_ms_point4(roi_start);
 
   float x_scale = 1.0f;
   float y_scale = 1.0f;
   int resized_w = input_w_;
   int resized_h = input_h_;
-  preprocess(bgr_img, x_scale, y_scale, resized_w, resized_h);
 
-  if (input_dtype_ == nvinfer1::DataType::kFLOAT) {
-    cudaMemcpyAsync(buffers_[0], input_host_float_.data(), input_size_bytes_, cudaMemcpyHostToDevice, stream_);
+  if (keep_ratio_) {
+    const float scale =
+      std::min(static_cast<float>(input_h_) / bgr_img.rows, static_cast<float>(input_w_) / bgr_img.cols);
+    resized_w = static_cast<int>(bgr_img.cols * scale);
+    resized_h = static_cast<int>(bgr_img.rows * scale);
+    x_scale = scale;
+    y_scale = scale;
   } else {
-    cudaMemcpyAsync(buffers_[0], input_host_half_.data(), input_size_bytes_, cudaMemcpyHostToDevice, stream_);
+    resized_w = input_w_;
+    resized_h = input_h_;
+    x_scale = static_cast<float>(input_w_) / bgr_img.cols;
+    y_scale = static_cast<float>(input_h_) / bgr_img.rows;
   }
 
+  double preprocess_ms = 0.0;
+  double h2d_enqueue_ms = 0.0;
+  const bool use_cuda_path = use_cuda_preprocess_;
+  const auto preprocess_start = std::chrono::steady_clock::now();
+  if (use_cuda_path) {
+    const cv::Mat src_contiguous = bgr_img.isContinuous() ? bgr_img : bgr_img.clone();
+    const size_t img_size =
+      static_cast<size_t>(src_contiguous.cols) * src_contiguous.rows * 3 * sizeof(unsigned char);
+    if (img_size > gpu_img_buffer_bytes_) {
+      if (gpu_img_buffer_) {
+        cudaFree(gpu_img_buffer_);
+        gpu_img_buffer_ = nullptr;
+      }
+      cudaMalloc(reinterpret_cast<void **>(&gpu_img_buffer_), img_size);
+      gpu_img_buffer_bytes_ = img_size;
+    }
+
+    const auto h2d_start = std::chrono::steady_clock::now();
+    cudaMemcpyAsync(gpu_img_buffer_, src_contiguous.data, img_size, cudaMemcpyHostToDevice, stream_);
+    h2d_enqueue_ms = elapsed_ms_point4(h2d_start);
+
+    point4_preprocess_cuda(
+      gpu_img_buffer_, src_contiguous.cols, src_contiguous.rows, buffers_[0], input_w_, input_h_,
+      keep_ratio_, input_nhwc_, input_dtype_ == nvinfer1::DataType::kHALF, stream_);
+    preprocess_ms = elapsed_ms_point4(preprocess_start);
+  } else {
+    preprocess(bgr_img, x_scale, y_scale, resized_w, resized_h);
+    preprocess_ms = elapsed_ms_point4(preprocess_start);
+
+    const auto h2d_start = std::chrono::steady_clock::now();
+    if (input_dtype_ == nvinfer1::DataType::kFLOAT) {
+      cudaMemcpyAsync(buffers_[0], input_host_float_.data(), input_size_bytes_, cudaMemcpyHostToDevice, stream_);
+    } else {
+      cudaMemcpyAsync(buffers_[0], input_host_half_.data(), input_size_bytes_, cudaMemcpyHostToDevice, stream_);
+    }
+    h2d_enqueue_ms = elapsed_ms_point4(h2d_start);
+  }
+
+  cudaEventRecord(infer_start_event_, stream_);
   if (!context_->enqueueV3(stream_)) {
     tools::logger()->error("[Point4ModelTRT] enqueueV3 failed");
     return {};
   }
+  cudaEventRecord(infer_end_event_, stream_);
 
+  const auto d2h_sync_start = std::chrono::steady_clock::now();
   if (output_dtype_ == nvinfer1::DataType::kFLOAT) {
     cudaMemcpyAsync(output_host_float_.data(), buffers_[1], output_size_bytes_, cudaMemcpyDeviceToHost, stream_);
   } else {
     cudaMemcpyAsync(output_host_half_.data(), buffers_[1], output_size_bytes_, cudaMemcpyDeviceToHost, stream_);
   }
   cudaStreamSynchronize(stream_);
+  const double d2h_sync_ms = elapsed_ms_point4(d2h_sync_start);
+  cudaEventElapsedTime(&last_gpu_infer_ms_, infer_start_event_, infer_end_event_);
 
+  const auto half_convert_start = std::chrono::steady_clock::now();
   if (output_dtype_ == nvinfer1::DataType::kHALF) {
     for (size_t i = 0; i < output_host_half_.size(); ++i) {
       output_host_float_[i] = __half2float(output_host_half_[i]);
     }
   }
+  const double half_convert_ms = elapsed_ms_point4(half_convert_start);
 
+  const auto transpose_start = std::chrono::steady_clock::now();
   const float * parse_data = output_host_float_.data();
   std::vector<float> transposed;
   if (output_channel_first_) {
@@ -405,8 +476,23 @@ std::list<Armor> Point4ModelTRT::detect(const cv::Mat & raw_img, int frame_count
     }
     parse_data = transposed.data();
   }
+  const double transpose_ms = elapsed_ms_point4(transpose_start);
 
-  return parse(parse_data, output_rows_, output_stride_, x_scale, y_scale, raw_img, frame_count);
+  const auto parse_start = std::chrono::steady_clock::now();
+  auto armors = parse(parse_data, output_rows_, output_stride_, x_scale, y_scale, raw_img, frame_count);
+  const double parse_ms = elapsed_ms_point4(parse_start);
+
+  if (debug_) {
+    tools::logger()->debug(
+      "[Point4ModelTRT] timing ms: roi={:.3f}, preprocess={:.3f}({}), h2d_enqueue={:.3f}, "
+      "gpu_infer={:.3f}, d2h_sync={:.3f}, half_convert={:.3f}, transpose={:.3f}, "
+      "parse={:.3f}, total={:.3f}, armors={}",
+      roi_ms, preprocess_ms, use_cuda_path ? "cuda" : "cpu", h2d_enqueue_ms, last_gpu_infer_ms_,
+      d2h_sync_ms, half_convert_ms, transpose_ms, parse_ms, elapsed_ms_point4(detect_start),
+      armors.size());
+  }
+
+  return armors;
 }
 
 std::list<Armor> Point4ModelTRT::postprocess(

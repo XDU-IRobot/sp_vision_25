@@ -139,7 +139,7 @@ typedef struct __attribute__((packed)) {
   float TargetPitchSpeed;  // 目标pitch速度
   float TargetYawSpeed;    // 目标yaw速度
   // 时间戳
-  float SystemTimer;
+  uint32_t SystemTimer;
   // 包尾
   uint8_t EOF;
 } AimbotFrame_SCM_t;
@@ -159,6 +159,7 @@ typedef struct __attribute__((packed)) {
   uint8_t mode;
   // 包尾
   uint8_t EOF;
+  uint8_t padding;  // 对齐下位机发送的固定长度帧
 } Gimaballmurname_SCM_t;
 
 } // namespace io

@@ -4,6 +4,7 @@
 #include <cstring>
 #include <linux/can.h>
 
+#include "io/gimbal/gimbal.hpp"
 #include "tools/logger.hpp"
 #include "tools/math_tools.hpp"
 #include "tools/yaml.hpp"
@@ -197,23 +198,7 @@ void GimbalFdcan::handle_can_frame(const rm::hal::CanFrame *msg) {
 	state_.bullet_speed = rx.bullet_speed;
 	state_.bullet_count = 0;
 
-	switch (rx.mode) {
-	case 0:
-		mode_ = GimbalMode::IDLE;
-		break;
-	case 1:
-		mode_ = GimbalMode::AUTO_AIM;
-		break;
-	case 2:
-		mode_ = GimbalMode::SMALL_BUFF;
-		break;
-	case 3:
-		mode_ = GimbalMode::BIG_BUFF;
-		break;
-	default:
-		mode_ = GimbalMode::IDLE;
-		break;
-	}
+	mode_ = GimbalMode::AUTO_AIM;
 }
 
 } // namespace io

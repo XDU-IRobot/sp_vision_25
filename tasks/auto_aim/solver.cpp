@@ -4,6 +4,7 @@
 
 #include <vector>
 
+#include "Eigen/src/Core/Matrix.h"
 #include "tools/logger.hpp"
 #include "tools/math_tools.hpp"
 
@@ -35,6 +36,29 @@ Solver::Solver(const std::string & config_path) : R_gimbal2world_(Eigen::Matrix3
   R_camera2gimbal_ = Eigen::Matrix<double, 3, 3, Eigen::RowMajor>(R_camera2gimbal_data.data());
   t_camera2gimbal_ = Eigen::Matrix<double, 3, 1>(t_camera2gimbal_data.data());
 
+  Eigen::Vector3d camera2gimbal_offset_ypr = Eigen::Vector3d::Zero();
+  if (yaml["R_camera2gimbal_offset_ypr"]) {
+    auto offset_ypr_data = yaml["R_camera2gimbal_offset_ypr"].as<std::vector<double>>();
+    if (offset_ypr_data.size() != 3) {
+      throw std::runtime_error("R_camera2gimbal_offset_ypr must have exactly 3 elements");
+    }
+    camera2gimbal_offset_ypr =
+      Eigen::Vector3d(offset_ypr_data[0], offset_ypr_data[1], offset_ypr_data[2]) * CV_PI / 180.0;
+  } else {
+    if (yaml["R_camera2gimbal_offset_yaw"]) {
+      camera2gimbal_offset_ypr[0] = yaml["R_camera2gimbal_offset_yaw"].as<double>() * CV_PI / 180.0;
+    }
+    if (yaml["R_camera2gimbal_offset_pitch"]) {
+      camera2gimbal_offset_ypr[1] =
+        yaml["R_camera2gimbal_offset_pitch"].as<double>() * CV_PI / 180.0;
+    }
+    if (yaml["R_camera2gimbal_offset_roll"]) {
+      camera2gimbal_offset_ypr[2] =
+        yaml["R_camera2gimbal_offset_roll"].as<double>() * CV_PI / 180.0;
+    }
+  }
+  R_camera2gimbal_calibrated_ = tools::rotation_matrix(camera2gimbal_offset_ypr) * R_camera2gimbal_;
+
   auto camera_matrix_data = yaml["camera_matrix"].as<std::vector<double>>();
   auto distort_coeffs_data = yaml["distort_coeffs"].as<std::vector<double>>();
 
@@ -60,17 +84,9 @@ Eigen::Matrix3d Solver::R_gimbal2world() const { return R_gimbal2world_; }
 void Solver::set_R_gimbal2world(const Eigen::Quaterniond & q)
 {
   Eigen::Matrix3d R_imubody2imuabs = q.toRotationMatrix();
-  R_gimbal2world_ = R_gimbal2imubody_.transpose() * R_imubody2imuabs * R_gimbal2imubody_;
-  //Eigen::Vector3d ypr = tools::eulers(R_imubody2imuabs, 2, 1, 0);
-  // ypr[1] = -ypr[1];
-
-  // Eigen::Matrix3d R_imubody2imuabs_fixed =
-  //   Eigen::AngleAxisd(ypr[0], Eigen::Vector3d::UnitZ()).toRotationMatrix() *
-  //   Eigen::AngleAxisd(ypr[1], Eigen::Vector3d::UnitY()).toRotationMatrix() *
-  //   Eigen::AngleAxisd(ypr[2], Eigen::Vector3d::UnitX()).toRotationMatrix();
-
-  // R_gimbal2world_ =
-  //   R_gimbal2imubody_.transpose() * R_imubody2imuabs_fixed * R_gimbal2imubody_;
+  //pitch取负
+  
+   R_gimbal2world_ = R_gimbal2imubody_.transpose() * R_imubody2imuabs * R_gimbal2imubody_;
     
 }
 
@@ -87,14 +103,14 @@ void Solver::solve(Armor & armor) const
 
   Eigen::Vector3d xyz_in_camera;
   cv::cv2eigen(tvec, xyz_in_camera);
-  armor.xyz_in_gimbal = R_camera2gimbal_ * xyz_in_camera + t_camera2gimbal_;
+  armor.xyz_in_gimbal = R_camera2gimbal_calibrated_ * xyz_in_camera + t_camera2gimbal_;
   armor.xyz_in_world = R_gimbal2world_ * armor.xyz_in_gimbal;
 
   cv::Mat rmat;
   cv::Rodrigues(rvec, rmat);
   Eigen::Matrix3d R_armor2camera;
   cv::cv2eigen(rmat, R_armor2camera);
-  Eigen::Matrix3d R_armor2gimbal = R_camera2gimbal_ * R_armor2camera;
+  Eigen::Matrix3d R_armor2gimbal = R_camera2gimbal_calibrated_ * R_armor2camera;
   Eigen::Matrix3d R_armor2world = R_gimbal2world_ * R_armor2gimbal;
   armor.ypr_in_gimbal = tools::eulers(R_armor2gimbal, 2, 1, 0);
   armor.ypr_in_world = tools::eulers(R_armor2world, 2, 1, 0);
@@ -131,9 +147,10 @@ std::vector<cv::Point2f> Solver::reproject_armor(
   // get R_armor2camera t_armor2camera
   const Eigen::Vector3d & t_armor2world = xyz_in_world;
   Eigen::Matrix3d R_armor2camera =
-    R_camera2gimbal_.transpose() * R_gimbal2world_.transpose() * R_armor2world;
+    R_camera2gimbal_calibrated_.transpose() * R_gimbal2world_.transpose() * R_armor2world;
   Eigen::Vector3d t_armor2camera =
-    R_camera2gimbal_.transpose() * (R_gimbal2world_.transpose() * t_armor2world - t_camera2gimbal_);
+    R_camera2gimbal_calibrated_.transpose() *
+    (R_gimbal2world_.transpose() * t_armor2world - t_camera2gimbal_);
 
   // get rvec tvec
   cv::Vec3d rvec;
@@ -162,14 +179,14 @@ double Solver::oupost_reprojection_error(Armor armor, const double & pitch)
 
   Eigen::Vector3d xyz_in_camera;
   cv::cv2eigen(tvec, xyz_in_camera);
-  armor.xyz_in_gimbal = R_camera2gimbal_ * xyz_in_camera + t_camera2gimbal_;
+  armor.xyz_in_gimbal = R_camera2gimbal_calibrated_ * xyz_in_camera + t_camera2gimbal_;
   armor.xyz_in_world = R_gimbal2world_ * armor.xyz_in_gimbal;
 
   cv::Mat rmat;
   cv::Rodrigues(rvec, rmat);
   Eigen::Matrix3d R_armor2camera;
   cv::cv2eigen(rmat, R_armor2camera);
-  Eigen::Matrix3d R_armor2gimbal = R_camera2gimbal_ * R_armor2camera;
+  Eigen::Matrix3d R_armor2gimbal = R_camera2gimbal_calibrated_ * R_armor2camera;
   Eigen::Matrix3d R_armor2world = R_gimbal2world_ * R_armor2gimbal;
   armor.ypr_in_gimbal = tools::eulers(R_armor2gimbal, 2, 1, 0);
   armor.ypr_in_world = tools::eulers(R_armor2world, 2, 1, 0);
@@ -196,9 +213,10 @@ double Solver::oupost_reprojection_error(Armor armor, const double & pitch)
   // get R_armor2camera t_armor2camera
   const Eigen::Vector3d & t_armor2world = xyz_in_world;
   Eigen::Matrix3d _R_armor2camera =
-    R_camera2gimbal_.transpose() * R_gimbal2world_.transpose() * _R_armor2world;
+    R_camera2gimbal_calibrated_.transpose() * R_gimbal2world_.transpose() * _R_armor2world;
   Eigen::Vector3d t_armor2camera =
-    R_camera2gimbal_.transpose() * (R_gimbal2world_.transpose() * t_armor2world - t_camera2gimbal_);
+    R_camera2gimbal_calibrated_.transpose() *
+    (R_gimbal2world_.transpose() * t_armor2world - t_camera2gimbal_);
 
   // get rvec tvec
   cv::Vec3d _rvec;
@@ -321,8 +339,9 @@ double Solver::armor_reprojection_error(
 // 世界坐标到像素坐标的转换
 std::vector<cv::Point2f> Solver::world2pixel(const std::vector<cv::Point3f> & worldPoints)
 {
-  Eigen::Matrix3d R_world2camera = R_camera2gimbal_.transpose() * R_gimbal2world_.transpose();
-  Eigen::Vector3d t_world2camera = -R_camera2gimbal_.transpose() * t_camera2gimbal_;
+  Eigen::Matrix3d R_world2camera =
+    R_camera2gimbal_calibrated_.transpose() * R_gimbal2world_.transpose();
+  Eigen::Vector3d t_world2camera = -R_camera2gimbal_calibrated_.transpose() * t_camera2gimbal_;
 
   cv::Mat rvec;
   cv::Mat tvec;

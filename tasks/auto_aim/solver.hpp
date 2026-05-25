@@ -25,8 +25,8 @@ public:
 
   Eigen::Matrix3d R_gimbal2imubody() const { return R_gimbal2imubody_; }
 
-  // 暴露标定参数供ROS2可视化使用
-  const Eigen::Matrix3d& R_camera2gimbal() const { return R_camera2gimbal_; }
+  // 暴露生效后的标定参数供ROS2可视化使用
+  const Eigen::Matrix3d& R_camera2gimbal() const { return R_camera2gimbal_calibrated_; }
   const Eigen::Vector3d& t_camera2gimbal() const { return t_camera2gimbal_; }
 
   void set_R_gimbal2world(const Eigen::Quaterniond & q);
@@ -48,6 +48,7 @@ private:
   cv::Mat distort_coeffs_;
   Eigen::Matrix3d R_gimbal2imubody_;
   Eigen::Matrix3d R_camera2gimbal_;
+  Eigen::Matrix3d R_camera2gimbal_calibrated_;
   Eigen::Vector3d t_camera2gimbal_;
   Eigen::Matrix3d R_gimbal2world_;
 

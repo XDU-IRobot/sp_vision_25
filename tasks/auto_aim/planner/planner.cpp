@@ -2,6 +2,7 @@
 
 #include <vector>
 
+#include "Eigen/src/Core/Matrix.h"
 #include "tools/math_tools.hpp"
 #include "tools/trajectory.hpp"
 #include "tools/yaml.hpp"
@@ -22,6 +23,8 @@ Planner::Planner(const std::string & config_path)
   decision_speed_ = tools::read<double>(yaml, "decision_speed");
   high_speed_delay_time_ = tools::read<double>(yaml, "high_speed_delay_time");
   low_speed_delay_time_ = tools::read<double>(yaml, "low_speed_delay_time");
+  odom2shooter_x = tools::read<double>(yaml, "odom2shooter_x");
+  odom2shooter_z = tools::read<double>(yaml, "odom2shooter_z");
   // actuation delay compensation: config value in milliseconds
   if (yaml["actuation_delay_ms"]) {
     actuation_delay_ = tools::read<double>(yaml, "actuation_delay_ms") * 1e-3;
@@ -168,11 +171,11 @@ void Planner::setup_pitch_solver(const std::string & config_path)
 Eigen::Matrix<double, 2, 1> Planner::aim(const Target & target, double bullet_speed)
 {
   auto xyza = select_nearest_armor_xyza(target);
-  auto xyz = xyza.head<3>();
+  Eigen::Vector3d odom2shooter(odom2shooter_x, odom2shooter_y, odom2shooter_z);
+  Eigen::Vector3d xyz = xyza.head<3>()-odom2shooter;
   auto yaw = xyza[3];
   auto min_dist = xyza.head<2>().norm();
   debug_xyza = xyza;
-
   auto azim = std::atan2(xyz.y(), xyz.x());
   auto bullet_traj = tools::Trajectory(bullet_speed, min_dist, xyz.z());
   if (bullet_traj.unsolvable) throw std::runtime_error("Unsolvable bullet trajectory!");

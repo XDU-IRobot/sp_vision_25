@@ -5,6 +5,7 @@
 #include <list>
 #include <optional>
 
+#include "Eigen/src/Core/Matrix.h"
 #include "tasks/auto_aim/target.hpp"
 #include "tinympc/tiny_api.hpp"
 
@@ -41,6 +42,9 @@ public:
   Plan plan(std::optional<Target> target, double bullet_speed);
 
 private:
+  double odom2shooter_x;
+  double odom2shooter_y = 0;
+  double odom2shooter_z;
   double yaw_offset_;
   double pitch_offset_;
   double fire_thresh_;

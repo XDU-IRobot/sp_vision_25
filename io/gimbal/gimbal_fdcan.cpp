@@ -121,7 +121,7 @@ Eigen::Quaterniond GimbalFdcan::q(std::chrono::steady_clock::time_point t) {
 	}
 }
 
-void GimbalFdcan::send_command_scm(io::Command command) {
+void GimbalFdcan::send(io::Command command) {
 	if (!can_) {
 		return;
 	}
@@ -167,22 +167,12 @@ void GimbalFdcan::handle_can_frame(const rm::hal::CanFrame *msg) {
 		return;
 	}
 
-	if (msg->dlc < sizeof(Gimaballmurname_SCM_t)) {
+	if (msg->dlc < sizeof(Gimaballmurname_CAN)) {
 		return;
 	}
 
-	Gimaballmurname_SCM_t rx{};
+	Gimaballmurname_CAN rx{};
 	std::memcpy(&rx, msg->data.data(), sizeof(rx));
-
-	if (rx.SOF != scm_sof_) {
-		return;
-	}
-	if (rx.EOF != scm_eof_) {
-		return;
-	}
-	if (rx.ID != scm_rx_id_) {
-		return;
-	}
 
 	Eigen::Quaterniond q(rx.q0, rx.q1, rx.q2, rx.q3);
 	if (q.norm() > 1e-6)
@@ -191,14 +181,14 @@ void GimbalFdcan::handle_can_frame(const rm::hal::CanFrame *msg) {
 	queue_.push({q, t});
 
 	std::lock_guard<std::mutex> lock(mutex_);
-	state_.yaw = 0;
-	state_.yaw_vel = 0;
-	state_.pitch = 0;
-	state_.pitch_vel = 0;
+	// state_.yaw = 0;
+	// state_.yaw_vel = 0;
+	// state_.pitch = 0;
+	// state_.pitch_vel = 0;
 	state_.bullet_speed = rx.bullet_speed;
 	state_.bullet_count = 0;
 
 	mode_ = GimbalMode::AUTO_AIM;
-}
+};
 
 } // namespace io

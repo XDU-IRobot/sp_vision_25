@@ -15,6 +15,7 @@
 #include "tools/thread_safe_queue.hpp"
 #include "io/command.hpp"
 #include <librm.hpp>
+#include "tasks/auto_aim/armor.hpp"
 namespace io {
 struct __attribute__((packed)) GimbalToVision {
   uint8_t head[2] = {'S', 'P'};
@@ -69,6 +70,8 @@ public:
 
   GimbalMode mode() const;
   GimbalState state() const;
+  auto_aim::Color enemy_color() const;
+  uint8_t robot_id() const;
   std::string str(GimbalMode mode) const;
   Eigen::Quaterniond q(std::chrono::steady_clock::time_point t);
 
@@ -79,7 +82,6 @@ public:
 
   void send_command_scm(io::Command command);
   void send_command_scm_can(io::Command command);
-
 private:
   serial::Serial serial_;
 
@@ -92,6 +94,8 @@ private:
 
   GimbalMode mode_ = GimbalMode::IDLE;
   GimbalState state_;
+  auto_aim::Color enemy_color_ = auto_aim::red;
+  uint8_t robot_id_ = 0;
   tools::ThreadSafeQueue<
       std::tuple<Eigen::Quaterniond, std::chrono::steady_clock::time_point>>
       queue_{1000};
@@ -133,11 +137,10 @@ typedef struct __attribute__((packed)) {
   float YawSpeed;          // yaw速度
   float PitchAcceSpeed;    // pitch加速度
   float YawAcceSpeed;      // yaw加速度
-  float PitchAngSpeed;     // pitch角速度
-  float YawAngSpeed;       // yaw角速度
-
-  float TargetPitchSpeed;  // 目标pitch速度
-  float TargetYawSpeed;    // 目标yaw速度
+  float TargetPitchSpeed;
+  float TargetYawSpeed;
+  float PitchAngSpeed;
+  float YawAngSpeed;
   // 时间戳
   uint32_t SystemTimer;
   // 包尾

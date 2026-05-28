@@ -5,9 +5,27 @@
 #include "tools/math_tools.hpp"
 #include "tools/yaml.hpp"
 namespace io {
+namespace {
+bool enemy_color_from_robot_id(uint8_t robot_id, auto_aim::Color & enemy_color) {
+  if (robot_id >= 1 && robot_id <= 7) {
+    enemy_color = auto_aim::blue;
+    return true;
+  }
+  if (robot_id >= 101 && robot_id <= 107) {
+    enemy_color = auto_aim::red;
+    return true;
+  }
+  return false;
+}
+}  // namespace
+
 Gimbal::Gimbal(const std::string &config_path) {
   auto yaml = tools::load(config_path);
   auto com_port = tools::read<std::string>(yaml, "com_port");
+  if (yaml["enemy_color"]) {
+    auto color = yaml["enemy_color"].as<std::string>();
+    enemy_color_ = (color == "red") ? auto_aim::red : auto_aim::blue;
+  }
   // 协议选择与参数（可选）
   try {
     if (yaml["gimbal_protocol"]) {
@@ -61,7 +79,9 @@ Gimbal::Gimbal(const std::string &config_path) {
   thread_ = std::thread(&Gimbal::read_thread, this);
 
   queue_.pop();
-  tools::logger()->info("[Gimbal] First q received.");
+  tools::logger()->info(
+      "[Gimbal] First q received. robot_id={}, enemy_color={}",
+      static_cast<int>(robot_id()), auto_aim::COLORS[enemy_color()]);
 }
 
 Gimbal::~Gimbal() {
@@ -79,6 +99,16 @@ GimbalMode Gimbal::mode() const {
 GimbalState Gimbal::state() const {
   std::lock_guard<std::mutex> lock(mutex_);
   return state_;
+}
+
+auto_aim::Color Gimbal::enemy_color() const {
+  std::lock_guard<std::mutex> lock(mutex_);
+  return enemy_color_;
+}
+
+uint8_t Gimbal::robot_id() const {
+  std::lock_guard<std::mutex> lock(mutex_);
+  return robot_id_;
 }
 
 std::string Gimbal::str(GimbalMode mode) const {
@@ -145,7 +175,7 @@ void Gimbal::send(bool control, bool fire, float yaw, float yaw_vel,
  uint8_t aimbot_state = 0; // 0:不控 2:控不火 4:控且火
   if (control)
     aimbot_state = fire ? 4 : 2;
-  uint8_t aimbot_target = fire;   //0: 不开火 1: 开火
+  uint8_t aimbot_target = 0;   //0: 不开火 1: 开火
   float out_yaw = yaw;
   float out_pitch = pitch;
   float system_timer =
@@ -160,14 +190,17 @@ void Gimbal::send(bool control, bool fire, float yaw, float yaw_vel,
   frame.AimbotTarget = aimbot_target;
   frame.Pitch = out_pitch;
   frame.Yaw = out_yaw;
-  frame.TargetPitchSpeed = 0.0f;
-  frame.TargetYawSpeed = 0.0f;
   frame.PitchAcceSpeed = pitch_acc;
   frame.YawAcceSpeed = yaw_acc;
-  frame.PitchAngSpeed = 0.0f;
-  frame.YawAngSpeed = 0.0f;
   frame.PitchSpeed = pitch_vel;
   frame.YawSpeed = yaw_vel;
+  frame.TargetPitchSpeed = 0.0f;
+	frame.TargetYawSpeed = 0.0f;
+  frame.PitchAngSpeed = 0.0f;
+	frame.YawAngSpeed = 0.0f;
+  if(control){
+    frame.AimbotState = 1;
+  }
   frame.SystemTimer = static_cast<uint32_t>(
       std::chrono::duration_cast<std::chrono::milliseconds>(
           std::chrono::steady_clock::now() - start_tp_).count());
@@ -304,8 +337,6 @@ void Gimbal::send_scm(bool control, bool fire, float yaw, float yaw_vel,
   frame.AimbotTarget = aimbot_target;
   frame.Pitch = out_pitch;
   frame.Yaw = out_yaw;
-  frame.TargetPitchSpeed = out_pitch_vel;
-  frame.TargetYawSpeed = out_yaw_vel;
   frame.SystemTimer = system_timer;
   frame.EOF = scm_eof_;
   // frame.PitchRelativeAngle = frame.Pitch;
@@ -338,12 +369,8 @@ void Gimbal::send_command_scm(io::Command command) {
   frame.AimbotTarget = aimbot_target;
   frame.Pitch = out_pitch;
   frame.Yaw = out_yaw;
-  frame.TargetPitchSpeed = 0.0f;
-  frame.TargetYawSpeed = 0.0f;
   frame.PitchAcceSpeed = 0.0f;
   frame.YawAcceSpeed = 0.0f;
-  frame.PitchAngSpeed = 0.0f;
-  frame.YawAngSpeed = 0.0f;
   frame.SystemTimer = static_cast<uint32_t>(
       std::chrono::duration_cast<std::chrono::milliseconds>(
           std::chrono::steady_clock::now() - start_tp_).count());
@@ -351,10 +378,10 @@ void Gimbal::send_command_scm(io::Command command) {
 
   try {
     serial_.write(reinterpret_cast<uint8_t *>(&frame), sizeof(frame));
-    tools::logger()->info(
-        "[Gimbal][SCM] tx command: mode={}, yaw={}, pitch={}, system_timer={}",
-        static_cast<int>(aimbot_state), static_cast<float>(out_yaw),
-        static_cast<float>(out_pitch), static_cast<float>(system_timer));
+    // tools::logger()->info(
+    //     "[Gimbal][SCM] tx command: mode={}, yaw={}, pitch={}, system_timer={}",
+    //     static_cast<int>(aimbot_state), static_cast<float>(out_yaw),
+    //     static_cast<float>(out_pitch), static_cast<float>(system_timer));
   } catch (const std::exception &e) {
     tools::logger()->warn("[Gimbal][SCM] Failed to write serial: {}", e.what());
   }
@@ -409,39 +436,45 @@ bool Gimbal::parse_scm_rx() {
     }
     return false;
   }
-
   Eigen::Quaterniond q(rx.q0, rx.q1, rx.q2, rx.q3);
   if (q.norm() > 1e-6)
     q.normalize();
   auto t = std::chrono::steady_clock::now();
-  queue_.push({q, t});
 
-  std::lock_guard<std::mutex> lock(mutex_);
-  state_.yaw = 0;
-  state_.yaw_vel = 0;
-  state_.pitch = 0;
-  state_.pitch_vel = 0;
-  state_.bullet_speed = rx.bullet_speed;
-  state_.bullet_count = 0;
+  {
+    std::lock_guard<std::mutex> lock(mutex_);
+    robot_id_ = rx.robot_id;
+    auto enemy_color = enemy_color_;
+    if (enemy_color_from_robot_id(rx.robot_id, enemy_color)) {
+      enemy_color_ = enemy_color;
+    }
+    // state_.yaw = q.toRotationMatrix().eulerAngles(2, 1, 0)[0]; // 只取 yaw，pitch 由命令控制
+    // state_.yaw_vel = 0;
+    // state_.pitch = q.toRotationMatrix().eulerAngles(2, 1, 0)[1]; // 只取 pitch，yaw 由命令控制
+    // state_.pitch_vel = 0;
+    // state_.bullet_speed = rx.bullet_speed;
+    // state_.bullet_count = 0;
 
-  switch (rx.mode) {
-  case 0:
-    mode_ = GimbalMode::IDLE;
-    break;
-  case 1:
-    mode_ = GimbalMode::AUTO_AIM;
-    break;
-  case 2:
-    mode_ = GimbalMode::SMALL_BUFF;
-    break;
-  case 3:
-    mode_ = GimbalMode::BIG_BUFF;
-    break;
-  default:
-    mode_ = GimbalMode::IDLE;
-    break;
+    switch (rx.mode) {
+    case 0:
+      mode_ = GimbalMode::IDLE;
+      break;
+    case 1:
+      mode_ = GimbalMode::AUTO_AIM;
+      break;
+    case 2:
+      mode_ = GimbalMode::SMALL_BUFF;
+      break;
+    case 3:
+      mode_ = GimbalMode::BIG_BUFF;
+      break;
+    default:
+      mode_ = GimbalMode::IDLE;
+      break;
+    }
   }
 
+  queue_.push({q, t});
   return true;
 }
 

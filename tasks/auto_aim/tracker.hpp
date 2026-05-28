@@ -37,7 +37,7 @@ public:
   std::tuple<omniperception::DetectionResult, std::list<Target>> track(
     const std::vector<omniperception::DetectionResult> & detection_queue, std::list<Armor> & armors,
     std::chrono::steady_clock::time_point t, bool use_enemy_color = true);
-
+  void set_enemy_color(auto_aim::Color color) { enemy_color_ = color; }
 #ifdef AMENT_CMAKE_FOUND
   // 设置 ROS2 节点用于发布 marker（可选）
   void set_ros2_node(std::shared_ptr<rclcpp::Node> node);

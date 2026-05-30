@@ -171,7 +171,7 @@ void Gimbal::send(io::VisionToGimbal VisionToGimbal) {
 
 void Gimbal::send(bool control, bool fire, float yaw, float yaw_vel,
                   float yaw_acc, float pitch, float pitch_vel,
-                  float pitch_acc) {
+                  float pitch_acc,bool fuck) {
  uint8_t aimbot_state = 0; // 0:不控 2:控不火 4:控且火
   if (control)
     aimbot_state = fire ? 4 : 2;
@@ -187,7 +187,9 @@ void Gimbal::send(bool control, bool fire, float yaw, float yaw_vel,
   // frame.ID = 0x02;
   frame.ID = scm_tx_id_;
   frame.AimbotState = aimbot_state;
-  frame.AimbotTarget = aimbot_target;
+  if(fuck){frame.AimbotTarget =0;}else{
+    frame.AimbotTarget =1;
+  }
   frame.Pitch = out_pitch;
   frame.Yaw = out_yaw;
   frame.PitchAcceSpeed = pitch_acc;

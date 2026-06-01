@@ -21,6 +21,8 @@ Aimer::Aimer(const std::string & config_path)
   leaving_angle_ = yaml["leaving_angle"].as<double>() / 57.3;  // degree to rad
   high_speed_delay_time_ = yaml["high_speed_delay_time"].as<double>();
   low_speed_delay_time_ = yaml["low_speed_delay_time"].as<double>();
+  delay_time_right = yaml["delay_time_right"].as<double>();
+  delay_time_left = yaml["delay_time_left"].as<double>();
   decision_speed_ = yaml["decision_speed"].as<double>();
   if (yaml["left_yaw_offset"].IsDefined() && yaml["right_yaw_offset"].IsDefined()) {
     left_yaw_offset_ = yaml["left_yaw_offset"].as<double>() / 57.3;    // degree to rad
@@ -54,6 +56,11 @@ io::Command Aimer::aim(
   else {
     auto dt = 0.005 + delay_time;  //detector-aimer耗时0.005+发弹延时0.1
     // tools::logger()->info("dt is {:.4f} second", dt);
+    if(abs(target.ekf_x()[7])>2.4){
+      if(target.ekf_x()[7]>0){dt += delay_time_left;}else {
+      dt +=delay_time_right;
+      }
+    }
     future += std::chrono::microseconds(int(dt * 1e6));
     target.predict(future);
   }

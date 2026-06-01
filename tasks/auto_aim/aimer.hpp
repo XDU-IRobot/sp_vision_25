@@ -40,6 +40,8 @@ private:
   double lock_id_ = -1;
   double high_speed_delay_time_;
   double low_speed_delay_time_;
+  double delay_time_right;
+  double delay_time_left;
   double decision_speed_;
 
   AimPoint choose_aim_point(const Target & target);
